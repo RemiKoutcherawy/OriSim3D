@@ -1,5 +1,5 @@
 // deno test
-import { Point } from "../ts/Point.ts";
+import { Point } from "../js/Point.js";
 import { assertEquals } from "jsr:@std/assert";
 
 Deno.test("Point.align2dFrom3d", () => {
