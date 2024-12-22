@@ -154,7 +154,7 @@ export class Command {
 
 // Execute one instruction from tokenTodo starting at idx on model
     execute(idx) {
-
+console.log('execute', idx, this.tokenTodo[idx]);
         let list = [];
         const tokenList = this.tokenTodo;
 
@@ -181,7 +181,7 @@ export class Command {
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitBy2d(p1, p2);
-        } else if (tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d') {
+        } else if (tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d' || tokenList[idx] === 'cross3d') {
             // Split across two points in 3d : c3d p1 p2;
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
