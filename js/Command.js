@@ -158,8 +158,6 @@ export class Command {
         let list = [];
         const tokenList = this.tokenTodo;
 
-        // console.log('Command execute', this.interpolator, tokenList[idx]);
-
         // Define sheet
         if (tokenList[idx] === 'd' || tokenList[idx] === 'define') {
             // Define sheet by N points x,y CCW
@@ -171,7 +169,7 @@ export class Command {
         }
 
         // Origami splits
-        else if (tokenList[idx] === 'b3d' || tokenList[idx] === 'by3d') {
+        else if (tokenList[idx] === 'by3d') {
             // Split by two points in 3d : b3d p1 p2
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
@@ -183,13 +181,13 @@ export class Command {
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitBy2d(p1, p2);
-        } else if (tokenList[idx] === 'c3d' || tokenList[idx] === 'cross3d' || tokenList[idx] === 'across3d') {
+        } else if (tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d') {
             // Split across two points in 3d : c3d p1 p2;
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitCross3d(p1, p2);
-        } else if (tokenList[idx] === 'c2d' || tokenList[idx] === 'cross2d' || tokenList[idx] === 'across2d') {
+        } else if (tokenList[idx] === 'c2d' || tokenList[idx] === 'across2d') {
             // Split across two points on 2d crease pattern : c2d p1 p2;
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
@@ -287,15 +285,18 @@ export class Command {
             this.model.turn(axis, Number(tokenList[idx++]) * (this.tni - this.tpi));
         }
         // Turns
-        else if (tokenList[idx] === 'tx') { // "tx : TurnX"
+        else if (tokenList[idx] === 'tx') {
+            // "tx : TurnX"
             idx++;
             const axis = new Segment(new Point(0, 0), new Point(0, 0, 1, 0, 0));
             this.model.turn(axis, Number(tokenList[idx++]) * (this.tni - this.tpi));
-        } else if (tokenList[idx] === 'ty') { // "ty : TurnY"
+        } else if (tokenList[idx] === 'ty') {
+            // "ty : TurnY"
             idx++;
             const axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 1, 0));
             this.model.turn(axis, Number(tokenList[idx++]) * (this.tni - this.tpi));
-        } else if (tokenList[idx] === 'tz') { // "ty : TurnZ"
+        } else if (tokenList[idx] === 'tz') {
+            // "tz : TurnZ"
             idx++;
             const axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 0, 1));
             this.model.turn(axis, Number(tokenList[idx++]) * (this.tni - this.tpi));
