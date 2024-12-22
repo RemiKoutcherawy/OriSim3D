@@ -1,6 +1,6 @@
 import { Face } from "../js/Face.js";
 import { Point } from "../js/Point.js";
-import { assertEquals, assert } from "https://deno.land/std@0.114.0/testing/asserts.ts";
+import { assertEquals, assert } from "jsr:@std/assert";
 
 Deno.test("Face", async (t) => {
     // Square from -100,-100 to 100,100

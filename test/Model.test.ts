@@ -1,8 +1,8 @@
-import {assertEquals} from "https://deno.land/std@0.114.0/testing/asserts.ts";
 import {Model} from '../js/Model.js';
 import {Plane} from '../js/Plane.js';
 import {Point} from '../js/Point.js';
 import {Segment} from '../js/Segment.js';
+import {assertEquals} from "jsr:@std/assert";
 
 Deno.test("Model init serialize", async (t) => {
     await t.step("init", () => {

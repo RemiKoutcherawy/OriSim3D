@@ -2,7 +2,7 @@ import { Model } from '../js/Model.js';
 import { Command } from '../js/Command.js';
 import { Point } from '../js/Point.js';
 import { Interpolator } from '../js/Interpolator.js';
-import { assertEquals } from "https://deno.land/std@0.110.0/testing/asserts.ts";
+import { assertEquals } from "jsr:@std/assert";
 
 Deno.test('Command', async (t) => {
     const model = new Model().init(-200, -200, 200, 200);

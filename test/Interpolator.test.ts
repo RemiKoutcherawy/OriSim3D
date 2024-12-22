@@ -1,5 +1,5 @@
 import { Interpolator } from "../js/Interpolator.js";
-import { assertEquals } from "https://deno.land/std@0.110.0/testing/asserts.ts";
+import { assertEquals } from "jsr:@std/assert";
 
 Deno.test('LinearInterpolator', () => {
     const i = Interpolator.LinearInterpolator;
