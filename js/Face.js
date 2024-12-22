@@ -83,7 +83,7 @@ export class Face {
         // ray-casting algorithm based on
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
 
-        let x = xCanvas, y = yCanvas
+        const x = xCanvas, y = yCanvas
         let inside = false;
         const pts = face.points;
         for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {

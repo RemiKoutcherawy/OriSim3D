@@ -75,8 +75,6 @@ export class Segment {
             } else if (tc > 1) { // c on the right of ab
                 if (td > 1) {  // d on the right of ab
                     return undefined;
-                } else if (td > 1) {
-                    return a; // could be a or b
                 }
                 return d; // d between a and b, could return b or d
             }

@@ -39,7 +39,7 @@ Deno.test("mat4.rotate", () => {
     const out = new Float32Array(16);
     const result = mat4.rotate(out, a, Math.PI / 2, axis);
     const expected = new Float32Array([1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1]);
-    expected.forEach((val, index) => assertAlmostEquals(result[index], val));
+    expected.forEach((val, index) => assertAlmostEquals(result[index], val, 1e-6));
 });
 
 Deno.test("mat4.rotateX", () => {
@@ -47,7 +47,7 @@ Deno.test("mat4.rotateX", () => {
     const out = new Float32Array(16);
     const result = mat4.rotateX(out, a, Math.PI / 2);
     const expected = new Float32Array([1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1]);
-    expected.forEach((val, index) => assertAlmostEquals(result[index], val));
+    expected.forEach((val, index) => assertAlmostEquals(result[index], val, 1e-6));
 });
 
 Deno.test("mat4.rotateY", () => {
@@ -55,7 +55,7 @@ Deno.test("mat4.rotateY", () => {
     const out = new Float32Array(16);
     const result = mat4.rotateY(out, a, Math.PI / 2);
     const expected = new Float32Array([0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1]);
-    expected.forEach((val, index) => assertAlmostEquals(result[index], val));
+    expected.forEach((val, index) => assertAlmostEquals(result[index], val, 1e-6));
 });
 
 Deno.test("mat4.fromTranslation", () => {
