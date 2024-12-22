@@ -5,21 +5,21 @@ const {test} = QUnit;
 
 QUnit.module('Face', () => {
     // Square from -100,-100 to 100,100
-    let p0 = new Point(-100, -100, -100, -100, 0);
-    let p1 = new Point(100, -100, 100, -100, 0);
-    let p2 = new Point(100, 100, 100, 100, 0);
-    let p3 = new Point(-100, 100, -100, 100, 0);
+    const p0 = new Point(-100, -100, -100, -100, 0);
+    const p1 = new Point(100, -100, 100, -100, 0);
+    const p2 = new Point(100, 100, 100, 100, 0);
+    const p3 = new Point(-100, 100, -100, 100, 0);
     // Face is a square -100,-100 to 100,100 counter clock wise
-    let face = new Face([p0, p1, p2, p3]);
+    const face = new Face([p0, p1, p2, p3]);
 
     test('area2dFlat', assert => {
-        let area = Face.area2dFlat(face.points);
+        const area = Face.area2dFlat(face.points);
         assert.deepEqual(area, 200 * 200, "Area2d should be 200 * 200");
     });
 
     test('distance2dLineToPoint', assert => {
-        let p1 = new Point(0, 0);
-        let p2 = new Point(100, 100);
+        const p1 = new Point(0, 0);
+        const p2 = new Point(100, 100);
         // End points
         let d = Face.distance2dLineToPoint(p1, p2, p1);
         assert.deepEqual(d, 0, "from p1,p2 to p1 should be 0");
@@ -59,6 +59,11 @@ QUnit.module('Face', () => {
         assert.equal(result, true, "Face contains -100, -100 ");
         result = Face.contains2d(face, 100, -100);
         assert.equal(result, true, true, "Face contains 100, -100 ");
+    });
+
+    test('area3d', assert => {
+        const area = Face.area3d(face.points);
+        assert.deepEqual(area, 200 * 200, "Area3d should be 200 * 200");
     });
 });
 

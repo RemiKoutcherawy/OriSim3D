@@ -83,17 +83,17 @@ QUnit.module('Model', hooks => {
     test('addPoint', assert => {
         let p = model.points[0];
         // Should not create a new point, but return existing point.
-        let p1 = model.addPoint(p.xf, p.yf, p.x, p.y, p.z);
+        const p1 = model.addPoint(p.xf, p.yf, p.x, p.y, p.z);
         assert.equal(model.points.length, 4, 'Model should have 4 points');
         assert.equal(p, p1, 'Point should be the same');
         // Should add and return new point
-        let p2 = model.addPoint(0, 0, 0, 0, 0);
+        const p2 = model.addPoint(0, 0, 0, 0, 0);
         assert.equal(model.points.length, 5, 'Model should have 5 points');
         assert.equal(model.points[4], p2, 'Model should have the new point');
     });
 
     test('addSegment', assert => {
-        let s0 = model.segments[0];
+        const s0 = model.segments[0];
         // Should not create a new segment, but return existing segment.
         let s = model.addSegment(s0.p1, s0.p2);
         assert.equal(model.segments.length, 4, 'Model should have 4 segments');
@@ -105,7 +105,7 @@ QUnit.module('Model', hooks => {
     });
 
     test('addFace', assert => {
-        let f0 = model.faces[0];
+        const f0 = model.faces[0];
         // Should not create a new face, but return existing face.
         let face = model.addFace(f0.points);
         assert.equal(model.faces.length, 1, 'Model should have 1 face');
@@ -117,7 +117,7 @@ QUnit.module('Model', hooks => {
     });
 
     test('searchSegment3d', assert => {
-        let s0 = model.segments[0];
+        const s0 = model.segments[0];
         // Should find first segment.
         let segment = model.getSegment(s0.p1, s0.p2);
         assert.equal(model.segments[0], segment, 'Model first segment should be found');
@@ -126,7 +126,7 @@ QUnit.module('Model', hooks => {
         assert.equal(model.segments[3], segment, 'Model third segment should be found');
         // Should not find any segment
         segment = model.getSegment(model.points[0], model.points[2]);
-        assert.equal(segment, null, 'Model should not have segment 0 2');
+        assert.equal(segment, undefined, 'Model should not have segment 0 2');
     });
 
     test('searchFacesWithAB', assert => {
@@ -153,8 +153,8 @@ QUnit.module('Model', hooks => {
         assert.equal(model.faces.length, 2, 'model should have 2 faces');
         assert.equal(model.segments.length, 5, 'model should have 5 segments');
 
-        let pt = model.points[2];
-        let s = model.getSegment(model.points[1], model.points[3]);
+        const pt = model.points[2];
+        const s = model.getSegment(model.points[1], model.points[3]);
         model.rotate(s, 180.0, [pt]);
 
         plane = Plane.across(model.points[1], model.points[3]);
@@ -165,16 +165,16 @@ QUnit.module('Model', hooks => {
     // Origami
     test('splitFaceByPlane3d on side', assert => {
         // Plane by [0] [1] bottom segment
-        let plane = Plane.by(model.points[0], model.points[1]);
-        let face = model.faces[0];
+        const plane = Plane.by(model.points[0], model.points[1]);
+        const face = model.faces[0];
         model.splitFaceByPlane3d(face, plane);
         assert.equal(model.faces.length, 1, 'Split on side should not add any face');
     });
 
     test('splitFaceByPlane3d diagonal', assert => {
         // Plane by [0] [2] diagonal
-        let plane = Plane.by(model.points[0], model.points[2]);
-        let face = model.faces[0];
+        const plane = Plane.by(model.points[0], model.points[2]);
+        const face = model.faces[0];
         model.splitFaceByPlane3d(face, plane);
         assert.equal(model.faces.length, 2, 'Model should have 2 faces');
         assert.equal(model.points.length, 4, 'Model should have 4 points');
@@ -185,8 +185,8 @@ QUnit.module('Model', hooks => {
 
     test('splitFaceByPlane3d diagonal on triangle', assert => {
         // Plane across [0] [2] diagonal on triangle
-        let plane = Plane.across(model.points[0], model.points[2]);
-        let face = model.faces[0];
+        const plane = Plane.across(model.points[0], model.points[2]);
+        const face = model.faces[0];
         model.splitFaceByPlane3d(face, plane);
         assert.equal(model.faces.length, 2, 'Model should have 2 faces');
         assert.equal(model.points.length, 4, 'Model should have 4 points');
@@ -429,7 +429,7 @@ QUnit.module('Model', hooks => {
         assert.equal(Math.round(pt.z), 0, 'got:' + pt.z);
     });
 
-    test('turn', (assert) => {
+    test('rotate', (assert) => {
         let point = model.points[2];
         // before
         assert.equal(point.x, 200);
