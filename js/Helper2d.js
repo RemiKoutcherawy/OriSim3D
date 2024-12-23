@@ -14,7 +14,7 @@ export class Helper2d extends Helper {
         }
     }
 
-    // Event position to model position
+    // Event position to model flat position
     eventToModelPosition(event) {
         if (!(event instanceof Event)) return event; // Used for test
         const rect = this.canvas2d.getBoundingClientRect();
@@ -30,158 +30,48 @@ export class Helper2d extends Helper {
         };
     }
 
-    // Points near xf, yf
-    searchPoints2d(xf, yf) {
-        return this.model.points.filter(p =>
-            Math.hypot(p.xf - xf, p.yf - yf) < 10
-        );
-    }
-
-    // Segments near xf, yf
-    searchSegments2d(xf, yf) {
-        return this.model.segments.filter(s => {
-            const d = Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf);
-            return d < 6;
+    // Points, then segments, then faces near xf, yf
+    search2d(xf, yf) {
+        // Points near xf, yf
+        const points = this.model.points.filter(p => {
+            return Math.hypot(p.xf - xf, p.yf - yf) < 10;
         });
+        // Segments near xf, yf
+        const segments = this.model.segments.filter(s => {
+            return Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 6;
+        });
+        // Face containing xf, yf
+        const faces = this.model.faces.filter(f => {
+            return Face.contains2d(f, xf, yf);
+        });
+        return {points, segments, faces};
     }
 
-    // Face containing xf, yf
-    searchFaces2d(xf, yf) {
-        return this.model.faces.filter(f => Face.contains2d(f, xf, yf));
-    }
-
-    // Points
-    searchElements2d(xf, yf) {
-        const points = this.searchPoints2d(xf, yf);
-        const segments = this.searchSegments2d(xf, yf);
-        const faces = this.searchFaces2d(xf, yf);
-        return { points, segments, faces };
-    }
-
-    // Update 2d hoveredPoints, hoveredSegments, hoveredFaces
-    hover2d(xf, yf) {
-        const { points, segments, faces } = this.searchElements2d(xf, yf);
-        this.model.hover2d3d(points, segments, faces);
-    }
-
-    // Select
-    click2d(event) {
-        const {xf, yf} = this.eventToModelPosition(event);
-        const { points, segments, faces } = this.searchElements2d(xf, yf);
-        this.model.click2d3d(points, segments, faces);
-    }
-
-    // Drag
+    // Down cache first element
     down2d(event) {
         const {xf, yf} = this.eventToModelPosition(event);
-        const { points, segments, faces } = this.searchElements2d(xf, yf);
-        this.firstX = xf;
-        this.firstY = -yf;
-
-        if (points.length !== 0) {
-            this.firstPoint = points[0];
-        } else if (segments.length !== 0) {
-            this.firstSegment = segments[0];
-        }  else if (faces.length !== 0) {
-            this.firstFace = faces[0];
-        } else {
-            this.firstX = undefined;
-            this.firstY = undefined;
-        }
+        const {points, segments, faces} = this.search2d(xf, yf);
+        super.down(points, segments, faces, xf, -yf);
     }
 
-    // Hover and drag
+    // Hove and drag
     move2d(event) {
         const {xf, yf} = this.eventToModelPosition(event);
-
-        // Hover highlights points and segments
-        const { points, segments, faces } = this.searchElements2d(xf, yf);
-        this.model.hover2d3d(points, segments, faces);
-
-        if (this.firstPoint) {
-            /* */
-        } else if (this.firstSegment) {
-            /* */
-        } else if (this.firstFace) {
-            if ((xf - this.currentX) > 0) {
-                this.model.faces.filter(f => f.select === 1).forEach(f => f.offset += 1);
-            } else if ((xf - this.currentX) < 0) {
-                this.model.faces.filter(f => f.select === 1).forEach(f => f.offset -= 1);
-            }
-        }
-        this.currentX = xf;
-        this.currentY = -yf;
+        const {points, segments, faces} = this.search2d(xf, yf);
+        super.move(points, segments, faces, xf, -yf);
     }
 
+    // Up queue command
     up2d(event) {
         const {xf, yf} = this.eventToModelPosition(event);
-        const { points, segments, faces } = this.searchElements2d(xf, yf);
-
-        // From  point
-        if (this.firstPoint) {
-            // To Point
-            if (points.length !== 0) {
-                if (this.firstPoint === points[0]) {
-                    // To same point
-                    this.click2d(event)
-                } else if (points.length > 0) {
-                    // To other point
-                    const aIndex = this.model.indexOf(this.firstPoint);
-                    const bIndex = this.model.indexOf(points[0]);
-                    if (this.model.getSegment(this.firstPoint, points[0])) {
-                        this.command.command(`cross2d ${aIndex} ${bIndex}`);
-                    } else {
-                        this.command.command(`by2d ${aIndex} ${bIndex}`);
-                    }
-                }
-            }
-            // To segment
-            else if (segments.length !== 0) {
-                // Perpendicular
-                const aIndex = this.model.indexOf(segments[0]);
-                const bIndex = this.model.indexOf(this.firstPoint);
-                this.command.command(`perpendicular ${aIndex} ${bIndex}`);
-            }
-        }
-        // From segment
-        else if (this.firstSegment) {
-            if (this.firstSegment === segments[0]) {
-                // To same segment
-                this.model.click2d3d(points, segments, faces);
-            } else if (points.length !== 0) {
-                // To a point : crease perpendicular
-                const aIndex = this.model.indexOf(this.firstSegment);
-                const bIndex = this.model.indexOf(points[0]);
-                this.command.command(`perpendicular ${aIndex} ${bIndex}`);
-            } else if (segments.length !== 0) {
-                // To another segment : crease bisector
-                const aIndex = this.model.indexOf(this.firstSegment);
-                const bIndex = this.model.indexOf(segments[0]);
-                this.command.command(`bisector2d ${aIndex} ${bIndex}`);
-            }
-        }
-        // From face
-        else if (this.firstFace) {
-            // To same face
-            if (this.firstFace === faces[0]){
-                // Select Face
-                this.firstFace.select += 1 % 3;
-                // Offset face
-                this.firstFace.offset += (yf > this.firstX) ? 10 : -10;
-            }
-        } else {
-            // Deselect
-            this.model.points.forEach(p => p.select = 0);
-            this.model.segments.forEach(s => s.select = 0);
-        }
-        this.firstX = undefined;
-        this.firstPoint = undefined;
-        this.firstSegment = undefined;
-        this.firstFace = undefined;
+        const {points, segments, faces} = this.search2d(xf, yf);
+        super.up(points, segments, faces, xf, -yf);
     }
 
-    // Draw helper
+    // Draw helper with canvas 2d context
     draw() {
         super.draw(this.canvas2d.getContext('2d'));
     }
 }
+
+// 76 lines

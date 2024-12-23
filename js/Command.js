@@ -152,9 +152,9 @@ export class Command {
         }
     }
 
-// Execute one instruction from tokenTodo starting at idx on model
+    // Execute one instruction from tokenTodo starting at idx on model
     execute(idx) {
-console.log('execute', idx, this.tokenTodo[idx]);
+
         let list = [];
         const tokenList = this.tokenTodo;
 
