@@ -28,7 +28,8 @@ export class Segment {
         if (t > 1) {
             return Math.sqrt((x - x2) * (x - x2) + (y - y2) * (y - y2));
         }
-        const projectionX = x1 + t * (x2 - x1), projectionY = y1 + t * (y2 - y1);
+        const projectionX = x1 + t * (x2 - x1);
+        const projectionY = y1 + t * (y2 - y1);
         return Math.sqrt((x - projectionX) * (x - projectionX) + (y - projectionY) * (y - projectionY));
     }
 
@@ -222,5 +223,17 @@ export class Segment {
             + (s.p1.yf - s.p2.yf) * (s.p1.yf - s.p2.yf));
     }
 
+    static project2d(s, p) {
+        // Line extending segment, parameterized as v + t (p2 - p1).
+        // It falls where t = [(p-p1) . (p2-p1)] / |p2-p1|^2
+        const l2 = (s.p2.xf - s.p1.xf) * (s.p2.xf - s.p1.xf) + (s.p2.yf - s.p1.yf) * (s.p2.yf - s.p1.yf);
+        const t = ((p.xf - s.p1.xf) * (s.p2.xf - s.p1.xf) + (p.yf - s.p1.yf) * (s.p2.yf - s.p1.yf)) / l2;
+        if (t < 0 || t > 1) {
+            return undefined;
+        }
+        const pXf = s.p1.xf + t * (s.p2.xf - s.p1.xf);
+        const pYf = s.p1.yf + t * (s.p2.yf - s.p1.yf);
+        return new Point(pXf, pYf);
+    }
 }
 // 228

@@ -228,6 +228,33 @@ Deno.test("Segment Flat intersection2d", async (t) => {
     assertEquals(inter, expect, "Collinear");
   });
 });
+Deno.test("Segment Flat projection", async (t) => {
+  const a = new Point(0, 0);
+  const b = new Point(100, 0);
+  const s = new Segment(a, b);
+  let p = new Point(50, 0);
+  await t.step("Project Flat between", () => {
+    const project = Segment.project2d(s, p);
+    const expect = new Point(50, 0);
+    assertEquals(project, expect);
+  });
+  await t.step("Project Flat on the left", () => {
+    p = new Point(-50, 0);
+    const project = Segment.project2d(s, p);
+    assertEquals(project, undefined);
+  });
+  await t.step("Project Flat on the right", () => {
+    p = new Point(200, 0);
+    const project = Segment.project2d(s, p);
+    assertEquals(project, undefined);
+  });
+  await t.step("Project Flat general", () => {
+    p = new Point(50, 100);
+    const project = Segment.project2d(s, p);
+    const expect = new Point(50, 0);
+    assertEquals(project, expect);
+  });
+});
 
 Deno.test("Segment 3D", async (t) => {
   const a = new Point(0, 0, 0, 0, 0);

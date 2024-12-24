@@ -524,8 +524,17 @@ export class Model {
         this.splitAllFacesBySegment2d(p1, p2);
     }
 
+    // Split faces by a line perpendicular to [p1,p2] passing by point
+    splitPerpendicular2d(s, point) {
+        const projection = Segment.project2d(s, point);
+        // Reverse order to safely add new faces
+        for (let i = this.faces.length - 1; i > -1; i--) {
+            const face = this.faces[i];
+            this.splitFaceBySegment2d(face, point, projection);
+        }
+    }
     // Split faces by a plane perpendicular to [p1,p2] passing by point
-    splitPerpendicular(s, point) {
+    splitPerpendicular3d(s, point) {
         const plane = Plane.orthogonal(s.p1, s.p2, point);
         // Reverse order to safely add new faces
         for (let i = this.faces.length - 1; i > -1; i--) {
@@ -827,4 +836,5 @@ export class Model {
         return JSON.parse(json, reviver);
     }
 }
-// 830 lines
+
+// 799

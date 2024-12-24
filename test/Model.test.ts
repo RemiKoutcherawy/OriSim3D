@@ -307,16 +307,29 @@ Deno.test("Model splitBy3d ", async (t) => {
         assertEquals(model.faces.length, 1, 'Model should have 1 faces');
         assertEquals(model.points.length, 4, 'Model should have 4 points');
     });
-    await t.step("splitPerpendicular", () => {
+    await t.step("splitPerpendicular2d", () => {
         const model = new Model().init(-200, -200, 200, 200);
         // On edge
-        model.splitPerpendicular(model.segments[0], model.points[2]);
+        model.splitPerpendicular2d(model.segments[0], model.points[2]);
+        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+        assertEquals(model.points.length, 4, 'Model should have 4 points');
+        // Add center
+        const p = model.addPoint(0, 200, 0, 0, 0);
+        // Split perpendicular to edge by top point
+        model.splitPerpendicular2d(model.segments[0], p);
+        assertEquals(model.faces.length, 2,);
+        assertEquals(model.points.length, 6);
+    });
+    await t.step("splitPerpendicular3d", () => {
+        const model = new Model().init(-200, -200, 200, 200);
+        // On edge
+        model.splitPerpendicular3d(model.segments[0], model.points[2]);
         assertEquals(model.faces.length, 1, 'Model should have 1 faces');
         assertEquals(model.points.length, 4, 'Model should have 4 points');
         // Add center
         const p = model.addPoint(0, 0, 0, 0, 0);
         // Split perpendicular to edge by center
-        model.splitPerpendicular(model.segments[0], p);
+        model.splitPerpendicular3d(model.segments[0], p);
         assertEquals(model.faces.length, 2, 'Model should have 2 faces');
         assertEquals(model.points.length, 7, 'Model should have 7 points');
     });

@@ -123,7 +123,11 @@ export class Helper {
                 // Crease perpendicular from segment to point
                 const aIndex = this.model.indexOf(segments[0]);
                 const bIndex = this.model.indexOf(this.firstPoint);
-                this.command.command(`perpendicular ${aIndex} ${bIndex}`);
+                if (this.currentCanvas === '2d') {
+                    this.command.command(`perpendicular2d ${aIndex} ${bIndex}`);
+                } else {
+                    this.command.command(`perpendicular3d ${aIndex} ${bIndex}`);
+                }
             }
         }
         // From segment
@@ -133,12 +137,15 @@ export class Helper {
                 // To same segment select
                 this.model.click2d3d(points, segments, faces);
             }
-            // To a point crease perpendicular from segment to point
+            // To point crease perpendicular from segment to point
             else if (points.length !== 0) {
                 const aIndex = this.model.indexOf(this.firstSegment);
                 const bIndex = this.model.indexOf(points[0]);
-                this.command.command(`perpendicular ${aIndex} ${bIndex}`);
-            }
+                if (this.currentCanvas === '2d') {
+                    this.command.command(`perpendicular2d ${aIndex} ${bIndex}`);
+                } else {
+                    this.command.command(`perpendicular3d ${aIndex} ${bIndex}`);
+                }            }
             // To another segment crease bisector
             else if (segments.length !== 0) {
                 const aIndex = this.model.indexOf(this.firstSegment);

@@ -19,8 +19,8 @@ export class Command {
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
-    duration;
-    tStart;
+    duration = 0;
+    tStart = 0;
     // Eventual CommandArea
     commandArea;
 
@@ -82,7 +82,7 @@ export class Command {
                 // Handle time command to start animation and switch to Anim
                 if (this.tokenTodo[this.iToken] === 't' || this.tokenTodo[this.iToken] === 'time') {
                     this.iToken++;
-                    this.duration = this.tokenTodo[this.iToken++];
+                    this.duration = Number(this.tokenTodo[this.iToken++]);
                     this.tStart = performance.now();
                     this.tpi = 0.0;
                     // State anim for the next call
@@ -154,7 +154,6 @@ export class Command {
 
     // Execute one instruction from tokenTodo starting at idx on model
     execute(idx) {
-
         let list = [];
         const tokenList = this.tokenTodo;
 
@@ -193,12 +192,18 @@ export class Command {
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitCross2d(p1, p2);
-        } else if (tokenList[idx] === 'p' || tokenList[idx] === 'perpendicular') {
-            // Split perpendicular to segment by point : p s1 p1;
+        } else if (tokenList[idx] === 'p2d' || tokenList[idx] === 'perpendicular2d') {
+            // Split perpendicular to segment by point in 2d : p s1 p1;
             idx++;
             const s = this.model.segments[tokenList[idx++]];
             let p = this.model.points[tokenList[idx++]];
-            this.model.splitPerpendicular(s, p);
+            this.model.splitPerpendicular2d(s, p);
+        } else if (tokenList[idx] === 'p3d' || tokenList[idx] === 'perpendicular3d') {
+            // Split perpendicular to segment by point in 3d : p s1 p1;
+            idx++;
+            const s = this.model.segments[tokenList[idx++]];
+            let p = this.model.points[tokenList[idx++]];
+            this.model.splitPerpendicular3d(s, p);
         } else if (tokenList[idx] === 'bisector2d') {
             // Split by a line passing between segments : s2d s1 s2;
             idx++;
@@ -383,7 +388,6 @@ export class Command {
 
         // Keep state after execute
         this.pushUndo();
-
         this.iToken = idx;
     }
 

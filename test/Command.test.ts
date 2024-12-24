@@ -93,15 +93,22 @@ Deno.test('Command', async (t) => {
         assertEquals(model.segments.length, 8);
     });
 
-    await t.step('command p or perpendicular', () => {
+    await t.step('command perpendicular 3d', () => {
         cde.command('d -200 -200 200 200').anim();
-        cde.command('p 0 1').anim();
+        cde.command('p3d 0 1').anim();
         assertEquals(model.segments.length, 4);
         model.points.push(new Point(0, 0, 0, 0, 0));
-        cde.command('p 0 4').anim();
+        cde.command('p3d 0 4').anim();
         assertEquals(model.segments.length, 7);
     });
-
+    await t.step('command perpendicular 2d', () => {
+        cde.command('d -200 -200 200 200').anim();
+        cde.command('p2d 0 1').anim();
+        assertEquals(model.segments.length, 4);
+        model.points.push(new Point(0, 0, 0, 0, 0));
+        cde.command('p2d 0 4').anim();
+        assertEquals(model.segments.length, 5);
+    });
     await t.step('command bisector2d', () => {
         cde.command('d -200 -200 200 200').anim();
         cde.command('bisector2d 0 1').anim();
