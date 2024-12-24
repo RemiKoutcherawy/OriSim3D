@@ -8,8 +8,10 @@ export class Helper {
         this.canvas2d = canvas2d;
         this.view3d = view3d;
         this.overlay = overlay;
-        // 3d
+        this.touchtime = 0;
+        // To test with Deno
         if (canvas2d) {
+            // 3d
             overlay.addEventListener('mousedown', (event) => this.down3d(event));
             overlay.addEventListener('mousemove', (event) => this.move3d(event));
             overlay.addEventListener('mouseup', (event) => this.up3d(event));
@@ -33,21 +35,12 @@ export class Helper {
         this.firstPoint = undefined;
         this.firstSegment = undefined;
         this.firstFace = undefined;
+        this.currentCanvas = undefined;
     }
 
-    // Dessine si un point, un segment ou une face est sélectionné
+    // Draw only if a point, segment, or face is selected
     draw() {
-        let context = this.canvas2d.getContext('2d');
-        if (this.firstPoint || this.firstSegment || this.firstFace) {
-            context.lineWidth = 4;
-            context.lineCap = 'round';
-            context.strokeStyle = 'green';
-            context.beginPath();
-            context.moveTo(this.firstX, this.firstY);
-            context.lineTo(this.currentX, this.currentY);
-            context.stroke();
-        }
-        context = this.overlay.getContext('2d');
+        const context = this.currentCanvas === '2d' ? this.canvas2d.getContext('2d') : this.overlay.getContext('2d');
         if (this.firstPoint || this.firstSegment || this.firstFace) {
             context.lineWidth = 4;
             context.lineCap = 'round';
@@ -59,7 +52,7 @@ export class Helper {
         }
     }
 
-    // Logic begin here
+    // Logic begins here
     down(points, segments, faces, x, y) {
         if (points.length !== 0) {
             this.firstPoint = points[0];
@@ -78,9 +71,9 @@ export class Helper {
     move(points, segments, faces, x, y) {
         this.model.hover2d3d(points, segments, faces);
         if (this.firstPoint) {
-            /* */
+            this.firstPoint.hover = true;
         } else if (this.firstSegment) {
-            /* */
+            this.firstSegment.hover = true;
         } else if (this.firstFace) {
             if ((x - this.currentX) > 0) {
                 // Offset face positive if mouse moves right
@@ -107,13 +100,21 @@ export class Helper {
                 else if (points.length > 0) {
                     const aIndex = this.model.indexOf(this.firstPoint);
                     const bIndex = this.model.indexOf(points[0]);
-                    // On existing segment
+                    // Two points on existing segment
                     if (this.model.getSegment(this.firstPoint, points[0])) {
-                        this.command.command(`cross2d ${aIndex} ${bIndex}`);
+                        if (this.currentCanvas === '2d') {
+                            this.command.command(`cross2d ${aIndex} ${bIndex}`);
+                        } else {
+                            this.command.command(`cross3d ${aIndex} ${bIndex}`);
+                        }
                     }
-                    // Not on existing segment
+                    // Two points but not on segment
                     else {
-                        this.command.command(`by2d ${aIndex} ${bIndex}`);
+                        if (this.currentCanvas === '2d') {
+                            this.command.command(`by2d ${aIndex} ${bIndex}`);
+                        } else {
+                            this.command.command(`by3d ${aIndex} ${bIndex}`);
+                        }
                     }
                 }
             }
@@ -129,7 +130,7 @@ export class Helper {
         else if (this.firstSegment) {
             // To segment
             if (segments.length !== 0) {
-                // To same segment direct to model no command
+                // To same segment select
                 this.model.click2d3d(points, segments, faces);
             }
             // To a point crease perpendicular from segment to point
@@ -142,7 +143,11 @@ export class Helper {
             else if (segments.length !== 0) {
                 const aIndex = this.model.indexOf(this.firstSegment);
                 const bIndex = this.model.indexOf(segments[0]);
-                this.command.command(`bisector2d ${aIndex} ${bIndex}`);
+                if (this.currentCanvas === '2d') {
+                    this.command.command(`bisector2d ${aIndex} ${bIndex}`);
+                } else {
+                    this.command.command(`bisector3d ${aIndex} ${bIndex}`);
+                }
             }
         }
         // From face
@@ -154,7 +159,6 @@ export class Helper {
                     this.model.click2d3d(points, segments, faces);
                 } else {
                     // To other face
-                    this.command.command(`cross2d ${this.model.indexOf(this.firstFace.p1)} ${this.model.indexOf(faces[0].p1)}`);
                 }
             } else {
                 // Deselect
@@ -169,6 +173,22 @@ export class Helper {
             this.model.points.forEach(p => p.select = 0);
             this.model.segments.forEach(s => s.select = 0);
             this.model.faces.forEach(f => f.select = 0);
+
+            //  Handle swipe
+            // console.log('delta X',(this.firstX - this.currentX));
+            // console.log('delta time',(new Date().getTime()) - this.touchtime);
+            if (((new Date().getTime()) - this.touchtime) < 6000) {
+                if ((this.firstX - this.currentX) < 100) {
+                    // Handle undo if swipe right
+                    this.command.command('undo');
+                }
+                else if ((this.firstX - this.currentX) > 100){
+                    // Handle turn if swipe left
+                    this.command.command('tx');
+                }
+            } else {
+                this.touchtime = new Date().getTime();
+            }
         }
         this.out();
     }
@@ -206,6 +226,7 @@ export class Helper {
     }
     // Down on flat 2d
     down2d(event) {
+        this.currentCanvas = "2d";
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate
@@ -220,7 +241,7 @@ export class Helper {
     up2d(event) {
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
-        this.up(points, segments, faces, "2d");
+        this.up(points, segments, faces);
     }
 
     // Canvas 3d
@@ -247,6 +268,7 @@ export class Helper {
     }
     // Mouse down on 3d ovelay
     down3d(event) {
+        this.currentCanvas = "3d";
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.down(points, segments, faces, xCanvas, yCanvas);
@@ -278,6 +300,7 @@ export class Helper {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.up(points, segments, faces, "3d");
+        this.currentCanvas = undefined;
     }
     // Mouse wheel on 3d overlay
     wheel(event) {
