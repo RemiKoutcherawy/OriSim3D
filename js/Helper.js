@@ -103,9 +103,9 @@ export class Helper {
                     // Two points on existing segment
                     if (this.model.getSegment(this.firstPoint, points[0])) {
                         if (this.currentCanvas === '2d') {
-                            this.command.command(`cross2d ${aIndex} ${bIndex}`);
+                            this.command.command(`across2d ${aIndex} ${bIndex}`);
                         } else {
-                            this.command.command(`cross3d ${aIndex} ${bIndex}`);
+                            this.command.command(`across3d ${aIndex} ${bIndex}`);
                         }
                     }
                     // Two points but not on segment

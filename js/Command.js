@@ -383,6 +383,7 @@ export class Command {
 
         // Anticipate end
         else {
+            console.log('Syntax error', tokenList[idx], tokenList[idx+1], tokenList[idx+2])
             idx = tokenList.length + 1;
         }
 
