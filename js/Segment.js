@@ -118,14 +118,15 @@ export class Segment {
         return undefined ;
     }
 
+    // Lines in 2D
     static intersection2dLines(a, b, c, d) {
         const v1_x = b.xf - a.xf;
         const v1_y = b.yf - a.yf;
         const v2_x = d.xf - c.xf;
         const v2_y = d.yf - c.yf;
         const determinant = -v2_x * v1_y + v1_x * v2_y;
-        if (Math.round(determinant) === 0) {
-            return null;
+        if (Math.round(determinant) < 1e-3) {
+            return undefined;
         }
         // let s = (-v1_y * (a.xf - c.xf) + v1_x * (a.yf - c.yf)) / determinant;
         const t = (v2_x * (a.yf - c.yf) - v2_y * (a.xf - c.xf)) / determinant;

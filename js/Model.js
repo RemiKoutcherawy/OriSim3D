@@ -562,7 +562,7 @@ export class Model {
     // Split faces by a line between two lines [ab] [cd]
     bisector2d(s1, s2) {
         let inter = Segment.intersection2dLines(s1.p1, s1.p2, s2.p1, s2.p2);
-        if (inter != null) {
+        if (inter) {
             // Farther from inter on each segment
             const a = Point.distance2d(inter, s1.p1) < Point.distance2d(inter, s1.p2) ? s1.p2 : s1.p1;
             const b = Point.distance2d(inter, s2.p1) < Point.distance2d(inter, s2.p2) ? s2.p2 : s2.p1;
