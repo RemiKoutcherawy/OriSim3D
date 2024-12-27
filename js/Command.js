@@ -257,7 +257,9 @@ export class Command {
             let p0 = this.model.points[tokenList[idx++]];
             let k2 = (1 - this.tni) / (1 - this.tpi);
             let k1 = this.tni - this.tpi * k2;
-            this.model.moveOn(p0, k1, k2, this.listPoints(tokenList, idx));
+            list = this.listPoints(tokenList, idx);
+            idx += list.length;
+            this.model.moveOn(p0, k1, k2, list);
         } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
             // Move 1 point by dx,dy,dz in 3D with animation : move dx dy dz p1 p2 p3...
             idx++;
@@ -383,7 +385,7 @@ export class Command {
 
         // Anticipate end
         else {
-            console.log('Syntax error', tokenList[idx], tokenList[idx+1], tokenList[idx+2])
+            console.log('Syntax error', tokenList[idx-2], tokenList[idx-1], tokenList[idx], tokenList[idx+1], tokenList[idx+2])
             idx = tokenList.length + 1;
         }
 
