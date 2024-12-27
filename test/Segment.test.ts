@@ -228,6 +228,56 @@ Deno.test("Segment Flat intersection2d", async (t) => {
     assertEquals(inter, expect, "Collinear");
   });
 });
+Deno.test("Segment.intersection2dLines", async (t) => {
+  const a = new Point(0, 0);
+  const b = new Point(10, 0); // Horizontal
+  const c = new Point(0, 0);
+  const d = new Point(0, 10); // Vertical
+
+  await t.step("Basic intersection2dLines at 0,0", () => {
+    const inter = Segment.intersection2dLines(a, b, c, d);
+    const expected = new Point(0, 0);
+    assertEquals(inter, expected, "Lines intersect at origin");
+  });
+
+  await t.step("No intersection, parallel lines", () => {
+    const c = new Point(0, 1);
+    const d = new Point(10, 1);
+    const inter = Segment.intersection2dLines(a, b, c, d);
+    assertEquals(inter, undefined, "Parallel lines do not intersect");
+  });
+
+  await t.step("Intersection 2D, lines intersect at 0,0", () => {
+    const c = new Point(10, 10);
+    const d = new Point(20, 20);
+    const inter = Segment.intersection2dLines(a, b, c, d);
+    assertEquals(inter, new Point(0, 0), "Lines intersect at 0,0");
+  });
+
+  await t.step("Intersection beyond segment bounds", () => {
+    const c = new Point(-5, -5);
+    const d = new Point(5, 5);
+    const inter = Segment.intersection2dLines(a, b, c, d);
+    assertEquals(inter, new Point(0, 0), "Lines intersect at origin (but extend beyond bounds)");
+  });
+});
+Deno.test("Segment.distanceToSegment3D", async (t) => {
+  const a = new Point(null, null,0, 0, 0);
+  const b = new Point(null, null, 10, 0, 0); // Horizontal in 3D
+
+  const c = new Point(null, null,5, 10, 0); // Perpendicular above
+  const d = new Point(null, null,5, 5, 0); // Perpendicular closer
+
+  await t.step("Distance perpendicular", () => {
+    const dist = Segment.distanceToSegment(a, b, c, d);
+    assertEquals(dist, 5, "Perpendicular distance");
+  });
+
+  await t.step("Segments sharing a point 3d", () => {
+    const dist = Segment.distanceToSegment(a, b, b, c);
+    assertEquals(dist, 0, "Segments share point b");
+  });
+});
 Deno.test("Segment Flat projection", async (t) => {
   const a = new Point(0, 0);
   const b = new Point(100, 0);
@@ -340,5 +390,45 @@ Deno.test("Segment 3D", async (t) => {
     assertEquals(s.p, expect, "Non intersecting segments in 3D first point");
     expect = new Vector3( 50, 50, 0);
     assertEquals(s.q, expect, "Non intersecting segments in 3D second point");
+  });
+  Deno.test("Segment.length3d", async (t) => {
+    const seg = new Segment(
+        new Point(0, 0, 0),
+        new Point(10, 0, 0)
+    );
+
+    await t.step("Length of segment (straight line)", () => {
+      const length = Segment.length3d(seg);
+      assertEquals(length, 10, "Length should be 10 for straight segment");
+    });
+
+    await t.step("Length of diagonal segment in 3D", () => {
+      const diagSeg = new Segment(
+          new Point(0, 0, 0),
+          new Point(3, 4, 12) // 3D Pythagoras: sqrt(3² + 4² + 12²) = 13
+      );
+      const length = Segment.length3d(diagSeg);
+      assertEquals(length, 13, "Length should be 13");
+    });
+  });
+  Deno.test("Segment.length2d", async (t) => {
+    const seg = new Segment(
+        new Point(0, 0),
+        new Point(10, 0)
+    );
+
+    await t.step("Length of segment (straight line)", () => {
+      const length = Segment.length2d(seg);
+      assertEquals(length, 10, "Length should be 10 for straight segment");
+    });
+
+    await t.step("Length of diagonal segment in 2D", () => {
+      const diagSeg = new Segment(
+          new Point(0, 0),
+          new Point(3, 4) // 2D Pythagoras: sqrt(3² + 4²) = 5
+      );
+      const length = Segment.length2d(diagSeg);
+      assertEquals(length, 5, "Length should be 5");
+    });
   });
 });
