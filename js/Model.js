@@ -260,7 +260,9 @@ export class Model {
         right = Face.area3d(right) !== 0 ? right : undefined;
         if (left && right) {
             face.points = left;
-            this.addFace(right);
+            const newFace = this.addFace(right);
+            // Keep offset for added face
+            newFace.offset = face.offset;
         }
     }
 
@@ -402,7 +404,9 @@ export class Model {
         // Modify initial face and add new face if not degenerated
         if (Math.abs(areaLeft) > EPSILON && Math.abs(areaRight) > EPSILON) {
             face.points = left;
-            this.addFace(right);
+            const newFace = this.addFace(right);
+            // Keep offset for added face
+            newFace.offset = face.offset;
         }
     }
 
