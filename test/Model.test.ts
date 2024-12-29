@@ -4,7 +4,7 @@ import {Point} from '../js/Point.js';
 import {Segment} from '../js/Segment.js';
 import {assertEquals} from "jsr:@std/assert";
 
-Deno.test("Model init serialize", async (t) => {
+Deno.test("Model", async (t) => {
     await t.step("init", () => {
         const model = new Model().init(-200, -200, 200, 200);
         assertEquals(model.points.length, 4, '4 points');
@@ -28,44 +28,40 @@ Deno.test("Model init serialize", async (t) => {
         assertEquals(model.segments.length, 4, "deserialized should have 4 segments");
         assertEquals(model.faces.length, 1, "deserialized   should have 1 face");
     });
-});
-
-Deno.test("Model hover2d3d click2d3d", async (t) => {
-    await t.step("hover2d3d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Hover on point, segment and face
-        model.hover2d3d([model.points[0]], [], []);
-        assertEquals(model.points[0].hover, true, 'First point hovered');
-        assertEquals(model.segments.some(s => s.hover !== false), false, 'No segment hovered');
-        assertEquals(model.faces.some(f => f.hover !== false), false, 'No face hovered');
-        model.hover2d3d([], [model.segments[0]], []);
-        assertEquals(model.points.some(p => p.hover !== false), false, 'No point hovered');
-        assertEquals(model.segments[0].hover, true, 'First segment hovered');
-        assertEquals(model.faces.some(f => f.hover !== false), false, 'No face hovered');
-        model.hover2d3d([], [], [model.faces[0]]);
-        assertEquals(model.points.some(p => p.hover !== false), false, 'No point hovered');
-        assertEquals(model.segments.some(s => s.hover !== false), false, 'No segment hovered');
-        assertEquals(model.faces[0].hover, true, 'First face hovered');
+    await t.step("Model hover", async (t) => {
+        await t.step("hover2d3d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Hover on point, segment and face
+            model.hover2d3d([model.points[0]], [], []);
+            assertEquals(model.points[0].hover, true, 'First point hovered');
+            assertEquals(model.segments.some(s => s.hover !== false), false, 'No segment hovered');
+            assertEquals(model.faces.some(f => f.hover !== false), false, 'No face hovered');
+            model.hover2d3d([], [model.segments[0]], []);
+            assertEquals(model.points.some(p => p.hover !== false), false, 'No point hovered');
+            assertEquals(model.segments[0].hover, true, 'First segment hovered');
+            assertEquals(model.faces.some(f => f.hover !== false), false, 'No face hovered');
+            model.hover2d3d([], [], [model.faces[0]]);
+            assertEquals(model.points.some(p => p.hover !== false), false, 'No point hovered');
+            assertEquals(model.segments.some(s => s.hover !== false), false, 'No segment hovered');
+            assertEquals(model.faces[0].hover, true, 'First face hovered');
+        });
+        await t.step("click2d3d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Click on point, segment and face
+            model.click2d3d([model.points[0]], [], []);
+            assertEquals(model.points[0].select, 1, 'First point selected');
+            model.click2d3d([model.points[0]], [], []);
+            assertEquals(model.points[0].select, 2, 'First point double selected');
+            model.click2d3d([], [model.segments[0]], []);
+            assertEquals(model.segments[0].select, 1, 'First segment selected');
+            model.click2d3d([], [model.segments[0]], []);
+            assertEquals(model.segments[0].select, 2, 'First segment double selected');
+            model.click2d3d([], [], [model.faces[0]]);
+            assertEquals(model.faces[0].select, 1, 'First face selected');
+            model.click2d3d([], [], [model.faces[0]]);
+            assertEquals(model.faces[0].select, 2, 'First face double selected');
+        });
     });
-    await t.step("click2d3d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Click on point, segment and face
-        model.click2d3d([model.points[0]], [], []);
-        assertEquals(model.points[0].select, 1, 'First point selected');
-        model.click2d3d([model.points[0]], [], []);
-        assertEquals(model.points[0].select, 2, 'First point double selected');
-        model.click2d3d([], [model.segments[0]], []);
-        assertEquals(model.segments[0].select, 1, 'First segment selected');
-        model.click2d3d([], [model.segments[0]], []);
-        assertEquals(model.segments[0].select, 2, 'First segment double selected');
-        model.click2d3d([], [], [model.faces[0]]);
-        assertEquals(model.faces[0].select, 1, 'First face selected');
-        model.click2d3d([], [], [model.faces[0]]);
-        assertEquals(model.faces[0].select, 2, 'First face double selected');
-    });
-});
-
-Deno.test("Model indexOf addPoint addSegment addFace", async (t) => {
     await t.step("indexOf", () => {
         const model = new Model().init(-200, -200, 200, 200);
         assertEquals(model.indexOf(model.points[0]), 0, 'First point');
@@ -108,9 +104,6 @@ Deno.test("Model indexOf addPoint addSegment addFace", async (t) => {
         assertEquals(model.faces.length, 2, 'Model should have 2 faces');
         assertEquals(model.segments.length, 5, 'Model should have 5 segments');
     });
-});
-
-Deno.test("Model searchSegment3d searchFacesWithAB", async (t) => {
     await t.step("searchSegment3d", () => {
         const model = new Model().init(-200, -200, 200, 200);
         const s0 = model.segments[0];
@@ -131,252 +124,244 @@ Deno.test("Model searchSegment3d searchFacesWithAB", async (t) => {
         assertEquals(faces.length, 1, 'Model first face should be found');
         assertEquals(faces[0], model.faces[0], 'Model first face should be found');
     });
-});
+    await t.step("split", async (t) => {
+        await t.step("splitFaceByPlane3d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            let plane = Plane.by(model.points[1], model.points[3]);
+            model.splitAllFacesByPlane3d(plane);
+            assertEquals(model.faces.length, 2, 'model should have 2 faces');
+            assertEquals(model.segments.length, 5, 'model should have 5 segments');
 
-Deno.test("Model splitFaceByPlane3d splitAllFacesByPlane3d splitCross3d", async (t) => {
-    await t.step("splitFaceByPlane3d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        let plane = Plane.by(model.points[1], model.points[3]);
-        model.splitAllFacesByPlane3d(plane);
-        assertEquals(model.faces.length, 2, 'model should have 2 faces');
-        assertEquals(model.segments.length, 5, 'model should have 5 segments');
+            const pt = model.points[2];
+            const s = model.getSegment(model.points[1], model.points[3]);
+            model.rotate(s, 180.0, [pt]);
 
-        const pt = model.points[2];
-        const s = model.getSegment(model.points[1], model.points[3]);
-        model.rotate(s, 180.0, [pt]);
+            plane = Plane.across(model.points[1], model.points[3]);
+            model.splitAllFacesByPlane3d(plane);
+            assertEquals(model.faces.length, 4, 'model should have 4 faces');
+        });
+        await t.step("splitFaceByPlane3d on side", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Plane by [0] [1] bottom segment
+            const plane = Plane.by(model.points[0], model.points[1]);
+            const face = model.faces[0];
+            model.splitFaceByPlane3d(face, plane);
+            assertEquals(model.faces.length, 1, 'Split on side should not add any face');
+        });
+        await t.step("splitFaceByPlane3d on diagonal", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Plane by [0] [2] diagonal
+            const plane = Plane.by(model.points[0], model.points[2]);
+            const face = model.faces[0];
+            model.splitFaceByPlane3d(face, plane);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+            assertEquals(model.faces[0].points.length, 3, 'Face 0 should have 3 points');
+            assertEquals(model.faces[1].points.length, 3, 'Face 1 should have 3 points');
+        });
+        await t.step("splitFaceByPlane3d diagonal on triangle", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Plane across [0] [2] diagonal on triangle
+            const plane = Plane.across(model.points[0], model.points[2]);
+            const face = model.faces[0];
+            model.splitFaceByPlane3d(face, plane);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+            assertEquals(model.faces[0].points.length, 3, 'Face 0 should have 3 points');
+            assertEquals(model.faces[1].points.length, 3, 'Face 1 should have 3 points');
+        });
+        await t.step("splitAllFacesByPlane3d two diagonals", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Diagonal Split 0,2
+            let plane = Plane.by(model.points[0], model.points[2]);
+            model.splitAllFacesByPlane3d(plane);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+            assertEquals(model.faces[0].points.length, 3, 'Face 0 should have 3 points');
+            assertEquals(model.faces[1].points.length, 3, 'Face 1 should have 3 points');
+            // Diagonal Split 1,3
+            plane = Plane.by(model.points[1], model.points[3]);
+            model.splitAllFacesByPlane3d(plane);
+            assertEquals(model.faces.length, 4, 'Model should have 4 faces');
+            assertEquals(model.points.length, 5, 'Model should have 5 points');
+            assertEquals(model.segments.length, 8, 'Model should have 8 segments');
+        });
+        await t.step("splitAllFacesByPlane two other diagonals", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Diagonal Split 3,1
+            let plane = Plane.by(model.points[3], model.points[1]);
+            model.splitAllFacesByPlane3d(plane);
+            // Diagonal Split 0,2
+            plane = Plane.by(model.points[0], model.points[2]);
+            model.splitAllFacesByPlane3d(plane);
+            assertEquals(model.faces.length, 4, 'Model should have 4 faces');
+            assertEquals(model.points.length, 5, 'Model should have 5 points');
+            assertEquals(model.segments.length, 8, 'Model should have 8 segments');
+        });
+        await t.step("splitCross3d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Plane crossing X=0 => 2 faces, and 2 intersections
+            model.splitCross3d(model.points[0], model.points[1]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 6, 'Model should have 6 points');
+            assertEquals(model.segments.length, 7, 'Model should have 7 segments');
+            // Plane crossing Y=0 => 4 faces, and 3 intersections
+            model.splitCross3d(model.points[1], model.points[2]);
+            assertEquals(model.faces.length, 4, 'Model should have 4 faces');
+            assertEquals(model.points.length, 9, 'Model should have 9 points');
+            assertEquals(model.segments.length, 12, 'Model should have 12 segments');
+        });
+        await t.step("splitCross3d on diagonal", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Plane on YZ crossing X=0 => 2 faces, plus 2 intersections
+            model.splitCross3d(model.points[0], model.points[1]);
+            model.splitCross3d(model.points[0], model.points[3]);
+            model.splitCross3d(model.points[0], model.points[2]);
+            model.splitCross3d(model.points[1], model.points[3]);
+            model.splitCross3d(model.points[0], model.points[8]);
+            assertEquals(model.faces.length, 12, 'Model should have 12 faces');
+            assertEquals(model.points.length, 14, 'Model should have 14 points');
+            assertEquals(model.segments.length, 25, 'Model should have 25 segments');
+        });
+        await t.step("splitCross2d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // Plane on YZ crossing X=0 => 2 faces, plus 2 intersections
+            // d -200 -200 200 -200 200 200 -200 200; c2d 0 1;
+            model.splitCross2d(model.points[0], model.points[1]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 6, 'Model should have 6 points');
+            assertEquals(model.segments.length, 7, 'Model should have 7 segments');
+            assertEquals(model.points[4].y, -200, 'Point 4 should be at y=-200');
+            assertEquals(model.points[5].y, 200, 'Point 4 should be at y=200');
 
-        plane = Plane.across(model.points[1], model.points[3]);
-        model.splitAllFacesByPlane3d(plane);
-        assertEquals(model.faces.length, 4, 'model should have 4 faces');
-    });
-    await t.step("splitFaceByPlane3d on side", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Plane by [0] [1] bottom segment
-        const plane = Plane.by(model.points[0], model.points[1]);
-        const face = model.faces[0];
-        model.splitFaceByPlane3d(face, plane);
-        assertEquals(model.faces.length, 1, 'Split on side should not add any face');
-    });
-    await t.step("splitFaceByPlane3d on diagonal", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Plane by [0] [2] diagonal
-        const plane = Plane.by(model.points[0], model.points[2]);
-        const face = model.faces[0];
-        model.splitFaceByPlane3d(face, plane);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        assertEquals(model.segments.length, 5, 'Model should have 5 segments');
-        assertEquals(model.faces[0].points.length, 3, 'Face 0 should have 3 points');
-        assertEquals(model.faces[1].points.length, 3, 'Face 1 should have 3 points');
-    });
-    await t.step("splitFaceByPlane3d diagonal on triangle", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Plane across [0] [2] diagonal on triangle
-        const plane = Plane.across(model.points[0], model.points[2]);
-        const face = model.faces[0];
-        model.splitFaceByPlane3d(face, plane);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        assertEquals(model.segments.length, 5, 'Model should have 5 segments');
-        assertEquals(model.faces[0].points.length, 3, 'Face 0 should have 3 points');
-        assertEquals(model.faces[1].points.length, 3, 'Face 1 should have 3 points');
-    });
-    await t.step("splitAllFacesByPlane3d two diagonals", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Diagonal Split 0,2
-        let plane = Plane.by(model.points[0], model.points[2]);
-        model.splitAllFacesByPlane3d(plane);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        assertEquals(model.segments.length, 5, 'Model should have 5 segments');
-        assertEquals(model.faces[0].points.length, 3, 'Face 0 should have 3 points');
-        assertEquals(model.faces[1].points.length, 3, 'Face 1 should have 3 points');
-        // Diagonal Split 1,3
-        plane = Plane.by(model.points[1], model.points[3]);
-        model.splitAllFacesByPlane3d(plane);
-        assertEquals(model.faces.length, 4, 'Model should have 4 faces');
-        assertEquals(model.points.length, 5, 'Model should have 5 points');
-        assertEquals(model.segments.length, 8, 'Model should have 8 segments');
-    });
-    await t.step("splitAllFacesByPlane two other diagonals", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Diagonal Split 3,1
-        let plane = Plane.by(model.points[3], model.points[1]);
-        model.splitAllFacesByPlane3d(plane);
-        // Diagonal Split 0,2
-        plane = Plane.by(model.points[0], model.points[2]);
-        model.splitAllFacesByPlane3d(plane);
-        assertEquals(model.faces.length, 4, 'Model should have 4 faces');
-        assertEquals(model.points.length, 5, 'Model should have 5 points');
-        assertEquals(model.segments.length, 8, 'Model should have 8 segments');
-    });
-    await t.step("splitCross3d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Plane crossing X=0 => 2 faces, and 2 intersections
-        model.splitCross3d(model.points[0], model.points[1]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 6, 'Model should have 6 points');
-        assertEquals(model.segments.length, 7, 'Model should have 7 segments');
-        // Plane crossing Y=0 => 4 faces, and 3 intersections
-        model.splitCross3d(model.points[1], model.points[2]);
-        assertEquals(model.faces.length, 4, 'Model should have 4 faces');
-        assertEquals(model.points.length, 9, 'Model should have 9 points');
-        assertEquals(model.segments.length, 12, 'Model should have 12 segments');
-    });
-    await t.step("splitCross3d on diagonal", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Plane on YZ crossing X=0 => 2 faces, plus 2 intersections
-        model.splitCross3d(model.points[0], model.points[1]);
-        model.splitCross3d(model.points[0], model.points[3]);
-        model.splitCross3d(model.points[0], model.points[2]);
-        model.splitCross3d(model.points[1], model.points[3]);
-        model.splitCross3d(model.points[0], model.points[8]);
-        assertEquals(model.faces.length, 12, 'Model should have 12 faces');
-        assertEquals(model.points.length, 14, 'Model should have 14 points');
-        assertEquals(model.segments.length, 25, 'Model should have 25 segments');
-    });
-    await t.step("splitCross2d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // Plane on YZ crossing X=0 => 2 faces, plus 2 intersections
-        // d -200 -200 200 -200 200 200 -200 200; c2d 0 1;
-        model.splitCross2d(model.points[0], model.points[1]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 6, 'Model should have 6 points');
-        assertEquals(model.segments.length, 7, 'Model should have 7 segments');
-        assertEquals(model.points[4].y, -200, 'Point 4 should be at y=-200');
-        assertEquals(model.points[5].y, 200, 'Point 4 should be at y=200');
+            // Same should not modify anything
+            model.splitCross2d(model.points[0], model.points[1]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 6, 'Model should have 6 points');
+            assertEquals(model.segments.length, 7, 'Model should have 7 segments');
+            assertEquals(model.points[4].y, -200, 'Point 4 should be at y=-200');
+            assertEquals(model.points[5].y, 200, 'Point 4 should be at y=200');
 
-        // Same should not modify anything
-        model.splitCross2d(model.points[0], model.points[1]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 6, 'Model should have 6 points');
-        assertEquals(model.segments.length, 7, 'Model should have 7 segments');
-        assertEquals(model.points[4].y, -200, 'Point 4 should be at y=-200');
-        assertEquals(model.points[5].y, 200, 'Point 4 should be at y=200');
+            model.splitCross2d(model.points[0], model.points[3]);
+            model.splitCross2d(model.points[0], model.points[2]);
+            model.splitCross2d(model.points[1], model.points[3]);
+            assertEquals(model.faces.length, 8, 'Model should have 8 faces');
+        });
+        await t.step("splitBy3d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // On edge
+            model.splitBy3d(model.points[0], model.points[1]);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            // On diagonal
+            model.splitBy3d(model.points[0], model.points[2]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            // On other diagonal
+            model.splitBy3d(model.points[1], model.points[3]);
+            assertEquals(model.faces.length, 4, 'Model should have 4 faces');
+            assertEquals(model.points.length, 5, 'Model should have 5 points');
+        });
+        await t.step("splitBy2d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // On edge by_2d 0 1 by_2d 0 2 by_2d 1 3
+            model.splitBy2d(model.points[1], model.points[2]);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            // On diagonal
+            model.splitBy2d(model.points[0], model.points[2]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.faces[0].points.length, 3, 'Face should have 3 points');
+            assertEquals(model.faces[1].points.length, 3, 'Face should have 3 points');
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            // On other diagonal
+            model.splitBy2d(model.points[1], model.points[3]);
+            assertEquals(model.faces.length, 4, 'Model should have 4 faces');
+            assertEquals(model.points.length, 5, 'Model should have 5 points');
+        });
+        await t.step("splitBy2d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            model.splitBy2d(model.points[1], model.points[2]);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            model.splitBy2d(model.points[1], model.points[2]);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            model.splitBy2d(model.points[2], model.points[1]);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+        });
+        await t.step("splitPerpendicular2d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // On edge
+            model.splitPerpendicular2d(model.segments[0], model.points[2]);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            // Add center
+            const p = model.addPoint(0, 200, 0, 0, 0);
+            // Split perpendicular to edge by top point
+            model.splitPerpendicular2d(model.segments[0], p);
+            assertEquals(model.faces.length, 2,);
+            assertEquals(model.points.length, 6);
+        });
+        await t.step("splitPerpendicular3d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // On edge
+            model.splitPerpendicular3d(model.segments[0], model.points[2]);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            // Add center
+            const p = model.addPoint(0, 0, 0, 0, 0);
+            // Split perpendicular to edge by center
+            model.splitPerpendicular3d(model.segments[0], p);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 7, 'Model should have 7 points');
+        });
+    });
+    await t.step("bisector", async (t) => {
+        await t.step("bisector2d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            model.bisector2d(model.segments[0], model.segments[1]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+            model.bisector2d(model.segments[0], model.segments[2]);
+            assertEquals(model.faces.length, 4, 'Model should have 4 faces');
+            assertEquals(model.points.length, 7, 'Model should have 7 points');
+        });
+        await t.step("bisector3dPoints", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            model.bisector3dPoints(model.points[0], model.points[1], model.points[2]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+        });
+        await t.step("bisector2dPoints", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            model.bisector2dPoints(model.points[0], model.points[1], model.points[2]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
+        });
+        await t.step("bisector3dPoints", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            // From bottom to right (crossing lines) gives 2 triangles
+            model.bisector3d(model.points[0], model.points[1], model.points[1], model.points[2]);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 4, 'Model should have 4 points');
 
-        model.splitCross2d(model.points[0], model.points[3]);
-        model.splitCross2d(model.points[0], model.points[2]);
-        model.splitCross2d(model.points[1], model.points[3]);
-        assertEquals(model.faces.length, 8, 'Model should have 8 faces');
-    });
-});
+            // From left to right (parallel lines) the 2 faces are split to 4 faces
+            model.bisector3d(model.points[0], model.points[3], model.points[2], model.points[1]);
+            assertEquals(model.faces.length, 4, 'Model should have 4 faces');
+            assertEquals(model.points.length, 7, 'Model should have 7 points');
 
-Deno.test("Model splitBy3d ", async (t) => {
-    await t.step("splitBy3d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // On edge
-        model.splitBy3d(model.points[0], model.points[1]);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        // On diagonal
-        model.splitBy3d(model.points[0], model.points[2]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        // On other diagonal
-        model.splitBy3d(model.points[1], model.points[3]);
-        assertEquals(model.faces.length, 4, 'Model should have 4 faces');
-        assertEquals(model.points.length, 5, 'Model should have 5 points');
+            // From left to right (parallel lines) the 4 faces are unchanged
+            model.bisector3d(model.points[0], model.points[3], model.points[2], model.points[1]);
+            assertEquals(model.faces.length, 4, 'Model should have 4 faces');
+            assertEquals(model.points.length, 7, 'Model should have 7 points');
+        });
     });
-    await t.step("splitBy2d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // On edge by_2d 0 1 by_2d 0 2 by_2d 1 3
-        model.splitBy2d(model.points[1], model.points[2]);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        // On diagonal
-        model.splitBy2d(model.points[0], model.points[2]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.faces[0].points.length, 3, 'Face should have 3 points');
-        assertEquals(model.faces[1].points.length, 3, 'Face should have 3 points');
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        // On other diagonal
-        model.splitBy2d(model.points[1], model.points[3]);
-        assertEquals(model.faces.length, 4, 'Model should have 4 faces');
-        assertEquals(model.points.length, 5, 'Model should have 5 points');
-    });
-    await t.step("splitBy2d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        model.splitBy2d(model.points[1], model.points[2]);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        model.splitBy2d(model.points[1], model.points[2]);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        model.splitBy2d(model.points[2], model.points[1]);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-    });
-    await t.step("splitPerpendicular2d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // On edge
-        model.splitPerpendicular2d(model.segments[0], model.points[2]);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        // Add center
-        const p = model.addPoint(0, 200, 0, 0, 0);
-        // Split perpendicular to edge by top point
-        model.splitPerpendicular2d(model.segments[0], p);
-        assertEquals(model.faces.length, 2,);
-        assertEquals(model.points.length, 6);
-    });
-    await t.step("splitPerpendicular3d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // On edge
-        model.splitPerpendicular3d(model.segments[0], model.points[2]);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        // Add center
-        const p = model.addPoint(0, 0, 0, 0, 0);
-        // Split perpendicular to edge by center
-        model.splitPerpendicular3d(model.segments[0], p);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 7, 'Model should have 7 points');
-    });
-});
-
-Deno.test("Model bisector", async (t) => {
-    await t.step("bisector2d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        model.bisector2d(model.segments[0], model.segments[1]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-        model.bisector2d(model.segments[0], model.segments[2]);
-        assertEquals(model.faces.length, 4, 'Model should have 4 faces');
-        assertEquals(model.points.length, 7, 'Model should have 7 points');
-    });
-    await t.step("bisector3dPoints", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        model.bisector3dPoints(model.points[0], model.points[1], model.points[2]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-    });
-    await t.step("bisector2dPoints", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        model.bisector2dPoints(model.points[0], model.points[1], model.points[2]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-    });
-    await t.step("bisector3dPoints", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        // From bottom to right (crossing lines) gives 2 triangles
-        model.bisector3d(model.points[0], model.points[1], model.points[1], model.points[2]);
-        assertEquals(model.faces.length, 2, 'Model should have 2 faces');
-        assertEquals(model.points.length, 4, 'Model should have 4 points');
-
-        // From left to right (parallel lines) the 2 faces are split to 4 faces
-        model.bisector3d(model.points[0], model.points[3], model.points[2], model.points[1]);
-        assertEquals(model.faces.length, 4, 'Model should have 4 faces');
-        assertEquals(model.points.length, 7, 'Model should have 7 points');
-
-        // From left to right (parallel lines) the 4 faces are unchanged
-        model.bisector3d(model.points[0], model.points[3], model.points[2], model.points[1]);
-        assertEquals(model.faces.length, 4, 'Model should have 4 faces');
-        assertEquals(model.points.length, 7, 'Model should have 7 points');
-    });
-});
-
-Deno.test("Model rotate turn", async (t) => {
     await t.step("rotate", () => {
         const model = new Model().init(-200, -200, 200, 200);
         // Rotate around diagonal [1][3], by 90°, point [2]
@@ -393,7 +378,6 @@ Deno.test("Model rotate turn", async (t) => {
         assertEquals(Math.round(pt.y), -200, 'Got:' + pt.y);
         assertEquals(Math.round(pt.z), 0, 'Got:' + pt.z);
     });
-
     await t.step("turn", () => {
         const model = new Model().init(-200, -200, 200, 200);
         const p = model.points[0];
@@ -415,9 +399,6 @@ Deno.test("Model rotate turn", async (t) => {
         assertEquals(Math.round(p.x), -200, 'Got' + p.x);
         assertEquals(Math.round(p.y), -200, 'Got' + p.y);
     });
-});
-
-Deno.test("Model adjust adjustList", async (t) => {
     await t.step("adjust", () => {
         const model = new Model().init(-200, -200, 200, 200);
         const p = model.points[0];
@@ -443,9 +424,6 @@ Deno.test("Model adjust adjustList", async (t) => {
         assertEquals(Math.round(p0.x), -200, 'Expect -200 Got' + p0.x);
         assertEquals(max < 0.01, true, 'Expect max < 0.01 Got' + max);
     });
-});
-
-Deno.test("Model move moveOn", async (t) => {
     await t.step("move", () => {
         const model = new Model().init(-200, -200, 200, 200);
         const p0 = model.points[0];
@@ -473,26 +451,25 @@ Deno.test("Model move moveOn", async (t) => {
         assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);
         assertEquals(Math.round(p1.z), 0, 'Got:' + p1.z);
     });
-});
-
-Deno.test("Model splitSegmentOnPoint2d splitSegmentByRatio2d", async (t) => {
-    await t.step("splitSegmentOnPoint2d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        const s = model.segments[0];
-        const p = {xf: 0, yf: -200};
-        model.splitSegmentOnPoint2d(s, p);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 5, 'Model should have 5 points');
-        assertEquals(model.segments.length, 5, 'Model should have 5 segments');
-    });
-    await t.step("splitSegmentByRatio2d", () => {
-        const model = new Model().init(-200, -200, 200, 200);
-        const s = model.segments[0];
-        const k = 1 / 2;
-        model.splitSegmentByRatio2d(s, k);
-        assertEquals(model.faces.length, 1, 'Model should have 1 faces');
-        assertEquals(model.points.length, 5, 'Model should have 5 points');
-        assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+    await t.step("split Segment", async (t) => {
+        await t.step("splitSegmentOnPoint2d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            const s = model.segments[0];
+            const p = {xf: 0, yf: -200};
+            model.splitSegmentOnPoint2d(s, p);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 5, 'Model should have 5 points');
+            assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+        });
+        await t.step("splitSegmentByRatio2d", () => {
+            const model = new Model().init(-200, -200, 200, 200);
+            const s = model.segments[0];
+            const k = 1 / 2;
+            model.splitSegmentByRatio2d(s, k);
+            assertEquals(model.faces.length, 1, 'Model should have 1 faces');
+            assertEquals(model.points.length, 5, 'Model should have 5 points');
+            assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+        });
     });
     await t.step("flat", () => {
         const model = new Model().init(-200, -200, 200, 200);
@@ -511,75 +488,64 @@ Deno.test("Model splitSegmentOnPoint2d splitSegmentByRatio2d", async (t) => {
         assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);
         assertEquals(Math.round(p1.z), 0, 'Got:' + p1.z);
     });
-});
-// Turn
-Deno.test('Turn',  () => {
-    const model = new Model().init(-200, -200, 200, 200);
-    const p = model.points[0];
-    assertEquals(p.x, -200, 'Got' + p.x);
-    assertEquals(p.y, -200, 'Got' + p.y);
+    await t.step('Turn', () => {
+        const model = new Model().init(-200, -200, 200, 200);
+        const p = model.points[0];
+        assertEquals(p.x, -200, 'Got' + p.x);
+        assertEquals(p.y, -200, 'Got' + p.y);
 
-    let axis = new Segment(new Point(0, 0), new Point(0, 0, 1, 0, 0));
-    model.turn(axis, 180);
-    assertEquals(p.x, -200, 'Got' + p.x);
-    assertEquals(Math.round(p.y), 200, 'Got' + p.y);
+        let axis = new Segment(new Point(0, 0), new Point(0, 0, 1, 0, 0));
+        model.turn(axis, 180);
+        assertEquals(p.x, -200, 'Got' + p.x);
+        assertEquals(Math.round(p.y), 200, 'Got' + p.y);
 
-    axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 1, 0));
-    model.turn(axis, 180);
-    assertEquals(Math.round(p.x), 200, 'Got ' + p.x);
-    assertEquals(Math.round(p.y), 200, 'Got ' + p.y);
+        axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 1, 0));
+        model.turn(axis, 180);
+        assertEquals(Math.round(p.x), 200, 'Got ' + p.x);
+        assertEquals(Math.round(p.y), 200, 'Got ' + p.y);
 
-    axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 0, 1));
-    model.turn(axis, 180);
-    assertEquals(Math.round(p.x), -200, 'Got' + p.x);
-    assertEquals(Math.round(p.y), -200, 'Got' + p.y);
-});
-
-// Offset
-Deno.test('Offset', () => {
-    const model = new Model().init(-200, -200, 200, 200);
-    model.splitCross3d(model.points[0], model.points[2]);
-    model.offset(42, [model.faces[0]]);
-    assertEquals(model.faces[0].offset, 42, 'Got:' + model.faces[0].offset);
-    assertEquals(model.faces[1].offset, 0, 'Got:' + model.faces[1].offset);
-});
-
-// get2DBounds
-Deno.test('get2DBounds', () => {
-    const model = new Model().init(-200, -200, 200, 200);
-    const bounds = model.get2DBounds();
-    assertEquals(bounds.xMin, -200, 'Got:' + bounds.xMin);
-    assertEquals(bounds.xMax, 200, 'Got:' + bounds.xMax);
-    assertEquals(bounds.yMin, -200, 'Got:' + bounds.yMin);
-    assertEquals(bounds.yMax, 200, 'Got:' + bounds.yMax);
-});
-
-// get3DBounds
-Deno.test('get3DBounds', () => {
-    const model = new Model().init(-200, -200, 200, 200);
-    const bounds = model.get3DBounds();
-    assertEquals(bounds.xMin, -200, 'Got:' + bounds.xMin);
-    assertEquals(bounds.xMax, 200, 'Got:' + bounds.xMax);
-    assertEquals(bounds.yMin, -200, 'Got:' + bounds.yMin);
-    assertEquals(bounds.yMax, 200, 'Got:' + bounds.yMax);
-});
-
-// ScaleModel
-Deno.test('scaleModel', () => {
-    const model = new Model().init(-200, -200, 200, 200);
-    const p0 = model.points[0];
-    model.scaleModel(4);
-    assertEquals(p0.x, -800, 'Got:' + p0.x);
-    assertEquals(p0.y, -800, 'Got:' + p0.y);
-    assertEquals(p0.z, 0, 'Got:' + p0.z);
-});
-
-// Test rotate
-Deno.test('Rotate', () => {
-    const model = new Model().init(-200, -200, 200, 200);
-    model.splitBy3d(model.points[3], model.points[1])
-    model.rotate(model.segments[4], -180, [model.points[2]]);
-    model.splitCross3d(model.points[3], model.points[1]);
-    assertEquals(model.segments.length, 8, 'Got:' + model.segments.length);
-    assertEquals(model.faces[0].points.length, 3, 'Got:' + model.faces[0].points.length);
+        axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 0, 1));
+        model.turn(axis, 180);
+        assertEquals(Math.round(p.x), -200, 'Got' + p.x);
+        assertEquals(Math.round(p.y), -200, 'Got' + p.y);
+    });
+    await t.step('Offset', () => {
+        const model = new Model().init(-200, -200, 200, 200);
+        model.splitCross3d(model.points[0], model.points[2]);
+        model.offset(42, [model.faces[0]]);
+        assertEquals(model.faces[0].offset, 42, 'Got:' + model.faces[0].offset);
+        assertEquals(model.faces[1].offset, 0, 'Got:' + model.faces[1].offset);
+    });
+    await t.step('get2DBounds', () => {
+        const model = new Model().init(-200, -200, 200, 200);
+        const bounds = model.get2DBounds();
+        assertEquals(bounds.xMin, -200, 'Got:' + bounds.xMin);
+        assertEquals(bounds.xMax, 200, 'Got:' + bounds.xMax);
+        assertEquals(bounds.yMin, -200, 'Got:' + bounds.yMin);
+        assertEquals(bounds.yMax, 200, 'Got:' + bounds.yMax);
+    });
+    await t.step('get3DBounds', () => {
+        const model = new Model().init(-200, -200, 200, 200);
+        const bounds = model.get3DBounds();
+        assertEquals(bounds.xMin, -200, 'Got:' + bounds.xMin);
+        assertEquals(bounds.xMax, 200, 'Got:' + bounds.xMax);
+        assertEquals(bounds.yMin, -200, 'Got:' + bounds.yMin);
+        assertEquals(bounds.yMax, 200, 'Got:' + bounds.yMax);
+    });
+    await t.step('scaleModel', () => {
+        const model = new Model().init(-200, -200, 200, 200);
+        const p0 = model.points[0];
+        model.scaleModel(4);
+        assertEquals(p0.x, -800, 'Got:' + p0.x);
+        assertEquals(p0.y, -800, 'Got:' + p0.y);
+        assertEquals(p0.z, 0, 'Got:' + p0.z);
+    });
+    await t.step('Rotate', () => {
+        const model = new Model().init(-200, -200, 200, 200);
+        model.splitBy3d(model.points[3], model.points[1])
+        model.rotate(model.segments[4], -180, [model.points[2]]);
+        model.splitCross3d(model.points[3], model.points[1]);
+        assertEquals(model.segments.length, 8, 'Got:' + model.segments.length);
+        assertEquals(model.faces[0].points.length, 3, 'Got:' + model.faces[0].points.length);
+    });
 });

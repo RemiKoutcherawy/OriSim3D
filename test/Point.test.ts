@@ -1,4 +1,3 @@
-// deno test
 import { Point } from "../js/Point.js";
 import { assertEquals } from "jsr:@std/assert";
 
