@@ -8,7 +8,8 @@ export class Helper {
         this.canvas2d = canvas2d;
         this.view3d = view3d;
         this.overlay = overlay;
-        this.touchtime = 0;
+        this.touchTime = 0;
+        this.label = undefined;
         // To test with Deno
         if (canvas2d) {
             // 3d
@@ -36,6 +37,7 @@ export class Helper {
         this.firstSegment = undefined;
         this.firstFace = undefined;
         this.currentCanvas = undefined;
+        this.label = undefined;
     }
 
     // Draw only if a point, segment, or face is selected
@@ -49,6 +51,19 @@ export class Helper {
             context.moveTo(this.firstX, this.firstY);
             context.lineTo(this.currentX, this.currentY);
             context.stroke();
+            if (this.label) {
+                // Circle
+                const radius = 18;
+                context.fillStyle = 'skyblue';
+                context.beginPath();
+                context.arc(this.currentX, this.currentY - 16, radius, 0, 2 * Math.PI);
+                context.stroke();
+                context.fill();
+                // Text
+                context.fillStyle = 'black';
+                context.font = '20px serif';
+                context.fillText(this.label, this.currentX - 10, this.currentY - 8);
+            }
         }
     }
 
@@ -61,9 +76,11 @@ export class Helper {
         } else if (faces.length !== 0) {
             this.firstFace = faces[0];
         } else {
-            this.firstX = undefined;
-            this.firstY = undefined;
+            this.firstPoint = undefined;
+            this.firstSegment = undefined;
+            this.firstFace = undefined;
         }
+        this.touchTime = new Date().getTime();
         this.firstX = this.currentX = x;
         this.firstY = this.currentY = y;
     }
@@ -72,14 +89,52 @@ export class Helper {
         this.model.hover2d3d(points, segments, faces);
         if (this.firstPoint) {
             this.firstPoint.hover = true;
+            // From Point with selected segment(s)
+            const segments = this.model.segments.filter(s => s.select === 1);
+            if (segments.length >= 1) {
+                // The first selected segment
+                const s = segments[0];
+                // Deselect other segments
+                segments.filter(sg => (sg.select === 1)).forEach(sg => {
+                    if (sg !== s) {
+                        sg.select = 0;
+                    }
+                });
+                // The point we move from
+                const p = this.firstPoint;
+                // Select it
+                p.select = 1;
+                let distToFirst, distToCurrent;
+                if (this.currentCanvas === '2d') {
+                    // Signed distance from first point to segment.
+                    distToFirst = (p.xf - s.p1.xf) * (s.p2.yf - s.p1.yf) - (p.yf - s.p1.yf) * (s.p2.xf - s.p1.xf);
+                    // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
+                    distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
+                } else {
+                    // Signed distance from first point to segment.
+                    distToFirst = (p.xCanvas - s.p1.xCanvas) * (s.p2.yCanvas - s.p1.yCanvas) - (p.yCanvas - s.p1.yCanvas) * (s.p2.xCanvas - s.p1.xCanvas);
+                    // Signed distance from current point to segment. Which to cos(angle) * distToFirst.
+                    distToCurrent = (x - s.p1.xCanvas) * (s.p2.yCanvas - s.p1.yCanvas) - (y - s.p1.yCanvas) * (s.p2.xCanvas - s.p1.xCanvas);
+                }
+                // Clamp acos = distToCurrent/distToFirst
+                let acos = Math.min(Math.max(distToCurrent / distToFirst, -1), 1);
+                // Angle in degrees
+                let angle = Math.acos(acos) * 180 / Math.PI;
+                // Round to step 10
+                angle = Math.round(angle / 10) * 10;
+                // Round to 0 for angles less than 10
+                angle = Math.abs(Math.abs(angle) - 10) < 10 ? '00' : angle;
+                this.label = angle;
+            }
         } else if (this.firstSegment) {
             this.firstSegment.hover = true;
         } else if (this.firstFace) {
+            // Offset face positive if mouse moves right
             if ((x - this.currentX) > 0) {
-                // Offset face positive if mouse moves right
                 this.model.faces.filter(f => f.select === 1).forEach(f => f.offset += 1);
-            } else if ((x - this.currentX) < 0) {
-                // Offset face negative if mouse moves left
+            }
+            // Offset face negative if mouse moves left
+            else if ((x - this.currentX) < 0) {
                 this.model.faces.filter(f => f.select === 1).forEach(f => f.offset -= 1);
             }
         }
@@ -91,10 +146,10 @@ export class Helper {
         // From  point
         if (this.firstPoint) {
             // To Point
-            if (points.length !== 0) {
+            if (points.length !== 0 && this.label === undefined) {
                 if (this.firstPoint === points[0]) {
-                    // To same point
-                    this.model.click2d3d(points, segments, faces);
+                    // To same point select
+                    points.forEach((p) => p.select = (p.select + 1) % 3);
                 }
                 // To other point
                 else if (points.length > 0) {
@@ -119,7 +174,7 @@ export class Helper {
                 }
             }
             // To segment
-            else if (segments.length !== 0) {
+            else if (segments.length !== 0 && this.label === undefined) {
                 // Crease perpendicular from segment to point
                 const aIndex = this.model.indexOf(segments[0]);
                 const bIndex = this.model.indexOf(this.firstPoint);
@@ -129,13 +184,23 @@ export class Helper {
                     this.command.command(`perpendicular3d ${aIndex} ${bIndex}`);
                 }
             }
+            // To face or nothing checks if rotating
+            else if (this.label) {
+                const segments = this.model.segments.filter(s => s.select === 1);
+                const aIndex = this.model.indexOf(segments[0]);
+                const selected = this.model.points.filter(s => s.select === 1);
+                const bIndex = selected.map(p => this.model.points.indexOf(p));
+                const adjust = this.model.points.filter(s => s.select === 2);
+                const cIndex = adjust.map(p => this.model.points.indexOf(p));
+
+                this.command.command(`t 1000 rotate ${aIndex} ${this.label} ${bIndex.join(' ')} a ${cIndex.join(' ')};`);
+            }
         }
         // From segment
         else if (this.firstSegment) {
-            // To segment
-            if (segments.length !== 0) {
-                // To same segment select
-                this.model.click2d3d(points, segments, faces);
+            // To same segment select
+            if (segments.length !== 0 && segments[0] === this.firstSegment) {
+                segments.forEach((s) => s.select = (s.select + 1) % 3);
             }
             // To point crease perpendicular from segment to point
             else if (points.length !== 0) {
@@ -145,7 +210,8 @@ export class Helper {
                     this.command.command(`perpendicular2d ${aIndex} ${bIndex}`);
                 } else {
                     this.command.command(`perpendicular3d ${aIndex} ${bIndex}`);
-                }            }
+                }
+            }
             // To another segment crease bisector
             else if (segments.length !== 0) {
                 const aIndex = this.model.indexOf(this.firstSegment);
@@ -175,27 +241,26 @@ export class Helper {
             }
         }
         // From Nothing to Nothing
-        else {
+        //  Handle swipe
+        else if (((new Date().getTime()) - this.touchTime) < 1000 && this.currentCanvas === '2d') {
+            if ((this.firstX - this.currentX) < -50) {
+                // Undo if swipe right
+                this.command.command('undo');
+            } else if ((this.firstX - this.currentX) > 50) {
+                // Turn if swipe left
+                this.command.command('t 1000 ty -180;');
+            } else if ((this.firstY - this.currentY) < -50) {
+                // Handle turn if swipe up
+                this.command.command('t 1000 tx 180;');
+            } else if ((this.firstY - this.currentY) > 50) {
+                // Handle turn if swipe down
+                this.command.command('t 1000 tx -180;');
+            }
+        } else {
             // Deselect
             this.model.points.forEach(p => p.select = 0);
             this.model.segments.forEach(s => s.select = 0);
             this.model.faces.forEach(f => f.select = 0);
-
-            //  Handle swipe
-            // console.log('delta X',(this.firstX - this.currentX));
-            // console.log('delta time',(new Date().getTime()) - this.touchtime);
-            if (((new Date().getTime()) - this.touchtime) < 6000) {
-                if ((this.firstX - this.currentX) < 100) {
-                    // Handle undo if swipe right
-                    this.command.command('undo');
-                }
-                else if ((this.firstX - this.currentX) > 100){
-                    // Handle turn if swipe left
-                    this.command.command('tx');
-                }
-            } else {
-                this.touchtime = new Date().getTime();
-            }
         }
         this.out();
     }
@@ -215,30 +280,27 @@ export class Helper {
             yf: -q.y, // Note inverse y coordinate
         };
     }
+
     // Points, then segments, then faces near xf, yf
     search2d(xf, yf) {
         // Points near xf, yf
-        const points = this.model.points.filter(p => {
-            return Math.hypot(p.xf - xf, p.yf - yf) < 10;
-        });
+        const points = this.model.points.filter(p => Math.hypot(p.xf - xf, p.yf - yf) < 10);
         // Segments near xf, yf
-        const segments = this.model.segments.filter(s => {
-            return Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 4;
-        });
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 4);
         // Face containing xf, yf
-        const faces = this.model.faces.filter(f => {
-            return Face.contains2d(f, xf, yf);
-        });
+        const faces = this.model.faces.filter(f =>  Face.contains2d(f, xf, yf));
         return {points, segments, faces};
     }
+
     // Down on flat 2d
     down2d(event) {
-        this.currentCanvas = "2d";
+        this.currentCanvas = '2d';
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate
     }
-    // Hove on flat 2d
+
+    // Move on flat 2d
     move2d(event) {
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
@@ -250,7 +312,6 @@ export class Helper {
         const {points, segments, faces} = this.search2d(xf, yf);
         this.up(points, segments, faces);
     }
-
     // Canvas 3d
     eventCanvas3d(event) {
         if (!(event instanceof Event)) return event; // Used for test
@@ -260,22 +321,19 @@ export class Helper {
             yCanvas: event.clientY - rect.top,
         };
     }
+    // Points, then segments, then faces near xCanvas, yCanvas
     search3d(xCanvas, yCanvas) {
-        // Points near xf, yf
+        // Points near xCanvas, yCanvas
         const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < 10);
-        // Segments near xf, yf
-        const segments = this.model.segments.filter(s => {
-            return Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6;
-        });
-        // Face containing xf, yf
-        const faces = this.model.faces.filter(f => {
-            return Face.contains3d(f, xCanvas, yCanvas);
-        });
+        // Segments near xCanvas, yCanvas
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
+        // Face containing xCanvas, yCanvas
+        const faces = this.model.faces.filter(f => Face.contains3d(f, xCanvas, yCanvas));
         return {points, segments, faces, xCanvas, yCanvas};
     }
-    // Mouse down on 3d ovelay
+    // Down on 3d overlay
     down3d(event) {
-        this.currentCanvas = "3d";
+        this.currentCanvas = '3d';
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.down(points, segments, faces, xCanvas, yCanvas);
@@ -283,7 +341,7 @@ export class Helper {
             this.doubleClick();
         }
     }
-    // Mouse move on 3d ovelay
+    // Move on 3d overlay
     move3d(event) {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
@@ -302,11 +360,11 @@ export class Helper {
         }
         this.move(points, segments, faces, xCanvas, yCanvas);
     }
-    // Mouse up on 3d ovelay
+    // Up on 3d overlay
     up3d(event) {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
-        this.up(points, segments, faces, "3d");
+        this.up(points, segments, faces, '3d');
         this.currentCanvas = undefined;
     }
     // Mouse wheel on 3d overlay
@@ -319,19 +377,20 @@ export class Helper {
     }
 
     doubleClick() {
-        if (this.touchtime === 0) {
-            this.touchtime = new Date().getTime();
+        if (this.touchTime === 0) {
+            this.touchTime = new Date().getTime();
         } else {
             // Double click ?
-            if (((new Date().getTime()) - this.touchtime) < 400) {
+            if (((new Date().getTime()) - this.touchTime) < 400) {
                 this.command.command('fit');
                 this.view3d.angleX = 0.0;
                 this.view3d.angleY = 0.0;
                 this.view3d.scale = 1.0;
             } else {
-                this.touchtime = new Date().getTime();
+                this.touchTime = new Date().getTime();
             }
         }
     }
 
 }
+// 396
