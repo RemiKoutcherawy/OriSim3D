@@ -14,3 +14,7 @@ deno run --allow-net --allow-read jsr:@std/http/file-server
 and open
 http://localhost:8000
 
+To use assert in deno.json:
+```
+deno add @std/assert 
+```
