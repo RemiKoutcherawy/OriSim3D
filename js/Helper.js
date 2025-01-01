@@ -116,17 +116,18 @@ export class Helper {
                     // Signed distance from current point to segment. Which to cos(angle) * distToFirst.
                     distToCurrent = (x - s.p1.xCanvas) * (s.p2.yCanvas - s.p1.yCanvas) - (y - s.p1.yCanvas) * (s.p2.xCanvas - s.p1.xCanvas);
                 }
-                // Clamp acos = distToCurrent/distToFirst
-                let acos = Math.min(Math.max(distToCurrent / distToFirst, -1), 1);
+                // Clamp ratio = distToCurrent/distToFirst to [-1, 1]
+                let ratio = Math.min(Math.max(distToCurrent / distToFirst, -1), 1);
                 // Angle in degrees
-                let angle = Math.acos(acos) * 180 / Math.PI;
+                let angle = (1 - ratio) * 180 * -Math.sign(distToFirst);
                 // Round to step 10
                 angle = Math.round(angle / 10) * 10;
                 // Round to 0 for angles less than 10
                 angle = Math.abs(Math.abs(angle) - 10) < 10 ? '00' : angle;
                 this.label = angle;
             }
-        } else if (this.firstSegment) {
+        }
+        else if (this.firstSegment) {
             this.firstSegment.hover = true;
         } else if (this.firstFace) {
             // Offset face positive if mouse moves right
@@ -306,12 +307,14 @@ export class Helper {
         const {points, segments, faces} = this.search2d(xf, yf);
         this.move(points, segments, faces, xf, -yf);
     }
+
     // Up on flat 2d
     up2d(event) {
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.up(points, segments, faces);
     }
+
     // Canvas 3d
     eventCanvas3d(event) {
         if (!(event instanceof Event)) return event; // Used for test
@@ -321,6 +324,7 @@ export class Helper {
             yCanvas: event.clientY - rect.top,
         };
     }
+
     // Points, then segments, then faces near xCanvas, yCanvas
     search3d(xCanvas, yCanvas) {
         // Points near xCanvas, yCanvas
@@ -331,6 +335,7 @@ export class Helper {
         const faces = this.model.faces.filter(f => Face.contains3d(f, xCanvas, yCanvas));
         return {points, segments, faces, xCanvas, yCanvas};
     }
+
     // Down on 3d overlay
     down3d(event) {
         this.currentCanvas = '3d';
@@ -341,13 +346,14 @@ export class Helper {
             this.doubleClick();
         }
     }
+
     // Move on 3d overlay
     move3d(event) {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
-        // handle 3d rotation
+        // Handle 3d rotation
         if (points.length === 0 && segments.length === 0 && faces.length === 0
-            && event.buttons === 1) {
+            && event.buttons === 1 && this.firstPoint === undefined && this.firstSegment === undefined && this.firstFace === undefined) {
             // Rotation
             const factor = 600 / event.target.height;
             const dx = factor * (xCanvas - this.currentX);
@@ -360,6 +366,7 @@ export class Helper {
         }
         this.move(points, segments, faces, xCanvas, yCanvas);
     }
+
     // Up on 3d overlay
     up3d(event) {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
@@ -367,6 +374,7 @@ export class Helper {
         this.up(points, segments, faces, '3d');
         this.currentCanvas = undefined;
     }
+
     // Mouse wheel on 3d overlay
     wheel(event) {
         if (event.deltaY) {
@@ -393,4 +401,4 @@ export class Helper {
     }
 
 }
-// 396
+// 403
