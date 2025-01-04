@@ -116,10 +116,10 @@ export class Helper {
                     // Signed distance from current point to segment. Which to cos(angle) * distToFirst.
                     distToCurrent = (x - s.p1.xCanvas) * (s.p2.yCanvas - s.p1.yCanvas) - (y - s.p1.yCanvas) * (s.p2.xCanvas - s.p1.xCanvas);
                 }
-                // Clamp ratio = distToCurrent/distToFirst to [-1, 1]
-                let ratio = Math.min(Math.max(distToCurrent / distToFirst, -1), 1);
+                // Clamp ratio = distToCurrent/distToFirst
+                let ratio = Math.abs(distToCurrent / distToFirst);
                 // Angle in degrees
-                let angle = (1 - ratio) * 180 * -Math.sign(distToFirst);
+                let angle = (ratio -1) * 180 * -Math.sign(distToFirst);
                 // Round to step 10
                 angle = Math.round(angle / 10) * 10;
                 // Round to 0 for angles less than 10
