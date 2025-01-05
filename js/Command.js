@@ -274,7 +274,7 @@ export class Command {
             idx++;
             list = this.listPoints(tokenList, idx);
             idx += list.length;
-            this.model.adjustList(list);
+            this.model.adjustList(list.length ===0 ? this.model.points : list);
         } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
             // Offset by dz a list of faces : o dz f1 f2...
             idx++;
