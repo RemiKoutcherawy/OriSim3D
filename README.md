@@ -32,7 +32,7 @@ Work in progress, any help is welcome.
 6. Helper.js interprets mouse click and drag to send commands
 
 ### Origami text commands :
-- define: bottom left xf,yf and top right xf,yf : d -200 -200 200 200
+- define: width height : d 200 200
 - by3d: crease between two points in 3d (splits by a plane passing by the points) : by3d p1 p2
 - by2d: crease between two points in 2d crease pattern (splits by a segment passing by the points) : by2d p1 p2
 - across3d: crease across a face in 3d (splits by a plane across the face) : across3d p1 p2

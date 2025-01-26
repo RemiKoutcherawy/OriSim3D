@@ -32,7 +32,7 @@
 
   function init() {
     // Model 3D
-    let model = new Model().init(-200, -200, 200, 200);
+    let model = new Model().init(200, 200);
 
     // View 3d with 2D overlay
     const canvas3d = window.document.getElementById("canvas3d");
@@ -65,7 +65,7 @@
     loop();
 
     setTimeout( () => {
-      command.command(`define -200 -200 200 200
+      command.command(`define 200 200
 // Define crease pattern
 c3d 0 1 c3d 0 3 c3d 0 2 c3d 1 3
 c3d 0 8 c3d 8 3 c3d 0 4 c3d 4 1

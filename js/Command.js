@@ -59,7 +59,6 @@ export class Command {
     // Tokenize, split the input String in Array of String
     tokenize = function tokenize(input) {
         let text = input.replace(/\/\/.*$/mg, ''); // Remove comments
-        text = text.replace(/,/g, ' '); // , => space for define 200,200...
         text = text.replace(/([);\n])|(\)\n)/g, ' eoc '); // ) or ; or \n => end of command
         return text.split(/\s+/).filter(e => e !== '')
     }
@@ -164,7 +163,7 @@ export class Command {
             while (Number.isInteger(Number(tokenList[idx]))) {
                 list.push(Number(tokenList[idx++]));
             }
-            this.model.init(list[0], list[1], list[2], list[3]);
+            this.model.init(list[0], list[1]);
         }
 
         // Origami splits

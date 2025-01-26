@@ -5,7 +5,7 @@ import { Helper } from "../js/Helper.js";
 import { assertEquals } from "jsr:@std/assert";
 
 Deno.test("Helper Tests", async (t) => {
-  const model = new Model().init(-200, -200, 200, 200);
+  const model = new Model().init(200, 200);
   const command = new Command(model);
   const helper = new Helper(model, command, null, null, null);
 

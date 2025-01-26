@@ -22,15 +22,15 @@ export class Model {
     }
 
     // Initialize with 2d coordinates
-    init(xMin, yMin, xMax, yMax) {
+    init(width = 200, height = 200) {
         this.points = [];
         this.segments = [];
         this.faces = [];
         // 4 points
-        const p0 = new Point(xMin, yMin, xMin, yMin, 0);
-        const p1 = new Point(xMax, yMin, xMax, yMin, 0);
-        const p2 = new Point(xMax, yMax, xMax, yMax, 0);
-        const p3 = new Point(xMin, yMax, xMin, yMax, 0);
+        const p0 = new Point(-width, -height, -width, -height, 0);
+        const p1 = new Point(width, -height, width, -height, 0);
+        const p2 = new Point(width, height, width, height, 0);
+        const p3 = new Point(-width, height, -width, height, 0);
         this.points.push(p0, p1, p2, p3);
         // 4 segments
         this.segments.push(
