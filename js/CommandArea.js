@@ -1,7 +1,7 @@
 export class CommandArea {
     constructor(command, textarea) {
         this.textarea = textarea;
-        this.textarea.addEventListener('keypress', this.keypress.bind(this));
+        this.textarea.addEventListener('keydown', this.keydown.bind(this));
         this.command = command;
         command.commandArea = this;
     }
@@ -14,7 +14,7 @@ export class CommandArea {
         this.textarea.focus();
     }
 
-    keypress = function (e) {
+    keydown = function (e) {
         const el = e.target; // HTMLTextAreaElement
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -26,6 +26,12 @@ export class CommandArea {
             let line = value.substring(start, end);
             if (line.startsWith('t') && !line.endsWith(';')) line += ';';
             this.command.command(line);
+        }
+        // Control Z to undo
+        if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.command.command('undo');
         }
     }
 }
