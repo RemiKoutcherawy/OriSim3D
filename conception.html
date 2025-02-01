@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <title>OriSim3D-JS</title>
+  <title>OriSim3D</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta charset="utf-8">
   <meta content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" name="viewport">
@@ -94,13 +94,17 @@ t 100 rotate 45 179 7 12 a 2 18 1;
 t 100 rotate 13 -90 12 1 a 1 24;
 // Fold from bottom
 t 100 rotate 24 -179 21 4 a 24 0 1;
-// Lift bottom left corner
-t 100 rotate 13 -70 1 12 24;
-
+// Lift bottom right corner
+t 100 rotate 13 -80 1 12 24;
 // Fold from left
+t 1000 rotate 48 -90 21 a 0;
+t 1000 rotate 37 -90 8 9 a 0;
+
 // t 1000 rotate 37 -180 8 9 a 0 21;
+// Lift bottom left corner
+// t 100 rotate 17 80 21 a 0;
 // Fold along median
-// t 1000 rotate 28 -90 19 22 2 14 15 18 23 rotate 38 -90 3;
+// t 100 rotate 28 -90 19 22 2 14 15 18 23 rotate 38 -90 3;
 
 `);
     }, 500);
