@@ -692,11 +692,13 @@ export class Model {
 
     // Adjust list of points 3d
     adjustList(list) {
+        console.log('Adjust list', list.length);
         let max = 100;
         for (let i = 0; max > 0.001 && i < 100; i++) {
             max = 0;
             for (let j = 0; j < list.length; j++) {
                 const point = list[j];
+                console.log('Adjust Point', this.indexOf(point));
                 const segments = this.searchSegmentsOnePoint(point);
                 const d = this.adjust(point, segments);
                 if (Math.abs(d) > max) {
