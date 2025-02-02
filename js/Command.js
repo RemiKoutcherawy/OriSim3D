@@ -274,6 +274,12 @@ export class Command {
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.adjustList(list.length ===0 ? this.model.points : list);
+        } else if (tokenList[idx] === 'check') {
+            idx++;
+            // Deselect all
+            this.model.points.forEach(p => p.select = 0);
+            this.model.segments.forEach(s => s.select = 0);
+            this.model.checkSegments();
         } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
             // Offset by dz a list of faces : o dz f1 f2...
             idx++;
@@ -364,14 +370,22 @@ export class Command {
         }
 
         // Select
-        else if (tokenList[idx] === 'selectSegment') {
+        else if (tokenList[idx] === 'selectPoints' || tokenList[idx] === 'sp') {
             idx++;
-            const i = Number(tokenList[idx++]);
-            this.model.segments[i].select = true;
-        } else if (tokenList[idx] === 'selectPoint') {
+            list = this.listPoints(tokenList, idx);
+            idx += list.length;
+            this.model.points.forEach(function(p){
+                p.select = list.indexOf(p) !== -1;
+            });
+            console.log('selectPoints', list);
+        } else if (tokenList[idx] === 'selectSegments' || tokenList[idx] === 'ss') {
             idx++;
-            const i = Number(tokenList[idx++]);
-            this.model.points[i].select = true;
+            list = this.listSegments(tokenList, idx);
+            idx += list.length;
+            this.model.segments.forEach(function(s){
+                s.select = list.indexOf(s) !== -1;
+            });
+            console.log('selectSegments', list);
         } else if (tokenList[idx] === 'labels') {
             idx++;
             this.model.labels = !this.model.labels;

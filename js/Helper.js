@@ -150,7 +150,18 @@ export class Helper {
             if (points.length !== 0 && this.label === undefined) {
                 if (this.firstPoint === points[0]) {
                     // To same point select
-                    points.forEach((p) => p.select = (p.select + 1) % 3);
+                    points.forEach((p) => {
+                        p.select = (p.select + 1) % 3;
+                        // Adjust if double select
+                        if (p.select === 2) {
+                            this.model.adjust(p);
+                            console.log(this.model.indexOf(p));
+
+                            this.view3d.initBuffers();
+                            this.view3d.initModelView();
+                            // this.view3d.render();
+                        }
+                    });
                 }
                 // To other point
                 else if (points.length > 0) {
@@ -193,8 +204,11 @@ export class Helper {
                 const bIndex = selected.map(p => this.model.points.indexOf(p));
                 const adjust = this.model.points.filter(s => s.select === 2);
                 const cIndex = adjust.map(p => this.model.points.indexOf(p));
-
-                this.command.command(`t 1000 rotate ${aIndex} ${this.label} ${bIndex.join(' ')} a ${cIndex.join(' ')};`);
+                if (adjust.length === 0) {
+                    this.command.command(`t 1000 rotate ${aIndex} ${this.label} ${bIndex.join(' ')};`);
+                } else {
+                    this.command.command(`t 1000 rotate ${aIndex} ${this.label} ${bIndex.join(' ')} a ${cIndex.join(' ')};`);
+                }
             }
         }
         // From segment
@@ -257,7 +271,9 @@ export class Helper {
                 // Handle turn if swipe down
                 this.command.command('t 1000 tx -180;');
             }
-        } else {
+        }
+        // Deselect
+        else {
             // Deselect
             this.model.points.forEach(p => p.select = 0);
             this.model.segments.forEach(s => s.select = 0);
@@ -371,7 +387,7 @@ export class Helper {
     up3d(event) {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
-        this.up(points, segments, faces, '3d');
+        this.up(points, segments, faces);
         this.currentCanvas = undefined;
     }
 

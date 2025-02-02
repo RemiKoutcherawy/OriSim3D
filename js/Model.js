@@ -16,6 +16,7 @@ export class Model {
 
         // State of model
         this.state = State.run;
+        this.scale = 1.0;
 
         // Helper
         this.labels = false;
@@ -632,20 +633,20 @@ export class Model {
     }
 
     // Adjust one point 3d with 2d length of segments
-    adjust(point, segments) {
-        // Take all segments containing point p or given list
-        segments = segments || this.searchSegmentsOnePoint(point);
-        let max = 100;
+    adjust(point) {
+        // Take all segments containing point p
+        const segments = this.searchSegmentsOnePoint(point);
+        let max = 1.0;
         // 'Kaczmarz' method or Verlet integration
         // Iterate while length difference between 2d and 3d is > 1e-3
-        for (let i = 0; max > 0.001 && i < 20; i++) {
+        for (let i = 0; max > 0.01 && i < 200; i++) {
             max = 0;
             // Iterate over all segments
             // Pm is the medium point
             const pm = new Vector3(0, 0, 0);
             for (let j = 0; j < segments.length; j++) {
                 const s = segments[j];
-                const lg3d = Segment.length3d(s);
+                const lg3d = Segment.length3d(s) / this.scale;
                 const lg2d = Segment.length2d(s); // Should not change
                 const d = lg2d - lg3d;
                 if (Math.abs(d) > max) {
@@ -676,37 +677,40 @@ export class Model {
         return max;
     }
 
-    // Adjust one point 3d
-    adjustPoint(point) {
-        let max = 100;
-        for (let i = 0; max > 0.001 && i < 100; i++) {
-            max = 0;
-            const segments = this.searchSegmentsOnePoint(point);
-            const d = this.adjust(point, segments);
-            if (Math.abs(d) > max) {
-                max = Math.abs(d);
-            }
-        }
-        return max;
-    }
-
     // Adjust list of points 3d
     adjustList(list) {
         console.log('Adjust list', list.length);
         let max = 100;
-        for (let i = 0; max > 0.001 && i < 100; i++) {
+        for (let i = 0; max > 0.0001 && i < 200; i++) {
             max = 0;
             for (let j = 0; j < list.length; j++) {
                 const point = list[j];
-                console.log('Adjust Point', this.indexOf(point));
-                const segments = this.searchSegmentsOnePoint(point);
-                const d = this.adjust(point, segments);
+                const d = this.adjust(point);
                 if (Math.abs(d) > max) {
                     max = Math.abs(d);
                 }
             }
         }
         return max;
+    }
+
+    // Checks segments and selects segments with anormal length
+    checkSegments() {
+        const max = 1.0;
+        for (let j = 0; j < this.points.length; j++) {
+            const p = this.points[j];
+            const segments = this.searchSegmentsOnePoint(p);
+            for (let i = 0; i < segments.length; i++) {
+                const s = segments[i];
+                const lg3d = Segment.length3d(s) / this.scale;
+                const lg2d = Segment.length2d(s); // Should not change
+                const d = lg2d - lg3d;
+                if (Math.abs(d) > max) {
+                    s.select = 1;
+                    p.select = 1;
+                }
+            }
+        }
     }
 
     // Search all segments containing Point a
@@ -784,6 +788,7 @@ export class Model {
 
     // Scale model @testOK
     scaleModel(scale) {
+        this.scale = scale;
         this.points.forEach(function (p) {
             p.x *= scale;
             p.y *= scale;

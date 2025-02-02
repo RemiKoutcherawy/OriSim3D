@@ -15,7 +15,7 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         // Serialize
         const serialized = model.serialize();
-        assertEquals(serialized.length, 491, "serialized model should have length 491");
+        assertEquals(serialized.length, 501, "serialized model should have length 491");
 
         // Change model, should not affect serialized
         model.addPoint(0, 0, 0, 0, 0);
@@ -402,7 +402,6 @@ Deno.test("Model", async (t) => {
     await t.step("adjust", () => {
         const model = new Model().init(200, 200);
         const p = model.points[0];
-        const s = model.segments[0];
         p.x = -100; // arbitrary move
         // Adjust one point on all segments
         let max = model.adjust(p);
@@ -410,7 +409,7 @@ Deno.test("Model", async (t) => {
         assertEquals(max < 0.01, true, 'Got:' + max);
         p.x = -400; // arbitrary move
         // Adjust one point on list of segments
-        max = model.adjust(p, [s]);
+        max = model.adjust(p);
         assertEquals(Math.round(p.x), -200, 'Got:' + p.x);
         assertEquals(max < 0.01, true, 'Got:' + max);
     });
