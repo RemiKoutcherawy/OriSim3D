@@ -679,7 +679,6 @@ export class Model {
 
     // Adjust list of points 3d
     adjustList(list) {
-        console.log('Adjust list', list.length);
         let max = 100;
         for (let i = 0; max > 0.0001 && i < 200; i++) {
             max = 0;

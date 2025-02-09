@@ -155,8 +155,6 @@ export class Helper {
                         // Adjust if double select
                         if (p.select === 2) {
                             this.model.adjust(p);
-                            console.log(this.model.indexOf(p));
-
                             this.view3d.initBuffers();
                             this.view3d.initModelView();
                             // this.view3d.render();

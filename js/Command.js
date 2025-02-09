@@ -321,7 +321,7 @@ export class Command {
             // Animation
             const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
             const b = scale * (this.tni / a - this.tpi);
-            this.model.move(x * b, y * b, 0, this.model.points);
+            this.model.movePoints(x * b, y * b, 0, this.model.points);
             this.model.scaleModel(a);
         } else if (tokenList[idx] === 'zf' || tokenList[idx] === 'fit') {
             // Zoom fit 3d : fit3d
@@ -335,7 +335,7 @@ export class Command {
             }
             const a = ((1 + this.tni * ((this.za)[0] - 1)) / (1 + this.tpi * ((this.za)[0] - 1)));
             const b = (this.za)[0] * (this.tni / a - this.tpi);
-            this.model.move((this.za)[1] * b, (this.za)[2] * b, 0, this.model.points);
+            this.model.movePoints((this.za)[1] * b, (this.za)[2] * b, 0, this.model.points);
             this.model.scaleModel(a);
         }
 
@@ -377,7 +377,6 @@ export class Command {
             this.model.points.forEach(function(p){
                 p.select = list.indexOf(p) !== -1;
             });
-            console.log('selectPoints', list);
         } else if (tokenList[idx] === 'selectSegments' || tokenList[idx] === 'ss') {
             idx++;
             list = this.listSegments(tokenList, idx);
@@ -385,7 +384,6 @@ export class Command {
             this.model.segments.forEach(function(s){
                 s.select = list.indexOf(s) !== -1;
             });
-            console.log('selectSegments', list);
         } else if (tokenList[idx] === 'labels') {
             idx++;
             this.model.labels = !this.model.labels;
