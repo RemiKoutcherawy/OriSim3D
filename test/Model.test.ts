@@ -427,11 +427,11 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         const p0 = model.points[0];
         const p1 = model.points[1];
-        model.move(1, 2, 3, [p0, p1]);
+        model.movePoints(1, 2, 3, [p0, p1]);
         assertEquals(Math.round(p0.x), -199, 'Got:' + p0.x);
         assertEquals(Math.round(p0.y), -198, 'Got:' + p0.y);
         assertEquals(Math.round(p0.z), 3, 'Got:' + p0.z);
-        model.move(1, 2, 3, model.points);
+        model.movePoints(1, 2, 3, model.points);
         assertEquals(Math.round(p0.x), -198, 'Got:' + p0.x);
         assertEquals(Math.round(p0.y), -196, 'Got:' + p0.y);
         assertEquals(Math.round(p0.z), 6, 'Got:' + p0.z);
@@ -474,14 +474,14 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         const p0 = model.points[0];
         const p1 = model.points[1];
-        model.move(0, 0, 3, [p0, p1]);
+        model.movePoints(0, 0, 3, [p0, p1]);
 
         // Move flat points p0 p1
         model.flat([p1]);
         assertEquals(Math.round(p1.x), 200, 'Got:' + p1.x);
         assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);
         assertEquals(Math.round(p1.z), 0, 'Got:' + p1.z);
-        model.move(0, 0, 3, [p0, p1]);
+        model.movePoints(0, 0, 3, [p0, p1]);
         model.flat();
         assertEquals(Math.round(p1.x), 200, 'Got:' + p1.x);
         assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);

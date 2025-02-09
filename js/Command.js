@@ -267,7 +267,7 @@ export class Command {
             const dz = tokenList[idx++] * (this.tni - this.tpi);
             list = this.listPoints(tokenList, idx);
             idx += list.length;
-            this.model.move(dx, dy, dz, list);
+            this.model.movePoints(dx, dy, dz, list);
         } else if (tokenList[idx] === 'a' || tokenList[idx] === 'adjust') {
             // Adjust points in 3D to equal 2D length of segments : a p1 p2 p3...
             idx++;

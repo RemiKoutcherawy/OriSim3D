@@ -516,7 +516,7 @@ export class View3d {
             this.labels.push(oneLabel);
             this.labels.forEach(label => {
                 if (label !== oneLabel && label.over(oneLabel)) {
-                    oneLabel.move();
+                    oneLabel.moveLabel();
                 }
             });
             // Line
@@ -558,7 +558,7 @@ class Label {
         return Math.floor(this.y + Label.size * 2 * Math.sin((this.n - 1) * Math.PI / 4));
     }
 
-    move() {
+    moveLabel() {
         this.n++;
         return this.n > 8;
     }

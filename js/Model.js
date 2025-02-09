@@ -735,7 +735,7 @@ export class Model {
     }
 
     // Move list of points by dx,dy,dz
-    move(dx, dy, dz, points) {
+    movePoints(dx, dy, dz, points) {
         points.forEach((p) => {
             p.x += dx;
             p.y += dy;
