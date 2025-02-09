@@ -26,7 +26,6 @@ export class CommandArea {
         const el = e.target; // HTMLTextAreaElement
         if (e.key === 'Enter') {
             e.preventDefault();
-            el.scrollTop = el.scrollHeight;
             const caretPos = el.selectionStart;
             const value = el.value;
             const start = value.lastIndexOf('\n', caretPos - 1) + 1;
@@ -35,6 +34,7 @@ export class CommandArea {
             if (line.startsWith('t') && !line.endsWith(';')) line += ';';
             this.command.command(line);
             this.textarea.selectionStart = this.textarea.selectionEnd = this.textarea.value.length;
+            el.scrollTop = el.scrollHeight;
         }
         // Control Z to undo
         if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
