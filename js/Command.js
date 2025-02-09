@@ -375,14 +375,14 @@ export class Command {
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.points.forEach(function(p){
-                p.select = list.indexOf(p) !== -1;
+                p.select = (list.indexOf(p) !== -1) ? 1 : 0;
             });
         } else if (tokenList[idx] === 'selectSegments' || tokenList[idx] === 'ss') {
             idx++;
             list = this.listSegments(tokenList, idx);
             idx += list.length;
             this.model.segments.forEach(function(s){
-                s.select = list.indexOf(s) !== -1;
+                s.select = (list.indexOf(s) !== -1) ? 1 : 0;
             });
         } else if (tokenList[idx] === 'labels') {
             idx++;
