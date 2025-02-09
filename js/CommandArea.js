@@ -7,10 +7,18 @@ export class CommandArea {
     }
 
     addLine(text) {
-        // Insert at the end
-        this.textarea.value += `${text}\n`;
+        const value = this.textarea.value;
+        const lastLineStart = value.lastIndexOf('\n') + 1;
+        const lastLine = value.substring(lastLineStart).trim();
+        if (lastLine !== text){
+            // Insert at the end
+            this.textarea.value += `${text}\n`;
+        } else {
+            // Only new line
+            this.textarea.value += `\n`;
+        }
         // Scroll to the end
-        this.textarea.selectionEnd = this.textarea.selectionEnd = this.textarea.value.length;
+        this.textarea.selectionStart = this.textarea.selectionEnd = this.textarea.value.length;
         this.textarea.focus();
     }
 
@@ -26,6 +34,7 @@ export class CommandArea {
             let line = value.substring(start, end);
             if (line.startsWith('t') && !line.endsWith(';')) line += ';';
             this.command.command(line);
+            this.textarea.selectionStart = this.textarea.selectionEnd = this.textarea.value.length;
         }
         // Control Z to undo
         if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
