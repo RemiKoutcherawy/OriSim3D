@@ -356,9 +356,6 @@ export class Helper {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.down(points, segments, faces, xCanvas, yCanvas);
-        if (points.length === 0 && segments.length === 0 && faces.length === 0) {
-            this.doubleClick();
-        }
     }
 
     // Move on 3d overlay
@@ -387,6 +384,9 @@ export class Helper {
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.up(points, segments, faces);
         this.currentCanvas = undefined;
+        if (points.length === 0 && segments.length === 0 && faces.length === 0) {
+            this.doubleClick();
+        }
     }
 
     // Mouse wheel on 3d overlay

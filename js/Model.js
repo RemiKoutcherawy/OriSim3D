@@ -787,7 +787,7 @@ export class Model {
 
     // Scale model @testOK
     scaleModel(scale) {
-        this.scale = scale;
+        this.scale *= scale;
         this.points.forEach(function (p) {
             p.x *= scale;
             p.y *= scale;
