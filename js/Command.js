@@ -160,10 +160,10 @@ export class Command {
         if (tokenList[idx] === 'd' || tokenList[idx] === 'define') {
             // Define sheet by N points x,y CCW
             idx++;
-            while (Number.isInteger(Number(tokenList[idx]))) {
-                list.push(Number(tokenList[idx++]));
-            }
-            this.model.init(list[0], list[1]);
+            const width = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
+            const height = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
+            this.model.init(width, height);
+            this.command('fit'); // Should not be necessary
         }
 
         // Origami splits

@@ -799,13 +799,12 @@ export class Model {
         let xMax = -200.0, xMin = 200.0;
         let yMax = -200.0, yMin = 200.0;
         this.points.forEach(function (p) {
-            const x = p.x, y = p.y;
-            if (x > xMax) xMax = x;
-            if (x < xMin) xMin = x;
-            if (y > yMax) yMax = y;
-            if (y < yMin) yMin = y;
+            xMin = Math.min(xMin, p.x);
+            xMax = Math.max(xMax, p.x);
+            yMin = Math.min(yMin, p.y);
+            yMax = Math.max(yMax, p.y);
         });
-        return {xMin, yMin, xMax, yMax};
+        return {xMin, xMax, yMin, yMax};
     }
 
     // Serialize model, replace instances by indexes in JSON, and return a JSON string
