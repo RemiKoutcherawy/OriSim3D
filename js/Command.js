@@ -163,7 +163,7 @@ export class Command {
             const width = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
             const height = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
             this.model.init(width, height);
-            this.command('fit'); // Should not be necessary
+            // this.command('fit'); // Fits 3D but breaks tests !
         }
 
         // Origami splits
