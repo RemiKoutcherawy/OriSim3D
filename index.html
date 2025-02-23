@@ -9,6 +9,7 @@
     #canvas2d { position: absolute; width: 50%; height: 100%; left: 0; top: 0; border: 1px solid black;}
     #canvas3d { position: absolute; width: 50%; height: 100%; left: 50%; top: 0; color: hsl(210 100% 50%);border: 1px solid black;}
     #overlay  { position: absolute; width: 50%; height: 100%; left: 50%; top: 0; z-index: 1; color: hsl(60, 100%, 50%);}
+    #playPauseBtn { position: absolute; top: 10px; left: 10px; z-index: 10; padding: 10px; }
   </style>
 </head>
 <body>
@@ -17,12 +18,14 @@
   <canvas id="canvas3d"></canvas>
   <canvas id="overlay"></canvas>
 </div>
+<button id="playPauseBtn">Pause</button>
+
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
 <img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>
 <!-- Main program -->
 <script type="module">
-  import {Model} from "./js/Model.js";
+  import {Model, State} from "./js/Model.js";
   import {View2d} from "./js/View2d.js";
   import {View3d} from "./js/View3d.js";
   import {Command} from "./js/Command.js";
@@ -32,7 +35,14 @@
 
   function init() {
     // Model 3D
-    let model = new Model().init(200, 200);
+    const model = new Model();
+
+    // Play/Pause Button
+    const button = document.getElementById("playPauseBtn");
+    button.addEventListener("click", () => {
+      model.state = model.state === State.run ? State.pause : State.run;
+      button.textContent = model.state === State.run ? "Pause" : "Play";
+    });
 
     // View 3d with 2D overlay
     const canvas3d = window.document.getElementById("canvas3d");
@@ -42,7 +52,7 @@
 
     // View 2d
     const canvas2d = window.document.getElementById("canvas2d");
-    let view2d = new View2d(model, canvas2d);
+    const view2d = new View2d(model, canvas2d);
 
     // Command
     const command = new Command(model);
@@ -77,19 +87,39 @@ t 500 ty 180;
 // Fold one corner
 offset 2 13 14 30 31
 t 100 r 54 -180 3 17 19;
-t 500 ty 180)
+t 500 ty 180;
 // Fold from top
-t 100 rotate 27 179 5 22 a 2 18;
+offset 6 16 12 29 20 15 offset -6 30
+t 1000 rotate 27 180 5 22 2;
 // Lift up top right corner
-t 100 rotate 14 -90 22 a 2 18;
+t 1000 rotate 53 -90 22 a 2;
+
 // Fold from right
-t 100 rotate 45 179 7 12 a 2 18 1;
+offset -6 23 5 26 21 22
+t 1000 rotate 45 180 7 12 1 a 2 18 ;
+t 1000 rotate 14 25 22 18 2;
+
 // Lift up bottom right corner
-t 100 rotate 13 -90 12 1 a 1 24;
+t 1000 rotate 50 -90 12 1 a 1;
+
 // Fold from bottom
-t 100 rotate 24 -179 21 4 a 24 0 1;
-// Lift bottom left corner TODO
-      `);
+offset -6 7 0 24 19 1 27
+t 1000 rotate 24 -180 0 21 4 a 24 1;
+t 1000 rotate 13 -30 24 1 12;
+
+// Lift bottom left corner
+t 1000 rotate 48 -90 21 a 0;
+// Fold from left
+t 1000 rotate 37 -180 8 9 a 9 0;
+t 1000 rotate 17 90 0 9 21;
+
+// Fold along median
+t 1000 rotate 28 -90 19 22 2 14 15 18 23 rotate 38 -90 3;
+t 1000 rotate 28 -70 19 22 2 14 15 18 23 a 3;
+
+// Pretty
+t 1000 rotate 13 -20 12 24 a 1 3 ;
+`);
     }, 500);
   }
 </script>
