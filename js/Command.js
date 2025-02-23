@@ -316,8 +316,8 @@ export class Command {
             // Zoom scale x y. The zoom is centered on x y z=0 : z 2 50 50
             idx++;
             let scale = Number(tokenList[idx++]);
-            const x = Number(tokenList[idx++]);
-            const y = Number(tokenList[idx++]);
+            const x = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 0;
+            const y = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 0;
             // Animation
             const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
             const b = scale * (this.tni / a - this.tpi);
