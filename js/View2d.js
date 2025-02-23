@@ -9,7 +9,6 @@ export class View2d {
             this.fit();
             this.drawModel();
         });
-        this.fit();
     }
 
     // Fit to show all the model in the view
@@ -130,12 +129,13 @@ export class View2d {
     }
 
     drawModel() {
+        if (this.model.faces.length === 1) { this.fit();}
         const context2d = this.canvas2d.getContext('2d');
-        const transform = context2d.getTransform();
+        context2d.save();
         context2d.setTransform(1, 0, 0, 1, 0, 0);
         context2d.fillStyle = '#CCE4FF';
         context2d.fillRect(0, 0, this.canvas2d.width, this.canvas2d.height);
-        context2d.setTransform(transform);
+        context2d.restore();
 
         this.drawFaces(this.model.faces);
         this.drawSegments(this.model.segments);

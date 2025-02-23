@@ -776,13 +776,12 @@ export class Model {
         let yMax = -100.0;
         let yMin = 100.0;
         this.points.forEach(function (p) {
-            const x = p.xf, y = p.yf;
-            if (x > xMax) xMax = x;
-            if (x < xMin) xMin = x;
-            if (y > yMax) yMax = y;
-            if (y < yMin) yMin = y;
+            xMin = Math.min(xMin, p.xf);
+            xMax = Math.max(xMax, p.xf);
+            yMin = Math.min(yMin, p.yf);
+            yMax = Math.max(yMax, p.yf);
         });
-        return {xMin, yMin, xMax, yMax};
+        return {xMin, xMax, yMin,  yMax};
     }
 
     // Scale model @testOK
