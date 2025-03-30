@@ -719,10 +719,8 @@ export class Model {
             {x: 0, y: 0, z: 3, distance: 3.0},
             {x: 1, y: 1, z: 1, distance: Math.sqrt(3)}
         ];
-
         const initialGuess = [0, 0, 0];
         const solution = Model.kaczmarz3D(points, initialGuess);
-
         console.log("Solution (x, y, z):", solution);
     }
     // Adjust list of points 3d
