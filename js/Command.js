@@ -166,6 +166,12 @@ export class Command {
             // this.command('fit'); // Fits 3D but breaks tests !
         }
 
+        // Pause
+        else if (tokenList[idx] === 'pause') {
+            idx++;
+            this.model.state = State.pause;
+        }
+
         // Origami splits
         else if (tokenList[idx] === 'by3d') {
             // Split by two points in 3d : b3d p1 p2
