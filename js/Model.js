@@ -677,6 +677,54 @@ export class Model {
         return max;
     }
 
+    /**
+     * Résolution par Kaczmarz non linéaire pour la localisation 3D.
+     * @param {Array} points - Liste des points [{x, y, z, distance}, ...]
+     * @param {Array} initialGuess - Estimation initiale [x, y, z]
+     * @param {number} maxIterations - Nombre maximal d'itérations
+     * @param {number} lambda - Paramètre de relaxation (0 < λ ≤ 1)
+     * @param {number} tolerance - Tolérance pour la convergence
+     * @returns {Array} Solution [x, y, z]
+     */
+    static kaczmarz3D(points, initialGuess, maxIterations = 1000, lambda = 0.5, tolerance = 1e-6) {
+        let [x, y, z] = initialGuess;
+        const n = points.length;
+        for (let iter = 0; iter < maxIterations; iter++) {
+            let maxDelta = 0;
+            for (let i = 0; i < n; i++) {
+                const p = points[i];
+                const dx = x - p.x;
+                const dy = y - p.y;
+                const dz = z - p.z;
+                const Di = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (Di === 0) continue; // Éviter la division par zéro
+                const residual = p.distance - Di;
+                const normSquared = (dx * dx + dy * dy + dz * dz) / (Di * Di);
+                if (normSquared === 0) continue;
+                const step = (lambda * residual) / normSquared;
+                x += step * dx / Di;
+                y += step * dy / Di;
+                z += step * dz / Di;
+                maxDelta = Math.max(maxDelta, Math.abs(step));
+            }
+            if (maxDelta < tolerance) break;
+        }
+        return [x, y, z];
+    }
+    static usage(){
+        // Exemple d'utilisation
+        const points = [
+            {x: 1, y: 0, z: 0, distance: 1.0},
+            {x: 0, y: 2, z: 0, distance: 2.0},
+            {x: 0, y: 0, z: 3, distance: 3.0},
+            {x: 1, y: 1, z: 1, distance: Math.sqrt(3)}
+        ];
+
+        const initialGuess = [0, 0, 0];
+        const solution = Model.kaczmarz3D(points, initialGuess);
+
+        console.log("Solution (x, y, z):", solution);
+    }
     // Adjust list of points 3d
     adjustList(list) {
         let max = 100;
