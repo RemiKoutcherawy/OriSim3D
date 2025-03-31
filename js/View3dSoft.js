@@ -417,20 +417,32 @@ class Light {
 }
 class Texture {
     constructor() {
-        this.image = new Image();
-        if (window.document.getElementById('front')) {
-            this.image.src = window.document.getElementById('front').src;
-        }
-        let texture = this;
-        this.image.onload =  () => {
-            texture.iw = texture.image.width;
-            texture.ih = texture.image.height;
-            texture.canvas = document.createElement('canvas');
-            texture.canvas.width = texture.iw;
-            texture.canvas.height = texture.ih;
-            let c2d = texture.canvas.getContext('2d');
-            c2d.drawImage(texture.image, 0, 0, texture.iw, texture.ih);
-            texture.pixelData = c2d.getImageData(0, 0, texture.iw, texture.ih);
+        this.frontImage = new Image();
+        this.frontImage.src = window.document.getElementById('front').src;
+        let front = this;
+        this.frontImage.onload =  () => {
+            front.iw = front.frontImage.width;
+            front.ih = front.frontImage.height;
+            front.canvas = document.createElement('canvas');
+            front.canvas.width = front.iw;
+            front.canvas.height = front.ih;
+            let c2d = front.canvas.getContext('2d');
+            c2d.drawImage(front.frontImage, 0, 0, front.iw, front.ih);
+            front.pixelData = c2d.getImageData(0, 0, front.iw, front.ih);
+            view3dSoft.render();
+        };
+        this.backImage = new Image();
+        this.backImage.src = window.document.getElementById('back').src;
+        let back = this;
+        this.backImage.onload =  () => {
+            back.iw = back.backImage.width;
+            back.ih = back.backImage.height;
+            back.canvas = document.createElement('canvas');
+            back.canvas.width = back.iw;
+            back.canvas.height = back.ih;
+            let c2d = back.canvas.getContext('2d');
+            c2d.drawImage(back.backImage, 0, 0, back.iw, back.ih);
+            back.pixelData = c2d.getImageData(0, 0, back.iw, back.ih);
             view3dSoft.render();
         };
     }
