@@ -416,9 +416,11 @@ class Light {
     }
 }
 class Texture {
-    constructor(url) {
+    constructor() {
         this.image = new Image();
-        this.image.src = url;
+        if (window.document.getElementById('front')) {
+            this.image.src = window.document.getElementById('front').src;
+        }
         let texture = this;
         this.image.onload =  () => {
             texture.iw = texture.image.width;
@@ -429,12 +431,16 @@ class Texture {
             let c2d = texture.canvas.getContext('2d');
             c2d.drawImage(texture.image, 0, 0, texture.iw, texture.ih);
             texture.pixelData = c2d.getImageData(0, 0, texture.iw, texture.ih);
+            view3dSoft.render();
         };
     }
     getTexel(u, v) {
         let iu = (u * this.iw) | 0;
         let iv = (v * this.ih) | 0;
         let offset = (iv * this.iw * 4 + iu * 4);
+        if (this.pixelData === undefined) {
+            return new Color(128, 128, 128);
+        }
         return new Color(
             this.pixelData.data[offset],
             this.pixelData.data[offset + 1],
@@ -567,7 +573,7 @@ const BLUE = new Color(0, 0, 255);
 const YELLOW = new Color(255, 255, 0);
 const PURPLE = new Color(255, 0, 255);
 const CYAN = new Color(0, 255, 255);
-const texture = new Texture('textures/front.jpg');
+const texture = new Texture();
 const triangles = [
     new Triangle([0, 1, 2], RED, [new Vertex(0, 0, 1), new Vertex(0, 0, 1), new Vertex(0, 0, 1)], texture, [new Pt(0, 0), new Pt(1, 0), new Pt(1, 1)]),
     new Triangle([0, 2, 3], RED, [new Vertex(0, 0, 1), new Vertex(0, 0, 1), new Vertex(0, 0, 1)], texture, [new Pt(0, 0), new Pt(1, 1), new Pt(0, 1)]),
