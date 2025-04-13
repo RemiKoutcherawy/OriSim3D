@@ -547,10 +547,4 @@ Deno.test("Model", async (t) => {
         assertEquals(model.segments.length, 8, 'Got:' + model.segments.length);
         assertEquals(model.faces[0].points.length, 3, 'Got:' + model.faces[0].points.length);
     });
-
-    await t.step("usage", () => {
-        console.log('Kaczmarz');
-        Model.usage();
-
-    });
 });
