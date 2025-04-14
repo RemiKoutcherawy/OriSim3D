@@ -14,8 +14,8 @@ export class View3dSoft {
     projectionPlaneZ = 1;
     lights = [
         new Light(this.AMBIENT, 0.2),
-        new Light(this.DIRECTIONAL, 0.2, new Vertex(-1, 0, 1)),
-        new Light(this.POINT, 0.6, new Vertex(-3, 2, -10))
+        new Light(this.DIRECTIONAL, 0.2, new Vertex(0, 0, -800)),
+        new Light(this.POINT, 0.2, new Vertex(-3, 2, -800))
     ];
     putPixel(x, y, color) {
         x = this.canvas.width / 2 + (x | 0);
@@ -121,22 +121,10 @@ export class View3dSoft {
         }
         let intensity;
         let i02, i012, nx02, nx012, ny02, ny012, nz02, nz012, xLeft, xRight;
-        if (this.ShadingModel === this.FLAT) {
-            // Flat shading: compute lighting for the entire triangle.
-            let center = new Vertex((v0.x + v1.x + v2.x) / 3.0, (v0.y + v1.y + v2.y) / 3.0, (v0.z + v1.z + v2.z) / 3.0);
-            intensity = this.computeIllumination(center, normal0, camera, lights);
-        } else if (this.ShadingModel === this.GOURAUD) {
-            // Gouraud shading: compute lighting at the vertices, and interpolate.
-            let i0 = this.computeIllumination(v0, normal0, camera, lights);
-            let i1 = this.computeIllumination(v1, normal1, camera, lights);
-            let i2 = this.computeIllumination(v2, normal2, camera, lights);
-            [i02, i012] = this.edgeInterpolate(p0.y, i0, p1.y, i1, p2.y, i2);
-        } else if (this.ShadingModel === this.PHONG) {
-            // Phong shading: interpolate normal vectors.
-            [nx02, nx012] = this.edgeInterpolate(p0.y, normal0.x, p1.y, normal1.x, p2.y, normal2.x);
-            [ny02, ny012] = this.edgeInterpolate(p0.y, normal0.y, p1.y, normal1.y, p2.y, normal2.y);
-            [nz02, nz012] = this.edgeInterpolate(p0.y, normal0.z, p1.y, normal1.z, p2.y, normal2.z);
-        }
+        // Phong shading: interpolate normal vectors.
+        [nx02, nx012] = this.edgeInterpolate(p0.y, normal0.x, p1.y, normal1.x, p2.y, normal2.x);
+        [ny02, ny012] = this.edgeInterpolate(p0.y, normal0.y, p1.y, normal1.y, p2.y, normal2.y);
+        [nz02, nz012] = this.edgeInterpolate(p0.y, normal0.z, p1.y, normal1.z, p2.y, normal2.z);
         // Determine which is left and which is right.
         let m = (x02.length / 2) | 0;
         let izLeft, izRight, iLeft, iRight, nxLeft, nxRight, nyLeft, nyRight, nzLeft, nzRight, uzLeft, uzRight,
@@ -175,18 +163,13 @@ export class View3dSoft {
             [zl, zr] = [izLeft[y - p0.y], izRight[y - p0.y]];
             let zScan = this.interpolate(xl, zl, xr, zr);
 
-            if (this.ShadingModel === this.GOURAUD) {
-                [il, ir] = [iLeft[y - p0.y], iRight[y - p0.y]];
-                iScan = this.interpolate(xl, il, xr, ir);
-            } else if (this.ShadingModel === this.PHONG) {
-                [nxl, nxr] = [nxLeft[y - p0.y], nxRight[y - p0.y]];
-                [nyl, nyr] = [nyLeft[y - p0.y], nyRight[y - p0.y]];
-                [nzl, nzr] = [nzLeft[y - p0.y], nzRight[y - p0.y]];
+            [nxl, nxr] = [nxLeft[y - p0.y], nxRight[y - p0.y]];
+            [nyl, nyr] = [nyLeft[y - p0.y], nyRight[y - p0.y]];
+            [nzl, nzr] = [nzLeft[y - p0.y], nzRight[y - p0.y]];
+            nxScan = this.interpolate(xl, nxl, xr, nxr);
+            nyScan = this.interpolate(xl, nyl, xr, nyr);
+            nzScan = this.interpolate(xl, nzl, xr, nzr);
 
-                nxScan = this.interpolate(xl, nxl, xr, nxr);
-                nyScan = this.interpolate(xl, nyl, xr, nyr);
-                nzScan = this.interpolate(xl, nzl, xr, nzr);
-            }
             if (triangle.texture) {
                 uzScan = this.interpolate(xl, uzLeft[y - p0.y], xr, uzRight[y - p0.y]);
                 vzScan = this.interpolate(xl, vzLeft[y - p0.y], xr, vzRight[y - p0.y]);
@@ -194,16 +177,10 @@ export class View3dSoft {
             for (let x = xl; x <= xr; x++) {
                 let invZ = zScan[x - xl];
                 if (this.updateDepthBufferIfCloser(x, y, invZ)) {
-
-                    if (this.ShadingModel === this.FLAT) {
-                        // Just use the per-triangle intensity.
-                    } else if (this.ShadingModel === this.GOURAUD) {
-                        intensity = iScan[x - xl];
-                    } else if (this.ShadingModel === this.PHONG) {
-                        let vertex = this.unProjectVertex(x, y, invZ);
-                        let normal = new Vertex(nxScan[x - xl], nyScan[x - xl], nzScan[x - xl]);
-                        intensity =  this.computeIllumination(vertex, normal, camera, lights);
-                    }
+                    // Phong Shading
+                    let vertex = this.unProjectVertex(x, y, invZ);
+                    let normal = new Vertex(nxScan[x - xl], nyScan[x - xl], nzScan[x - xl]);
+                    intensity =  this.computeIllumination(vertex, normal, camera, lights);
                     let color, u, v;
                     if (triangle.texture) {
                         if (this.UsePerspectiveCorrectDepth) {
@@ -320,10 +297,6 @@ export class View3dSoft {
         }
         return illumination;
     }
-    FLAT = 0;
-    GOURAUD = 1;
-    PHONG = 2;
-    ShadingModel = this.PHONG;
     UseVertexNormals = true;
     UsePerspectiveCorrectDepth = true;
     edgeInterpolate(y0, v0, y1, v1, y2, v2) {
@@ -417,7 +390,16 @@ class Light {
 }
 class Texture {
     constructor() {
+
         this.frontImage = new Image();
+        const yellow = new ImageData(1, 1);
+        yellow.data.set([255, 255, 0, 255]); // Jaune
+        for (let i = 0; i < yellow.data.length; i += 4) yellow.data.set([255, 255, 0, 255], i);
+
+        const blue = new ImageData(1, 1);
+        blue.data.set([255, 255, 255, 0]); // Bleu
+        for (let i = 0; i < blue.data.length; i += 4) blue.data.set([0, 0, 255, 255], i);
+
         this.frontImage.src = window.document.getElementById('front').src;
         let front = this;
         this.frontImage.onload =  () => {
@@ -428,6 +410,8 @@ class Texture {
             front.canvas.height = front.ih;
             let c2d = front.canvas.getContext('2d');
             c2d.drawImage(front.frontImage, 0, 0, front.iw, front.ih);
+
+            c2d.putImageData(yellow, 0, 0);
             front.pixelData = c2d.getImageData(0, 0, front.iw, front.ih);
             view3dSoft.render();
         };
@@ -442,6 +426,8 @@ class Texture {
             back.canvas.height = back.ih;
             let c2d = back.canvas.getContext('2d');
             c2d.drawImage(back.backImage, 0, 0, back.iw, back.ih);
+
+            c2d.putImageData(blue, 0, 0);
             back.pixelData = c2d.getImageData(0, 0, back.iw, back.ih);
             view3dSoft.render();
         };
@@ -570,37 +556,18 @@ class Plane {
 
 // ----- Cube model -----
 const vertices = [
-    new Vertex(1, 1, 1),
-    new Vertex(-1, 1, 1),
-    new Vertex(-1, -1, 1),
-    new Vertex(1, -1, 1),
-    new Vertex(1, 1, -1),
-    new Vertex(-1, 1, -1),
-    new Vertex(-1, -1, -1),
-    new Vertex(1, -1, -1)
+    new Vertex(100, 100, 0),
+    new Vertex(-100, 100, 0),
+    new Vertex(-100, -100, 0),
+    new Vertex(100, -100, 0),
 ];
 const RED = new Color(255, 0, 0);
-const GREEN = new Color(0, 255, 0);
-const BLUE = new Color(0, 0, 255);
-const YELLOW = new Color(255, 255, 0);
-const PURPLE = new Color(255, 0, 255);
-const CYAN = new Color(0, 255, 255);
 const texture = new Texture();
 const triangles = [
     new Triangle([0, 1, 2], RED, [new Vertex(0, 0, 1), new Vertex(0, 0, 1), new Vertex(0, 0, 1)], texture, [new Pt(0, 0), new Pt(1, 0), new Pt(1, 1)]),
     new Triangle([0, 2, 3], RED, [new Vertex(0, 0, 1), new Vertex(0, 0, 1), new Vertex(0, 0, 1)], texture, [new Pt(0, 0), new Pt(1, 1), new Pt(0, 1)]),
-    new Triangle([4, 0, 3], GREEN, [new Vertex(1, 0, 0), new Vertex(1, 0, 0), new Vertex(1, 0, 0)], texture, [new Pt(0, 0), new Pt(1, 0), new Pt(1, 1)]),
-    new Triangle([4, 3, 7], GREEN, [new Vertex(1, 0, 0), new Vertex(1, 0, 0), new Vertex(1, 0, 0)], texture, [new Pt(0, 0), new Pt(1, 1), new Pt(0, 1)]),
-    new Triangle([5, 4, 7], BLUE, [new Vertex(0, 0, -1), new Vertex(0, 0, -1), new Vertex(0, 0, -1)], texture, [new Pt(0, 0), new Pt(1, 0), new Pt(1, 1)]),
-    new Triangle([5, 7, 6], BLUE, [new Vertex(0, 0, -1), new Vertex(0, 0, -1), new Vertex(0, 0, -1)], texture, [new Pt(0, 0), new Pt(1, 1), new Pt(0, 1)]),
-    new Triangle([1, 5, 6], YELLOW, [new Vertex(-1, 0, 0), new Vertex(-1, 0, 0), new Vertex(-1, 0, 0)], texture, [new Pt(0, 0), new Pt(1, 0), new Pt(1, 1)]),
-    new Triangle([1, 6, 2], YELLOW, [new Vertex(-1, 0, 0), new Vertex(-1, 0, 0), new Vertex(-1, 0, 0)], texture, [new Pt(0, 0), new Pt(1, 1), new Pt(0, 1)]),
-    new Triangle([1, 0, 5], PURPLE, [new Vertex(0, 1, 0), new Vertex(0, 1, 0), new Vertex(0, 1, 0)], texture, [new Pt(0, 0), new Pt(1, 0), new Pt(1, 1)]),
-    new Triangle([5, 0, 4], PURPLE, [new Vertex(0, 1, 0), new Vertex(0, 1, 0), new Vertex(0, 1, 0)], texture, [new Pt(0, 1), new Pt(1, 1), new Pt(0, 0)]),
-    new Triangle([2, 6, 7], CYAN, [new Vertex(0, -1, 0), new Vertex(0, -1, 0), new Vertex(0, -1, 0)], texture, [new Pt(0, 0), new Pt(1, 0), new Pt(1, 1)]),
-    new Triangle([2, 7, 3], CYAN, [new Vertex(0, -1, 0), new Vertex(0, -1, 0), new Vertex(0, -1, 0)], texture, [new Pt(0, 0), new Pt(1, 1), new Pt(0, 1)]),
 ];
-const cube = new Model(vertices, triangles, new Vertex(0, 0, 0), Math.sqrt(3));
+const cube = new Model(vertices, triangles, new Vertex(0, 0, 0), Math.sqrt(30));
 // ----------
 const view3dSoft = new View3dSoft(null, window.document.getElementById("canvas"));
 class Instance {
@@ -613,11 +580,11 @@ class Instance {
     }
 }
 const instances = [
-    new Instance(cube, new Vertex(-1.5, 0, 7), Mat4.Identity4x4, 0.75),
-    new Instance(cube, new Vertex(1.25, 2.5, 7.5), Mat4.MakeOYRotationMatrix(195)),
-    new Instance(cube, new Vertex(1.75, 0, 5), Mat4.MakeOYRotationMatrix(-30)),
+    // new Instance(cube, new Vertex(-1.5, 0, 7), Mat4.Identity4x4, 0.75),
+    new Instance(cube, new Vertex(0, 0, 0), Mat4.MakeOYRotationMatrix(180)),
+    // new Instance(cube, new Vertex(1.75, 0, 5), Mat4.MakeOYRotationMatrix(-30)),
 ];
-const camera = new Camera(new Vertex(-3, 1, 2), Mat4.MakeOYRotationMatrix(-30));
+const camera = new Camera(new Vertex(0, 0, -800), Mat4.MakeOYRotationMatrix(0));
 let s2 = 1.0 / Math.sqrt(2);
 camera.clippingPlanes = [
     new Plane(new Vertex(0, 0, 1), -1), // Near
