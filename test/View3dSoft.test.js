@@ -1,5 +1,5 @@
 // Importation de la classe à tester
-import {View3dSoft} from '../js/View3dSoft.js';
+import {View3dSoft} from '../View3dSoft.js';
 import {Model} from '../js/Model.js';
 
 // Mock de canvas pour les tests
