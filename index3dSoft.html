@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <div class="centered">
 <canvas id="canvas" width=600 height=600 style="border: 1px grey solid"></canvas>
 </div>
@@ -7,11 +7,14 @@
 <script type="module">
     import {Model} from "./js/Model.js";
     import {View3dSoft} from "./js/View3dSoft.js";
-    init();
-    function init() {
-        const model = new Model().init(200, 200);
-        const canvas = window.document.getElementById("canvas");
-        const view3dSoft = new View3dSoft(model, canvas);
-        view3dSoft.render();
-    }
+    const model = new Model();
+    const canvas = window.document.getElementById("canvas");
+    const view3dSoft = new View3dSoft(model, canvas);
+    view3dSoft.render();
+    // // Animation loop
+    // function loop() {
+    //     view3dSoft.render();
+    //     requestAnimationFrame(loop);
+    // }
+    // loop();
 </script>
