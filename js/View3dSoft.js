@@ -8,6 +8,11 @@ export class View3dSoft {
         this.depthBuffer = Array();
         this.depthBuffer.length = this.canvas.width * this.canvas.height;
         this.camera = new Camera(new Vertex(0, 0, -800), Mat4.Identity4x4);
+        this.transform = Mat4.Identity4x4;
+        this.scale = 1.0;
+        this.textureFront = new Texture('front', this);
+        this.textureBack = new Texture('back', this);
+        this.initPerspective();
         // Resize
         (globalThis.window || globalThis).addEventListener('resize', () => {
             this.canvas.width = this.canvas.clientWidth;
@@ -91,8 +96,8 @@ export class View3dSoft {
     }
     render() {
         this.clearAll();
-        // let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(this.camera.orientation), Mat4.MakeTranslationMatrix(this.camera.position));
-        // let transform = Mat4.MultiplyMM4(cameraMatrix, this.model.transform);
+        let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(this.camera.orientation), Mat4.MakeTranslationMatrix(this.camera.position));
+        let transform = Mat4.MultiplyMM4(cameraMatrix, this.transform);
         this.renderModel(this.model, this.camera, this.lights);
         this.updateCanvas();
     }
@@ -105,7 +110,7 @@ export class View3dSoft {
         // Textures dimensions defaults
         const wTexFront = 1,hTexFront = 1,wTexBack = 1,hTexBack = 1;
         // Faces with FAN
-        let index = 0;
+        let index = 1;
         const front = new Color(0, 0, 128);
         const back = new Color(128, 128, 0);
         for (let f of model.faces) {
@@ -122,7 +127,7 @@ export class View3dSoft {
                 btx.push((200 + pts[0].xf) / wTexBack);
                 btx.push((200 + pts[0].yf) / hTexBack);
 
-                // Two other points : i and i+1
+                // Two other points: i and i+1
                 vtx.push(new Vertex4(pts[i].x + f.offset * n[0], pts[i].y + f.offset * n[1], pts[i].z + f.offset * n[2]));
                 fnr.push(new Vertex(n[0], n[1], n[2]));
 
@@ -147,8 +152,8 @@ export class View3dSoft {
                 //         this.normals = normals;
                 //         this.texture = texture;
                 //         this.uvs = uvs;
-                this.triangles.push(new Triangle([0, index, index+1], front, fnr ));
-                this.triangles.push(new Triangle([0, index+1, index], back, fnr ));
+                this.triangles.push(new Triangle([0, index, index+1], fnr, ftx ));
+                this.triangles.push(new Triangle([0, index+1, index], fnr, btx ));
                 index++;
                 // this.triangles.push(new Triangle([0, index++, index++], color, bnr ));
             }
@@ -180,13 +185,15 @@ export class View3dSoft {
     renderTriangle(triangle, points, projected, camera, lights) {
         let normal2, normal1, normal0;
         let uz02, vz02, vz012, uz012;
+        let texture = this.textureFront;
         // Compute triangle normal. Use the unsorted points, otherwise the winding of the points may change.
         let normal = this.computeTriangleNormal(points[triangle.indexes[0]], points[triangle.indexes[1]], points[triangle.indexes[2]]);
         // Backface culling.
-        let vertexToCamera = points[triangle.indexes[0]].mul(-1);
-        if (vertexToCamera.dot(normal) <= 0) {
-            console.log("backface culling:", vertexToCamera.dot(normal));
-            // return;
+        if (normal.z <= 0) {
+            // console.log("backface culling:", normal.z);
+            texture = this.textureFront;
+        } else {
+            texture = this.textureBack;
         }
         // Sort by projected point Y.
         let indexes = this.sortedVertexIndexes(triangle.indexes, projected);
@@ -199,7 +206,6 @@ export class View3dSoft {
         // Compute attribute values at the edges.
         let [x02, x012] = this.edgeInterpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
         let [iz02, iz012] = this.edgeInterpolate(p0.y, 1.0 / v0.z, p1.y, 1.0 / v1.z, p2.y, 1.0 / v2.z);
-        if (triangle.texture) {
             [uz02, uz012] = this.edgeInterpolate(p0.y, triangle.uvs[i0].x / v0.z,
                 p1.y, triangle.uvs[i1].x / v1.z,
                 p2.y, triangle.uvs[i2].x / v2.z);
@@ -207,7 +213,6 @@ export class View3dSoft {
                 p1.y, triangle.uvs[i1].y / v1.z,
                 p2.y, triangle.uvs[i2].y / v2.z);
 
-        }
         let transform = Mat4.Transposed(camera.orientation);
         normal0 = Mat4.MultiplyMV(transform, new Vertex4(triangle.normals[i0]));
         normal1 = Mat4.MultiplyMV(transform, new Vertex4(triangle.normals[i1]));
@@ -253,10 +258,8 @@ export class View3dSoft {
             nxScan = this.interpolate(xl, nxl, xr, nxr);
             nyScan = this.interpolate(xl, nyl, xr, nyr);
             nzScan = this.interpolate(xl, nzl, xr, nzr);
-            if (triangle.texture) {
                 uzScan = this.interpolate(xl, uzLeft[y - p0.y], xr, uzRight[y - p0.y]);
                 vzScan = this.interpolate(xl, vzLeft[y - p0.y], xr, vzRight[y - p0.y]);
-            }
             for (let x = xl; x <= xr; x++) {
                 let invZ = zScan[x - xl];
                 if (this.updateDepthBufferIfCloser(x, y, invZ)) {
@@ -265,13 +268,10 @@ export class View3dSoft {
                     let normal = new Vertex(nxScan[x - xl], nyScan[x - xl], nzScan[x - xl]);
                     intensity =  this.computeIllumination(vertex, normal, camera, lights);
                     let color, u, v;
-                    if (triangle.texture) {
                         u = uzScan[x - xl] / zScan[x - xl];
                         v = vzScan[x - xl] / zScan[x - xl];
-                        color = triangle.texture.getTexel(u, v);
-                    } else {
-                        color = triangle.color;
-                    }
+                        color = texture.getTexel(u, v);
+                        if(y === p0.y && x === xl)console.log('color', color, intensity);
                     this.putPixel(x, y, color.mul(intensity));
                 }
             }
@@ -406,8 +406,8 @@ export class View3dSoft {
     }
     transformAndClip(clippingPlanes, model, scale, transform) {
         // Transform the bounding sphere, and attempt early discard.
-        let center = Mat4.MultiplyMV(transform, new Vertex4(model.boundsCenter));
-        let radius = model.boundsRadius * scale;
+        let center = Mat4.MultiplyMV(transform, new Vertex4(0,0,0,1));
+        let radius = 200 * scale;
         for (let p = 0; p < clippingPlanes.length; p++) {
             let distance = clippingPlanes[p].normal.dot(center) + clippingPlanes[p].distance;
             if (distance < -radius) {
@@ -431,17 +431,31 @@ export class View3dSoft {
         return new Model(points, triangles, center, model.boundsRadius);
     }
     renderModel(model, camera, lights) {
+        let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(camera.orientation), Mat4.MakeTranslationMatrix(camera.position.mul(-1)));
+        let transform = Mat4.MultiplyMM4(cameraMatrix, this.transform);
+        let clipped = this.transformAndClip(camera.clippingPlanes, this.model, this.scale, transform);
+
         let projected = [];
         for (let i = 0; i < model.points.length; i++) {
             projected.push(this.projectVertex(new Vertex4(model.points[i])));
-            // console.log(model.points[i], projected[i]);
+            // console.log(`projected:[${i}]`, projected[i]);
         }
         let points = this.makeTriangles(this.model);
         // let points = Array.from(model.points, (p) => new Vertex4(p.x, p.y, p.z) );
-        console.log('triangles.length:',this.triangles.length);
         for (let i = 0; i < this.triangles.length; i++) {
-            console.log('triangle:',i);
+            // console.log(`triangle:${i}`,i, camera.position);
             this.renderTriangle(this.triangles[i], points, projected, camera, lights);
+        }
+    }
+    renderScene(camera, instances, lights) {
+        let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(camera.orientation), Mat4.MakeTranslationMatrix(camera.position.mul(-1)));
+
+        for (let i = 0; i < instances.length; i++) {
+            let transform = Mat4.MultiplyMM4(cameraMatrix, instances[i].transform);
+            let clipped = this.transformAndClip(camera.clippingPlanes, instances[i].model, instances[i].scale, transform);
+            if (clipped != null) {
+                this.renderModel(clipped, camera, lights, instances[i].orientation);
+            }
         }
     }
 }
@@ -470,9 +484,8 @@ class Light {
     }
 }
 class Texture {
-    constructor() {
-
-        this.frontImage = new Image();
+    constructor(id, view3dSoft) {
+        this.image = new Image();
         const yellow = new ImageData(1, 1);
         yellow.data.set([255, 255, 0, 255]); // Jaune
         for (let i = 0; i < yellow.data.length; i += 4) yellow.data.set([255, 255, 0, 255], i);
@@ -481,35 +494,19 @@ class Texture {
         blue.data.set([255, 255, 255, 0]); // Bleu
         for (let i = 0; i < blue.data.length; i += 4) blue.data.set([0, 0, 255, 255], i);
 
-        this.frontImage.src = window.document.getElementById('front').src;
-        let front = this;
-        this.frontImage.onload =  () => {
-            front.iw = front.frontImage.width;
-            front.ih = front.frontImage.height;
-            front.canvas = document.createElement('canvas');
-            front.canvas.width = front.iw;
-            front.canvas.height = front.ih;
-            let c2d = front.canvas.getContext('2d');
-            c2d.drawImage(front.frontImage, 0, 0, front.iw, front.ih);
+        this.image.src = window.document.getElementById(id).src;
+        let texture = this;
+        this.image.onload =  () => {
+            texture.iw = texture.image.width;
+            texture.ih = texture.image.height;
+            texture.canvas = document.createElement('canvas');
+            texture.canvas.width = texture.iw;
+            texture.canvas.height = texture.ih;
+            let c2d = texture.canvas.getContext('2d');
+            c2d.drawImage(texture.image, 0, 0, texture.iw, texture.ih);
 
             c2d.putImageData(yellow, 0, 0);
-            front.pixelData = c2d.getImageData(0, 0, front.iw, front.ih);
-            view3dSoft.render();
-        };
-        this.backImage = new Image();
-        this.backImage.src = window.document.getElementById('back').src;
-        let back = this;
-        this.backImage.onload =  () => {
-            back.iw = back.backImage.width;
-            back.ih = back.backImage.height;
-            back.canvas = document.createElement('canvas');
-            back.canvas.width = back.iw;
-            back.canvas.height = back.ih;
-            let c2d = back.canvas.getContext('2d');
-            c2d.drawImage(back.backImage, 0, 0, back.iw, back.ih);
-
-            c2d.putImageData(blue, 0, 0);
-            back.pixelData = c2d.getImageData(0, 0, back.iw, back.ih);
+            texture.pixelData = c2d.getImageData(0, 0, texture.iw, texture.ih);
             view3dSoft.render();
         };
     }
@@ -605,11 +602,9 @@ class Mat4 {
     }
 }
 class Triangle {
-    constructor(indexes, color, normals = [], texture = null, uvs = []) {
+    constructor(indexes, normals = [], uvs = []) {
         this.indexes = indexes;
-        this.color = color;
         this.normals = normals;
-        this.texture = texture;
         this.uvs = uvs;
     }
 }

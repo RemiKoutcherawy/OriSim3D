@@ -7,7 +7,7 @@
 <script type="module">
     import {Model} from "./js/Model.js";
     import {View3dSoft} from "./js/View3dSoft.js";
-    const model = new Model();
+    const model = new Model().init();
     const canvas = window.document.getElementById("canvas");
     const view3dSoft = new View3dSoft(model, canvas);
     view3dSoft.render();
