@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<!--<div class="centered">-->
+<!--    <canvas id="canvas" width=600 height=600 style="border: 1px grey solid"></canvas>-->
+<!--</div>-->
+<img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
+<img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>
+<canvas id="phongCanvas"></canvas>
+<div>
+    Ambiance : <input id="ambientSlider" type="range" min="0" max="1" step="0.01" value="0.2">
+    Diffuse : <input id="diffuseSlider" type="range" min="0" max="1" step="0.01" value="0.6">
+    Spéculaire : <input id="specularSlider" type="range" min="0" max="1" step="0.01" value="0.7">
+    Brillance : <input id="shininessSlider" type="range" min="1" max="128" step="1" value="32">
+</div>
+<script type="module">
+    import {animate} from "./RasterTriangle.js";
+    animate();
+</script>

@@ -7,18 +7,19 @@ export class View3dSoft {
         this.canvasBuffer = this.context2d.getImageData(0, 0, this.canvas.width, this.canvas.height);
         this.depthBuffer = Array();
         this.depthBuffer.length = this.canvas.width * this.canvas.height;
-        this.camera = new Camera(new Vertex(0, 0, -800), Mat4.Identity4x4);
+        this.camera = new Camera(new Vertex(0, 0, -10), Mat4.Identity4x4);
         this.transform = Mat4.Identity4x4;
         this.scale = 1.0;
         this.textureFront = new Texture('front', this);
         this.textureBack = new Texture('back', this);
-        this.initPerspective();
+        // Current rotation angle (x-axis, y-axis degrees)
+        this.angleX = 0.0;
+        this.angleY = 0.0;
         // Resize
         (globalThis.window || globalThis).addEventListener('resize', () => {
             this.canvas.width = this.canvas.clientWidth;
             this.canvas.height = this.canvas.clientHeight;
             this.depthBuffer.length = this.canvas.width * this.canvas.height;
-            this.initPerspective();
             this.render();
         });
     }
@@ -33,10 +34,10 @@ export class View3dSoft {
         new Light(this.POINT, 0.2, new Vertex(-3, 2, -800))
     ];
     triangles = Array();
-    vertices = Array();
     putPixel(x, y, color) {
-        x = this.canvas.width / 2 + (x | 0);
-        y = this.canvas.height / 2 - (y | 0) - 1;
+        x = Math.round((x + 1) * this.canvas.width / 2); // Transformation en espace écran
+        y = Math.round((1 - y) * this.canvas.height / 2); // Inversion pour Y pour s'aligner sur le canvas
+        console.log('x, y', x, y);
         if (x < 0 || x >= this.canvas.width || y < 0 || y >= this.canvas.height) {return;}
         let offset = 4 * (x + this.canvasBuffer.width * y);
         this.canvasBuffer.data[offset++] = color.r;
@@ -63,42 +64,28 @@ export class View3dSoft {
     clearAll() {
         this.depthBuffer = Array();
         this.depthBuffer.length = this.canvas.width * this.canvas.height;
+        this.depthBuffer.fill(-Infinity);
     }
     // Perspective and background
     initPerspective() {
-        // Viewport
-        this.canvas.width = this.canvas.clientWidth;
-        this.canvas.height = this.canvas.clientHeight;
+            const fov = 50 * (Math.PI / 180);
+            const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+            const near = 50, far = 1200;
+            const f = 1.0 / Math.tan(fov / 2);
+            const nf = 1 / (near - far);
 
-        // Choose portrait or landscape
-        const ratio = this.canvas.clientWidth / this.canvas.clientHeight;
-        const fov = 40, near = 50, far = 1200;
-        let top, bottom, left, right;
-        if (ratio >= 1.0) {
-            top = near * Math.tan(fov * (Math.PI / 360.0));
-            bottom = -top;
-            left = bottom * ratio;
-            right = top * ratio;
-        } else {
-            right = near * Math.tan(fov * (Math.PI / 360.0));
-            left = -right;
-            top = right / ratio;
-            bottom = left / ratio;
-        }
-        // Basic frustum at a distance of 700. Camera is at z=0, model at -700
-        this.camera.clippingPlanes = [
-            new Plane(new Vertex(0, 0, near), -1), // Near
-            new Plane(new Vertex(left, 0, left), 0), // Left
-            new Plane(new Vertex(-right, 0, right), 0), // Right
-            new Plane(new Vertex(0, -top, top), 0), // Top
-            new Plane(new Vertex(0, bottom, bottom), 0), // Bottom
-        ];
+            const frustum = new Mat4([
+                [f / aspect, 0, 0, 0],
+                [0, f, 0, 0],
+                [0, 0, (far + near) * nf, -1],
+                [0, 0, (2 * far * near) * nf, 0],
+            ]);
+
+            return frustum;
     }
     render() {
         this.clearAll();
-        let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(this.camera.orientation), Mat4.MakeTranslationMatrix(this.camera.position));
-        this.transform = Mat4.MultiplyMM4(cameraMatrix, this.transform);
-        this.renderModel(this.model, this.camera, this.lights);
+        this.renderModel();
         this.updateCanvas();
     }
     makeTriangles(model){
@@ -115,7 +102,6 @@ export class View3dSoft {
             const pts = f.points;
 
             const n = normal(pts); // Normal for face
-            console.log('f.points', f.points, f.offset, n);
             for (let i = 1; i < pts.length - 1; i++) {
                 // First point with offset
                 vtx.push(new Vertex4( pts[0].x + f.offset * n[0], pts[0].y + f.offset * n[1], pts[0].z + f.offset * n[2], 1));
@@ -180,7 +166,7 @@ export class View3dSoft {
         let texture = this.textureFront;
         // Compute triangle normal. Use the unsorted points, otherwise the winding of the points may change.
         let normal = this.computeTriangleNormal(points[triangle.indexes[0]], points[triangle.indexes[1]], points[triangle.indexes[2]]);
-        console.log('triangle', normal, triangle);
+        // console.log('triangle', normal, triangle);
         // Backface culling.
         if (normal.z <= 0) {
             // console.log("backface culling:", normal.z);
@@ -199,9 +185,6 @@ export class View3dSoft {
         // Compute attribute values at the edges.
         let [x02, x012] = this.edgeInterpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
         let [iz02, iz012] = this.edgeInterpolate(p0.y, 1.0 / v0.z, p1.y, 1.0 / v1.z, p2.y, 1.0 / v2.z);
-        // console.log('v0, v1, v2:', v0, v1, v2);
-        // console.log('iz02, iz012:', iz02, iz012);
-
         [uz02, uz012] = this.edgeInterpolate(p0.y, triangle.uvs[i0].x / v0.z,
                 p1.y, triangle.uvs[i1].x / v1.z,
                 p2.y, triangle.uvs[i2].x / v2.z);
@@ -212,8 +195,6 @@ export class View3dSoft {
         // console.log('indexes', indexes);
 
         let transform = Mat4.Transposed(camera.orientation);
-        // console.log('camera.orientation', camera.orientation);
-
         normal0 = Mat4.MultiplyMV(transform, new Vertex4(triangle.normals[i0]));
         normal1 = Mat4.MultiplyMV(transform, new Vertex4(triangle.normals[i1]));
         normal2 = Mat4.MultiplyMV(transform, new Vertex4(triangle.normals[i2]));
@@ -278,6 +259,9 @@ export class View3dSoft {
                         color = texture.getTexel(u, v);
                     // if(y === p0.y && x === xl)console.log('color', color, intensity, u, v);
                     this.putPixel(x, y, color.mul(intensity));
+                    if (x < -1 || x > 1 || y < -1 || y > 1) {
+                        console.warn("Projected coordinates out of bounds before scaling to screen:", x, y);
+                    }
                 }
             }
         }
@@ -308,8 +292,8 @@ export class View3dSoft {
     }
     projectVertex(v) {
         return this.viewportToCanvas(new Pt(
-            v.x * this.projectionPlaneZ / (v.z + 1000),
-            v.y * this.projectionPlaneZ / (v.z + 1000)));
+            v.x * this.projectionPlaneZ / v.z,
+            v.y * this.projectionPlaneZ / v.z));
     }
     unProjectVertex(x, y, invZ) {
         let oz = 1.0 / invZ;
@@ -409,73 +393,45 @@ export class View3dSoft {
             // The triangle has two points in. Output is two clipped triangles.
         }
     }
-    transformAndClip(clippingPlanes, model, scale, transform) {
-        // Transform the bounding sphere, and attempt early discard.
-        let center = Mat4.MultiplyMV(transform, new Vertex4(0,0,0,1));
-        let radius = 200 * scale;
-        for (let p = 0; p < clippingPlanes.length; p++) {
-            let distance = clippingPlanes[p].normal.dot(center) + clippingPlanes[p].distance;
-            if (distance < -radius) {
-                return null;
-            }
-        }
-        // Apply modelView transform.
-        let points = [];
-        for (let i = 0; i < model.points.length; i++) {
-            points.push(Mat4.MultiplyMV(transform, new Vertex4(model.points[i])));
-        }
-        // Clip the entire model against each successive plane.
-        let triangles = this.triangles.slice();
-        for (let p = 0; p < clippingPlanes.length; p++) {
-            let newTriangles = []
-            for (let i = 0; i < triangles.length; i++) {
-                this.clipTriangle(triangles[i], clippingPlanes[p], newTriangles, points);
-            }
-            triangles = newTriangles;
-        }
-        return new Model(points, triangles, center, model.boundsRadius);
-    }
-    renderModel(model, camera, lights) {
-        let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(camera.orientation), Mat4.MakeTranslationMatrix(camera.position.mul(-1)));
+    renderModel() {
+        const perspectiveMatrix = this.initPerspective();
+        let vertex = this.makeTriangles(this.model);
+        let projected = [vertex.length];
+        let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(this.camera.orientation), Mat4.MakeTranslationMatrix(this.camera.position));
         let transform = Mat4.MultiplyMM4(cameraMatrix, this.transform);
-        let clipped = this.transformAndClip(camera.clippingPlanes, this.model, this.scale, transform);
-
-        let points = this.makeTriangles(this.model);
-        // console.log(`this.model.points:`, this.model.points);
-        // console.log(`makeTriangles:`, points);
-
-        // Apply modelView transform.
-        for (let i = 0; i < points.length; i++) {
-            points[i] = Mat4.MultiplyMV(transform, points[i]);
-            // console.log(`modelView:[${i}]`, points[i]);
-        }
-        // Apply projection
-        let projected = [];
-        for (let i = 0; i < points.length; i++) {
-            // console.log(`projected:[${i}]`, projected[i]);
-            projected.push(this.projectVertex(new Vertex4(points[i])));
-        }
-        for (let i = 0; i < this.triangles.length; i++) {
-            this.renderTriangle(this.triangles[i], points, projected, camera, lights);
-        }
-    }
-    renderScene(camera, instances, lights) {
-        let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(camera.orientation), Mat4.MakeTranslationMatrix(camera.position.mul(-1)));
-
-        for (let i = 0; i < instances.length; i++) {
-            let transform = Mat4.MultiplyMM4(cameraMatrix, instances[i].transform);
-            let clipped = this.transformAndClip(camera.clippingPlanes, instances[i].model, instances[i].scale, transform);
-            if (clipped != null) {
-                this.renderModel(clipped, camera, lights, instances[i].orientation);
+        for (let i = 0; i < vertex.length; i++) {
+            // Apply modelView transform.
+// 1. Transformation modèle
+            let transformed = Mat4.MultiplyMV(transform, vertex[i]);
+// 2. Transformation caméra
+            transformed = Mat4.MultiplyMV(cameraMatrix, transformed);
+            // console.log(transformed);
+// 3. Perspective projection
+            transformed = Mat4.MultiplyMV(perspectiveMatrix, transformed);
+            // console.log(transformed);
+// 4. Normalisation homogène
+            transformed.x /= transformed.w;
+            transformed.y /= transformed.w;
+            transformed.z /= transformed.w;
+// 5. Vérification des limites
+            if (transformed.x < -1 || transformed.x > 1 || transformed.y < -1 || transformed.y > 1) {
+                console.warn("Projected coordinate out of normalized bounds:", transformed);
             }
+            console.log(transformed);
+            // projected[i] = this.projectVertex(transformed);
+            // this.putPixel(transformed.x, transformed.y, new Color(0, 0, 0));
+            projected[i] = transformed;
         }
-    }
+        // Render triangle
+        for (let i = 0; i < this.triangles.length; i++) {
+            this.renderTriangle(this.triangles[i], vertex, projected, this.camera, this.lights);
+        }
+    };
 }
 class Pt {
-    constructor(x, y, h) {
+    constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.h = h;
     }
 }
 class Color {
