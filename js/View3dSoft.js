@@ -5,8 +5,8 @@ export class View3dSoft {
         this.canvas = canvas;
         this.context2d = canvas.getContext('2d');
         this.canvasBuffer = this.context2d.getImageData(0, 0, this.canvas.width, this.canvas.height);
-        this.depthBuffer = Array();
-        this.depthBuffer.length = this.canvas.width * this.canvas.height;
+        // Initialize depthBuffer with size and fill with -Infinity
+        this.depthBuffer = new Array(this.canvas.width * this.canvas.height).fill(-Infinity);
         this.camera = new Camera(new Vertex(0, 0, -10), Mat4.Identity4x4);
         this.transform = Mat4.Identity4x4;
         this.scale = 1.0;
@@ -19,7 +19,7 @@ export class View3dSoft {
         (globalThis.window || globalThis).addEventListener('resize', () => {
             this.canvas.width = this.canvas.clientWidth;
             this.canvas.height = this.canvas.clientHeight;
-            this.depthBuffer.length = this.canvas.width * this.canvas.height;
+            this.depthBuffer = new Array(this.canvas.width * this.canvas.height).fill(-Infinity);
             this.render();
         });
     }
@@ -37,7 +37,6 @@ export class View3dSoft {
     putPixel(x, y, color) {
         x = Math.round((x + 1) * this.canvas.width / 2); // Transformation en espace écran
         y = Math.round((1 - y) * this.canvas.height / 2); // Inversion pour Y pour s'aligner sur le canvas
-        console.log('x, y', x, y);
         if (x < 0 || x >= this.canvas.width || y < 0 || y >= this.canvas.height) {return;}
         let offset = 4 * (x + this.canvasBuffer.width * y);
         this.canvasBuffer.data[offset++] = color.r;
@@ -62,9 +61,7 @@ export class View3dSoft {
         return false;
     }
     clearAll() {
-        this.depthBuffer = Array();
-        this.depthBuffer.length = this.canvas.width * this.canvas.height;
-        this.depthBuffer.fill(-Infinity);
+        this.depthBuffer = new Array(this.canvas.width * this.canvas.height).fill(-Infinity);
     }
     // Perspective and background
     initPerspective() {
@@ -89,51 +86,69 @@ export class View3dSoft {
         this.updateCanvas();
     }
     makeTriangles(model){
-        this.triangles = Array();
-        const vtx = []; // vertex coords
-        const fnr = []; // front normals coords
-        const ftx = []; // front texture coords
-        const btx = []; // back texture coords
+        // Pre-calculate total number of triangles for pre-allocation
+        let triangleCount = 0;
+        for (let f of model.faces) {
+            triangleCount += f.points.length - 2; // Each face creates (n-2) triangles in a fan
+        }
+
+        // Pre-allocate arrays
+        this.triangles = new Array(triangleCount);
+        const vtx = new Array(triangleCount * 3); // 3 vertices per triangle
+        const fnr = new Array(triangleCount * 3); // 3 normals per triangle
+        const ftx = new Array(triangleCount * 6); // 2 texture coords (u,v) per vertex, 3 vertices per triangle
+
         // Textures dimensions defaults
-        const wTexFront = 1,hTexFront = 1,wTexBack = 1,hTexBack = 1;
+        const wTexFront = 1, hTexFront = 1, wTexBack = 1, hTexBack = 1;
+
         // Faces with FAN
-        let index = 1;
+        let vertexIndex = 0;
+        let triangleIndex = 0;
+
         for (let f of model.faces) {
             const pts = f.points;
-
             const n = normal(pts); // Normal for face
+
+            // Cache common calculations
+            const offsetX = f.offset * n[0];
+            const offsetY = f.offset * n[1];
+            const offsetZ = f.offset * n[2];
+
+            // Cache first point calculations
+            const p0x = pts[0].x + offsetX;
+            const p0y = pts[0].y + offsetY;
+            const p0z = pts[0].z + offsetZ;
+            const t0u = (200 + pts[0].xf) / wTexFront;
+            const t0v = (200 + pts[0].yf) / hTexFront;
+
+            // Create normal vertex once
+            const normalVertex = new Vertex(n[0], n[1], n[2]);
+
             for (let i = 1; i < pts.length - 1; i++) {
                 // First point with offset
-                vtx.push(new Vertex4( pts[0].x + f.offset * n[0], pts[0].y + f.offset * n[1], pts[0].z + f.offset * n[2], 1));
-                fnr.push(new Vertex(n[0], n[1], n[2]));
-                // Texture at first point of triangle
-                ftx.push((200 + pts[0].xf) / wTexFront);
-                ftx.push((200 + pts[0].yf) / hTexFront);
-                btx.push((200 + pts[0].xf) / wTexBack);
-                btx.push((200 + pts[0].yf) / hTexBack);
+                vtx[vertexIndex] = new Vertex4(p0x, p0y, p0z, 1);
+                fnr[vertexIndex] = normalVertex;
+                ftx[vertexIndex * 2] = t0u;
+                ftx[vertexIndex * 2 + 1] = t0v;
+                vertexIndex++;
 
                 // Second point of triangle
-                vtx.push(new Vertex4(pts[i].x + f.offset * n[0], pts[i].y + f.offset * n[1], pts[i].z + f.offset * n[2], 1));
-                fnr.push(new Vertex(n[0], n[1], n[2]));
-                // Texture at second point of triangle
-                ftx.push((200 + pts[i].xf) / wTexFront);
-                ftx.push((200 + pts[i].yf) / hTexFront);
-                btx.push((200 + pts[i].xf) / wTexBack);
-                btx.push((200 + pts[i].yf) / hTexBack);
+                vtx[vertexIndex] = new Vertex4(pts[i].x + offsetX, pts[i].y + offsetY, pts[i].z + offsetZ, 1);
+                fnr[vertexIndex] = normalVertex;
+                ftx[vertexIndex * 2] = (200 + pts[i].xf) / wTexFront;
+                ftx[vertexIndex * 2 + 1] = (200 + pts[i].yf) / hTexFront;
+                vertexIndex++;
 
                 // Third point of triangle
-                vtx.push(new Vertex4(pts[i + 1].x + f.offset * n[0], pts[i + 1].y + f.offset * n[1], pts[i + 1].z + f.offset * n[2], 1));
-                fnr.push(new Vertex(n[0], n[1], n[2]));
-                // Texture at third point of triangle
-                ftx.push((200 + pts[i + 1].xf) / wTexFront);
-                ftx.push((200 + pts[i + 1].yf) / hTexFront);
-                btx.push((200 + pts[i + 1].xf) / wTexBack);
-                btx.push((200 + pts[i + 1].yf) / hTexBack);
+                vtx[vertexIndex] = new Vertex4(pts[i + 1].x + offsetX, pts[i + 1].y + offsetY, pts[i + 1].z + offsetZ, 1);
+                fnr[vertexIndex] = normalVertex;
+                ftx[vertexIndex * 2] = (200 + pts[i + 1].xf) / wTexFront;
+                ftx[vertexIndex * 2 + 1] = (200 + pts[i + 1].yf) / hTexFront;
+                vertexIndex++;
 
-                // console.log('i, vtx', i, vtx);
-
-                this.triangles.push(new Triangle([0, index, index+1], fnr, ftx ));
-                index++;
+                // Create triangle with proper indices
+                this.triangles[triangleIndex] = new Triangle([vertexIndex-3, vertexIndex-2, vertexIndex-1], fnr, ftx);
+                triangleIndex++;
             }
         }
         return vtx;
@@ -163,17 +178,12 @@ export class View3dSoft {
     renderTriangle(triangle, points, projected, camera, lights) {
         let normal2, normal1, normal0;
         let uz02, vz02, vz012, uz012;
-        let texture = this.textureFront;
+
         // Compute triangle normal. Use the unsorted points, otherwise the winding of the points may change.
         let normal = this.computeTriangleNormal(points[triangle.indexes[0]], points[triangle.indexes[1]], points[triangle.indexes[2]]);
-        // console.log('triangle', normal, triangle);
-        // Backface culling.
-        if (normal.z <= 0) {
-            // console.log("backface culling:", normal.z);
-            texture = this.textureFront;
-        } else {
-            texture = this.textureBack;
-        }
+
+        // Backface culling and texture selection in one step
+        let texture = normal.z <= 0 ? this.textureFront : this.textureBack;
         // Sort by projected point Y.
         let indexes = this.sortedVertexIndexes(triangle.indexes, projected);
         let [i0, i1, i2] = indexes;
@@ -194,14 +204,18 @@ export class View3dSoft {
         // console.log('projected', projected);
         // console.log('indexes', indexes);
 
+        // Cache the transposed camera orientation to avoid recalculating it
         let transform = Mat4.Transposed(camera.orientation);
+
+        // Transform normals to camera space
         normal0 = Mat4.MultiplyMV(transform, new Vertex4(triangle.normals[i0]));
         normal1 = Mat4.MultiplyMV(transform, new Vertex4(triangle.normals[i1]));
         normal2 = Mat4.MultiplyMV(transform, new Vertex4(triangle.normals[i2]));
-        // console.log('normal0', normal0, normal1, normal2);
+
         let intensity;
         let nx02, nx012, ny02, ny012, nz02, nz012, xLeft, xRight;
-        // Phong shading: interpolate normal vectors.
+
+        // Phong shading: interpolate normal vectors in one batch
         [nx02, nx012] = this.edgeInterpolate(p0.y, normal0.x, p1.y, normal1.x, p2.y, normal2.x);
         [ny02, ny012] = this.edgeInterpolate(p0.y, normal0.y, p1.y, normal1.y, p2.y, normal2.y);
         [nz02, nz012] = this.edgeInterpolate(p0.y, normal0.z, p1.y, normal1.z, p2.y, normal2.z);
@@ -246,22 +260,26 @@ export class View3dSoft {
             nzScan = this.interpolate(xl, nzl, xr, nzr);
                 uzScan = this.interpolate(xl, uzLeft[y - p0.y], xr, uzRight[y - p0.y]);
                 vzScan = this.interpolate(xl, vzLeft[y - p0.y], xr, vzRight[y - p0.y]);
+            // Cache the x-offset calculation outside the loop
+            const xOffset = xl;
+
             for (let x = xl; x <= xr; x++) {
-                let invZ = zScan[x - xl];
+                const idx = x - xOffset;
+                const invZ = zScan[idx];
+
                 if (this.updateDepthBufferIfCloser(x, y, invZ)) {
-                    // Phong Shading
-                    let vertex = this.unProjectVertex(x, y, invZ);
-                    let normal = new Vertex(nxScan[x - xl], nyScan[x - xl], nzScan[x - xl]);
-                    intensity =  this.computeIllumination(vertex, normal, camera, lights);
-                    let color, u, v;
-                        u = uzScan[x - xl] / zScan[x - xl];
-                        v = vzScan[x - xl] / zScan[x - xl];
-                        color = texture.getTexel(u, v);
-                    // if(y === p0.y && x === xl)console.log('color', color, intensity, u, v);
+                    // Phong Shading - reuse variables to reduce object creation
+                    const vertex = this.unProjectVertex(x, y, invZ);
+                    const normal = new Vertex(nxScan[idx], nyScan[idx], nzScan[idx]);
+                    intensity = this.computeIllumination(vertex, normal, camera, lights);
+
+                    // Calculate texture coordinates
+                    const u = uzScan[idx] / invZ;
+                    const v = vzScan[idx] / invZ;
+                    const color = texture.getTexel(u, v);
+
+                    // Apply lighting and draw pixel
                     this.putPixel(x, y, color.mul(intensity));
-                    if (x < -1 || x > 1 || y < -1 || y > 1) {
-                        console.warn("Projected coordinates out of bounds before scaling to screen:", x, y);
-                    }
                 }
             }
         }
@@ -270,13 +288,23 @@ export class View3dSoft {
         if (i0 === i1) {
             return [d0];
         }
-        let values = [];
-        let a = (d1 - d0) / (i1 - i0);
-        let d = d0;
-        for (let i = i0; i <= i1; i++) {
-            values.push(d);
-            d += a;
+
+        // Handle case where i0 > i1 to prevent negative array length
+        if (i0 > i1) {
+            // Swap the points and values
+            [i0, i1, d0, d1] = [i1, i0, d1, d0];
         }
+
+        // Ensure count is an integer to prevent "Invalid array length" errors
+        const count = Math.ceil(i1 - i0 + 1);
+        const values = new Array(count);
+        const step = (d1 - d0) / (i1 - i0);
+
+        // Optimize by pre-allocating array and using direct indexing
+        for (let i = 0; i < count; i++) {
+            values[i] = d0 + step * i;
+        }
+
         return values;
     }
     viewportToCanvas(p2d) {
@@ -396,33 +424,25 @@ export class View3dSoft {
     renderModel() {
         const perspectiveMatrix = this.initPerspective();
         let vertex = this.makeTriangles(this.model);
-        let projected = [vertex.length];
+        let projected = new Array(vertex.length);
+        // Combine camera and model transformations
         let cameraMatrix = Mat4.MultiplyMM4(Mat4.Transposed(this.camera.orientation), Mat4.MakeTranslationMatrix(this.camera.position));
-        let transform = Mat4.MultiplyMM4(cameraMatrix, this.transform);
+        let combinedTransform = Mat4.MultiplyMM4(perspectiveMatrix, cameraMatrix);
+
         for (let i = 0; i < vertex.length; i++) {
-            // Apply modelView transform.
-// 1. Transformation modèle
-            let transformed = Mat4.MultiplyMV(transform, vertex[i]);
-// 2. Transformation caméra
-            transformed = Mat4.MultiplyMV(cameraMatrix, transformed);
-            // console.log(transformed);
-// 3. Perspective projection
-            transformed = Mat4.MultiplyMV(perspectiveMatrix, transformed);
-            // console.log(transformed);
-// 4. Normalisation homogène
+            // Apply combined transform in one step
+            let transformed = Mat4.MultiplyMV(combinedTransform, vertex[i]);
+
+            // Normalize homogeneous coordinates
             transformed.x /= transformed.w;
             transformed.y /= transformed.w;
             transformed.z /= transformed.w;
-// 5. Vérification des limites
-            if (transformed.x < -1 || transformed.x > 1 || transformed.y < -1 || transformed.y > 1) {
-                console.warn("Projected coordinate out of normalized bounds:", transformed);
-            }
-            console.log(transformed);
-            // projected[i] = this.projectVertex(transformed);
-            // this.putPixel(transformed.x, transformed.y, new Color(0, 0, 0));
+
+            // Store projected vertex
             projected[i] = transformed;
         }
-        // Render triangle
+
+        // Render triangles
         for (let i = 0; i < this.triangles.length; i++) {
             this.renderTriangle(this.triangles[i], vertex, projected, this.camera, this.lights);
         }
@@ -589,4 +609,4 @@ class Plane {
         this.distance = distance;
     }
 }
-// 621 lines
+// 612 lines
