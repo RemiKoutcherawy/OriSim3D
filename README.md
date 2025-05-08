@@ -16,7 +16,7 @@ http://localhost:8000
 
 To use assert in deno.json:
 ```
-deno add @std/assert 
+deno add jsr:@std/assert
 ```
 
 Work in progress, any help is welcome.
