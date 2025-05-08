@@ -1,6 +1,7 @@
 import { Face } from "../js/Face.js";
 import { Point } from "../js/Point.js";
-import { assertEquals, assert } from "jsr:@std/assert";
+import { assert, assertEquals } from "jsr:@std/assert";
+import { Vector3 } from "../js/Vector3.js";
 
 Deno.test("Face", async (t) => {
     // Square from -100,-100 to 100,100
@@ -64,4 +65,60 @@ Deno.test("Face", async (t) => {
         const area = Face.area3d(face.points);
         assertEquals(area, 200 * 200, "Area3d should be 200 * 200");
     });
+
+    await t.step(
+        "intersectionPlaneSegment should return intersection point when segment intersects plane",
+        () => {
+            const plane = {
+                normal: new Vector3(0, 1, 0),
+                origin: new Vector3(0, 0, 0),
+            };
+            const a = new Vector3(0, -1, 0);
+            const b = new Vector3(0, 1, 0);
+            const result = Face.intersectionPlaneSegment(plane, a, b);
+            assertEquals(result, new Point(NaN, NaN, 0, 0, 0));
+        },
+    );
+
+    await t.step(
+        "intersectionPlaneSegment should return undefined when segment is parallel to plane",
+        () => {
+            const plane = {
+                normal: new Vector3(0, 1, 0),
+                origin: new Vector3(0, 0, 0),
+            };
+            const a = new Vector3(0, 0, 0);
+            const b = new Vector3(1, 0, 0);
+            const result = Face.intersectionPlaneSegment(plane, a, b);
+            assertEquals(result, undefined);
+        },
+    );
+
+    await t.step(
+        "intersectionPlaneSegment should return undefined when segment does not intersect plane",
+        () => {
+            const plane = {
+                normal: new Vector3(0, 1, 0),
+                origin: new Vector3(0, 1, 0),
+            };
+            const a = new Vector3(0, -1, 0);
+            const b = new Vector3(0, 0, 0);
+            const result = Face.intersectionPlaneSegment(plane, a, b);
+            assertEquals(result, undefined);
+        },
+    );
+
+    await t.step(
+        "intersectionPlaneSegment should return correct intersection point for non-axis-aligned segment",
+        () => {
+            const plane = {
+                normal: new Vector3(0, 1, 0),
+                origin: new Vector3(0, 0, 0),
+            };
+            const a = new Vector3(-1, -1, -1);
+            const b = new Vector3(1, 1, 1);
+            const result = Face.intersectionPlaneSegment(plane, a, b);
+            assertEquals(result, new Point(NaN, NaN, 0, 0, 0));
+        },
+    );
 });
