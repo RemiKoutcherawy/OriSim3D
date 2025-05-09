@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<canvas id="c" width="400" height="400" style="background: black"></canvas>
+<script type="module">
+  // Canvas 2D setup
+  const ctx = window.document.getElementById('c').getContext("2d");
+  const imgData = ctx.createImageData(400, 400);
+
+  // Put pixel function
+  function putPixel(x, y, color) {
+    const i = (Math.floor(y) * 400 + Math.floor(x)) * 4;
+    imgData.data[i] = color[0]; // R
+    imgData.data[i + 1] = color[1]; // G
+    imgData.data[i + 2] = color[2]; // B
+    imgData.data[i + 3] = 255; // A
+  }
+
+  // Matrix 4x4 functions
+  function createMat4() {
+    return [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]];
+  }
+
+  function multiplyMat4(a, b) {
+    const r = createMat4();
+    for (let i = 0; i < 4; i++)
+      for (let j = 0; j < 4; j++)
+        r[i][j] = a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j] + a[i][3]*b[3][j];
+    return r;
+  }
+
+  function transformVec4(mat, vec) {
+    const r = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++)
+      r[i] = mat[i][0]*vec[0] + mat[i][1]*vec[1] + mat[i][2]*vec[2] + mat[i][3]*vec[3];
+    return r;
+  }
+
+  function perspectiveMat4(fov, aspect, near, far) {
+    const f = 1/Math.tan(fov/2), nf = 1/(near-far);
+    return [
+      [f/aspect, 0, 0, 0],
+      [0, f, 0, 0],
+      [0, 0, (far+near)*nf, 2*far*near*nf],
+      [0, 0, -1, 0]
+    ];
+  }
+
+  function translateMat4(tx, ty, tz) {
+    return [[1,0,0,tx], [0,1,0,ty], [0,0,1,tz], [0,0,0,1]];
+  }
+
+  function rotateYMat4(angle) {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    return [[c,0,s,0], [0,1,0,0], [-s,0,c,0], [0,0,0,1]];
+  }
+
+  // Cube vertices and edges
+  const vertices = [
+    [-200,-200,-200,200], [200,-200,-200,200], [200,200,-200,200], [-200,200,-200,200], // Front
+    [-200,-200,200,200],  [200,-200,200,200],  [200,200,200,200],  [-200,200,200,200]   // Back
+  ];
+  const edges = [[0,1], [1,2], [2,3], [3,0], [4,5], [5,6], [6,7], [7,4], [0,4], [1,5], [2,6], [3,7]];
+
+  // Animation
+  let angle = 0;
+  function render() {
+    angle += 0.01;
+    // Clear canvas
+    for (let i = 0; i < imgData.data.length; i ++) {
+      imgData.data[i] = 0;
+    }
+
+    // Transformations
+    const proj = perspectiveMat4(Math.PI/3, 1, 0.1, 100);
+    const view = translateMat4(0, 0, -5);
+    const model = rotateYMat4(angle);
+    let mvp = multiplyMat4(proj, view);
+    mvp = multiplyMat4(mvp, model);
+
+    // Project vertices
+    const projected = vertices.map(v => {
+      const tv = transformVec4(mvp, v);
+      const w = tv[3];
+      return [(tv[0]/w + 1) * 200, (1 - tv[1]/w) * 200]; // Normalize to canvas
+    });
+    // Draw edges
+    edges.forEach(([i, j]) => {
+      const x0 = projected[i][0], y0 = projected[i][1];
+      const x1 = projected[j][0], y1 = projected[j][1];
+      // Simple line drawing (Bresenham-like)
+      const dx = x1 - x0, dy = y1 - y0;
+      const steps = Math.max(Math.abs(dx), Math.abs(dy)) || 1;
+      for (let t = 0; t <= 1; t += 1/steps) {
+        const x = x0 + t * dx, y = y0 + t * dy;
+        if (x >= 0 && x < 400 && y >= 0 && y < 400)
+          putPixel(x, y, [255, 255, 255]);
+      }
+    });
+    ctx.putImageData(imgData, 0, 0);
+    requestAnimationFrame(render);
+  }
+  render();
+</script>
