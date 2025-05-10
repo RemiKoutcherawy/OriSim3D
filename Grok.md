@@ -1,5 +1,17 @@
-Si vous cherchez une implémentation de matrices 4x4 en JavaScript plus légère que **glMatrix**, avec une taille réduite, une portabilité aisée vers d'autres langages (Java, Swift, Kotlin) et sans dépendances spécifiques comme `Float32Array` ou GLSL, l'objectif est de privilégier une approche simple, lisible et générique. Voici une suggestion pour une implémentation minimaliste de matrices 4x4 et de vecteurs 4D, utilisant un tableau JavaScript standard (plutôt que `Float32Array`) pour maximiser la portabilité. Cette implémentation se concentre sur les opérations essentielles (multiplication, transformations de base) et reste facile à traduire dans d'autres langages.
-
+En JavaScript pour la synthèse d’images 3d quelle est l’implémentation de matrice 4d la plus utilisée ? Il s’agit de la librairie de bas niveau vecteur matrice utilisée dans des frameworks comme Three.js WebGL ou MDN. J’essaie de refaire le pipeline from scratch sans utiliser de librairie, juste une matrice et des vecteurs.
+Je cherche une librairie vectorielle plus réduite, moins performante de taille plus réduite. Peux-tu me suggérer une implémentation de matrices 4x4 en JavaScript ? L’idée est de pouvoir facilement porter mon programme dans plusieurs langages comme Java, Swift, Kotlin. Donc sans GLSL sans Float32Array.
+Donne un exemple de page html incluant un exemple d’implémentation en JavaScript pour présenter un cube vu en perspective. Limite le code au minimum de lignes.
+Je souhaite ajouter des faces toujours avec un code totalement portable.
+Ajoute un depthBuffer
+Ajoute un éclairage
+Adapte le code pour prendre en compte le redimensionnement de la fenêtre. Le canvas ne fait plus width=400 height=400, mais width=100% height=100%. Les valeurs fixes doivent être remplacées. Minimise le nombre de lignes de code.
+Adapte le code en remplaçant le cube par un carré de 200,200 centré sur 0,0.
+Adapte le code pour remplacer la couleur rouge par une texture. Le fichier image de la texture est 'textures/front.jpg'
+Adapte le code en ajoutant une texture 'textures/back.jpg' si la face n'est pas orientée vers la caméra.
+Rajoute le code d'éclairage, et l'interpolation des textures avec les coordonnées barycentriques.
+Corrige l'interpolation des textures. Les rendus des textures se déforment sur le plan lorsque le plan tourne.
+Pourquoi le rendu ne montre que la texture 'front.jpg' et jamais la texture 'back.jpg' ?
+Pourquoi la face avant n'est-elle pas éclairée comme la face arrière ? 
 ---
 
 ### **Contexte et choix**
