@@ -5,12 +5,15 @@
 export class View3d {
     angle = 0.0;
     vertices = [
-        [-200,-200,0,1], [200,-200,0,1], [200,200,0,1], [-200,200,0,1]
+        [-100,-100,0,1], [100,-100,0,1], [100,100,0,1], [-100,100,0,1]
     ];
     uvs = [
         [0,0], [1,0], [1,1], [0,1]
     ];
-    triangles;
+    triangles = [
+        {v: [0,1,2], uv: [0,1,2]},
+        {v: [0,2,3], uv: [0,2,3]}
+    ];
     frontData;
     backData;
     texWidth;
@@ -98,20 +101,6 @@ export class View3d {
     angleX = 0.0;
     angleY = 0.0;
     scale = 1.0;
-    // Projection and model view matrix
-    projection = View3d.createMat4();
-    modelView = View3d.createMat4();
-    // Textures dimensions defaults
-    wTexFront = 1;
-    hTexFront = 1;
-    wTexBack = 1;
-    hTexBack = 1;
-    // Arrays
-    vtx = []; // vertex coords
-    ftx = []; // front texture coords
-    btx = []; // back texture coords
-    fnr = []; // front normals coords
-    lin = []; // lines indices
 
     constructor(model, canvas3d, overlay) {
         // Instance variables
@@ -146,15 +135,6 @@ export class View3d {
             const i = (y * width + x) * 4;
             imgData.data[i] = color[0]; imgData.data[i + 1] = color[1]; imgData.data[i + 2] = color[2]; imgData.data[i + 3] = 255;
             this.depthBuffer[y][x] = z;
-        }
-    }
-
-    // Clear depth buffer
-    clearDepthBuffer() {
-        for (let y = 0; y < this.canvas3d.height; y++) {
-            for (let x = 0; x < this.canvas3d.width; x++) {
-                this.depthBuffer[y][x] = Infinity;
-            }
         }
     }
 
@@ -228,133 +208,78 @@ export class View3d {
 
     // Buffers
     initBuffers() {
-        this.vtx = []; // vertex coords
-        this.ftx = []; // front texture coords
-        this.btx = []; // back texture coords
-        this.fnr = []; // front normals coords
-        this.lin = []; // lines indices
-        this.triangles = [
-            {v: [0,1,2], uv: [0,1,2]},
-            {v: [0,2,3], uv: [0,2,3]}
-        ];
+        // Faces with FAN
+        let index = 0;
+        for (let f of this.model.faces) {
+            const pts = f.points;
+            const n = normal(pts);
+            for (let i = 1; i < pts.length - 1; i++) {
+                // First point
+                const v0x = pts[0].x + f.offset * n[0];
+                const v0y = pts[0].y + f.offset * n[1];
+                const v0z = pts[0].z + f.offset * n[2];
+                this.vertices.push([v0x, v0y, v0z, 1.0 ]);
 
-        // this.indexMap = new WeakMap(); // index in vtx for each point
+                // Texture at first point of triangle
+                const ft0u = (200 + pts[0].xf) / this.texWidth;
+                const ft0v = (200 + pts[0].yf) / this.texHeight;
+                this.uvs.push([ft0u, ft0v]);
 
-        // // Faces with FAN
-        // let index = 0;
-        // for (let f of this.model.faces) {
-        //     const pts = f.points;
-        //     const n = normal(pts);
-        //
-        //     for (let i = 1; i < pts.length - 1; i++) {
-        //         // Create a triangle
-        //         const triangle = {
-        //             vertices: [],
-        //             normals: [],
-        //             frontTexCoords: [],
-        //             backTexCoords: []
-        //         };
-        //
-        //         // First point
-        //         const v0x = pts[0].x + f.offset * n[0];
-        //         const v0y = pts[0].y + f.offset * n[1];
-        //         const v0z = pts[0].z + f.offset * n[2];
-        //         triangle.vertices.push({ x: v0x, y: v0y, z: v0z });
-        //         triangle.normals.push({ x: n[0], y: n[1], z: n[2] });
-        //
-        //         // Texture at first point of triangle
-        //         const ft0u = (200 + pts[0].xf) / this.wTexFront;
-        //         const ft0v = (200 + pts[0].yf) / this.hTexFront;
-        //         const bt0u = (200 + pts[0].xf) / this.wTexBack;
-        //         const bt0v = (200 + pts[0].yf) / this.hTexBack;
-        //         triangle.frontTexCoords.push({ u: ft0u, v: ft0v });
-        //         triangle.backTexCoords.push({ u: bt0u, v: bt0v });
-        //
-        //         // Store in flat arrays for compatibility
-        //         this.vtx.push(v0x, v0y, v0z);
-        //         this.fnr.push(n[0], n[1], n[2]);
-        //         this.ftx.push(ft0u, ft0v);
-        //         this.btx.push(bt0u, bt0v);
-        //
-        //         // Second point of triangle
-        //         const v1x = pts[i].x + f.offset * n[0];
-        //         const v1y = pts[i].y + f.offset * n[1];
-        //         const v1z = pts[i].z + f.offset * n[2];
-        //         triangle.vertices.push({ x: v1x, y: v1y, z: v1z });
-        //         triangle.normals.push({ x: n[0], y: n[1], z: n[2] });
-        //
-        //         // Texture at second point of triangle
-        //         const ft1u = (200 + pts[i].xf) / this.wTexFront;
-        //         const ft1v = (200 + pts[i].yf) / this.hTexFront;
-        //         const bt1u = (200 + pts[i].xf) / this.wTexBack;
-        //         const bt1v = (200 + pts[i].yf) / this.hTexBack;
-        //         triangle.frontTexCoords.push({ u: ft1u, v: ft1v });
-        //         triangle.backTexCoords.push({ u: bt1u, v: bt1v });
-        //
-        //         // Store in flat arrays for compatibility
-        //         this.vtx.push(v1x, v1y, v1z);
-        //         this.fnr.push(n[0], n[1], n[2]);
-        //         this.ftx.push(ft1u, ft1v);
-        //         this.btx.push(bt1u, bt1v);
-        //
-        //         // Third point of triangle
-        //         const v2x = pts[i + 1].x + f.offset * n[0];
-        //         const v2y = pts[i + 1].y + f.offset * n[1];
-        //         const v2z = pts[i + 1].z + f.offset * n[2];
-        //         triangle.vertices.push({ x: v2x, y: v2y, z: v2z });
-        //         triangle.normals.push({ x: n[0], y: n[1], z: n[2] });
-        //
-        //         // Texture at third point of triangle
-        //         const ft2u = (200 + pts[i + 1].xf) / this.wTexFront;
-        //         const ft2v = (200 + pts[i + 1].yf) / this.hTexFront;
-        //         const bt2u = (200 + pts[i + 1].xf) / this.wTexBack;
-        //         const bt2v = (200 + pts[i + 1].yf) / this.hTexBack;
-        //         triangle.frontTexCoords.push({ u: ft2u, v: ft2v });
-        //         triangle.backTexCoords.push({ u: bt2u, v: bt2v });
-        //
-        //         // Store in flat arrays for compatibility
-        //         this.vtx.push(v2x, v2y, v2z);
-        //         this.fnr.push(n[0], n[1], n[2]);
-        //         this.ftx.push(ft2u, ft2v);
-        //         this.btx.push(bt2u, bt2v);
-        //
-        //         // Add triangle to list
-        //         this.triangles.push(triangle);
-        //
-        //         // Keep track of index in vtx for each point to draw lines
-        //         this.indexMap.set(pts[0], index++);
-        //         this.indexMap.set(pts[i], index++);
-        //         this.indexMap.set(pts[i + 1], index++);
-        //     }
-        // }
+                // Second point of triangle
+                const v1x = pts[i].x + f.offset * n[0];
+                const v1y = pts[i].y + f.offset * n[1];
+                const v1z = pts[i].z + f.offset * n[2];
+                this.vertices.push([v1x, v1y, v1z, 1.0]);
+
+                // Texture at second point of triangle
+                const ft1u = (200 + pts[i].xf) / this.texWidth;
+                const ft1v = (200 + pts[i].yf) / this.texHeight;
+                this.uvs.push([ft1u, ft1v]);
+
+                // Third point of triangle
+                const v2x = pts[i + 1].x + f.offset * n[0];
+                const v2y = pts[i + 1].y + f.offset * n[1];
+                const v2z = pts[i + 1].z + f.offset * n[2];
+                this.vertices.push([v2x, v2y, v2z, 1.0]);
+
+                // Texture at third point of triangle
+                const ft2u = (200 + pts[i + 1].xf) / this.texWidth;
+                const ft2v = (200 + pts[i + 1].yf) / this.texHeight;
+                this.uvs.push([ft2u, ft2v]);
+
+                // Add triangle to list
+                this.triangles.push({v: [index,index+1,index+2], uv: [index,index+1,index+2]},);
+                index+=3;
+            }
+        }
         //
         // // Segments
         // for (let s of this.model.segments) {
         //     this.lin.push(this.indexMap.get(s.p1), this.indexMap.get(s.p2));
         // }
         //
-        // // Compute Face normal in [3]
-        // function normal(pts) {
-        //     let n = [3];
-        //     for (let i = 0; i < pts.length - 2; i++) {
-        //         // Take triangles until p2p1 x p1p3 > 0.1
-        //         const p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
-        //         const u = [p2.x - p1.x, p2.y - p1.y, p2.z - p1.z];
-        //         const v = [p3.x - p1.x, p3.y - p1.y, p3.z - p1.z];
-        //         n[0] = u[1] * v[2] - u[2] * v[1];
-        //         n[1] = u[2] * v[0] - u[0] * v[2];
-        //         n[2] = u[0] * v[1] - u[1] * v[0];
-        //         if (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) > 0.1) {
-        //             break;
-        //         }
-        //     }
-        //     // n.normalize();
-        //     const sq = Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-        //     n[0] /= sq;
-        //     n[1] /= sq;
-        //     n[2] /= sq;
-        //     return n;
-        // }
+        // Compute Face normal in [3]
+        function normal(pts) {
+            let n = [3];
+            for (let i = 0; i < pts.length - 2; i++) {
+                // Take triangles until p2p1 x p1p3 > 0.1
+                const p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
+                const u = [p2.x - p1.x, p2.y - p1.y, p2.z - p1.z];
+                const v = [p3.x - p1.x, p3.y - p1.y, p3.z - p1.z];
+                n[0] = u[1] * v[2] - u[2] * v[1];
+                n[1] = u[2] * v[0] - u[0] * v[2];
+                n[2] = u[0] * v[1] - u[1] * v[0];
+                if (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) > 0.1) {
+                    break;
+                }
+            }
+            // n.normalize();
+            const sq = Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            n[0] /= sq;
+            n[1] /= sq;
+            n[2] /= sq;
+            return n;
+        }
     }
 
     // Model view matrix
