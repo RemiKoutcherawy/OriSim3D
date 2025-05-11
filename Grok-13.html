@@ -40,7 +40,7 @@
   function putPixel(x, y, color, z) {
     x = Math.floor(x); y = Math.floor(y);
     if (x < 0 || x >= width || y < 0 || y >= height) return;
-    if (z < depthBuffer[y][x]) {
+      if (z < depthBuffer[y][x]) {
       const i = (y * width + x) * 4;
       imgData.data[i] = color[0]; imgData.data[i + 1] = color[1]; imgData.data[i + 2] = color[2]; imgData.data[i + 3] = 255;
       depthBuffer[y][x] = z;
@@ -127,8 +127,7 @@
     const maxX = Math.min(width-1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
     const minY = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1])));
     const maxY = Math.min(height-1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
-
-    for (let y = minY; y <= maxY; y++) {
+      for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
         const b0 = ((p1[1]-p2[1])*(x-p2[0]) + (p2[0]-p1[0])*(y-p2[1])) /
                 ((p1[1]-p2[1])*(p0[0]-p2[0]) + (p2[0]-p1[0])*(p0[1]-p2[1]));
@@ -154,42 +153,42 @@
   const lightDir = normalize([0, 0, -1]);
   const ambient = 0.2;
   let angle = 0;
+  function renderTriangles(invTransModel, projected) {
+      triangles.forEach(t => {
+          const v0 = vertices[t.v[0]], v1 = vertices[t.v[1]], v2 = vertices[t.v[2]];
+          const e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
+          const e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+          let normal = normalize(cross(e1, e2));
+          normal = transformNormal(invTransModel, normal);
+          const isFront = dot(normal, [0, 0, -1]) > 0; // Camera looks along -Z
+          const tex = isFront ? frontData : backData;
+          const lightNormal = isFront ? normal : [-normal[0], -normal[1], -normal[2]]; // Flip normal for back face
+          const factor = Math.max(0, dot(lightNormal, lightDir)) * (1 - ambient) + ambient;
+          const uv0 = uvs[t.uv[0]], uv1 = uvs[t.uv[1]], uv2 = uvs[t.uv[2]];
+          const p0 = projected[t.v[0]], p1 = projected[t.v[1]], p2 = projected[t.v[2]];
+          const z0 = p0[2], z1 = p1[2], z2 = p2[2];
+          const w0 = p0[3], w1 = p1[3], w2 = p2[3];
+          fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor);
+      });
+  }
+
   function render() {
     if (texturesLoaded < 2) return;
     angle += 0.01;
     for (let i = 0; i < imgData.data.length; i += 4) imgData.data[i + 3] = 0;
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) depthBuffer[y][x] = Infinity;
-
     const proj = perspectiveMat4(Math.PI/3, width/height, 0.1, 100);
     const view = translateMat4(0, 0, -500);
     const model = rotateYMat4(angle);
     let mvp = multiplyMat4(proj, view);
     mvp = multiplyMat4(mvp, model);
     const invTransModel = inverseTransposeMat4(model);
-
     const projected = vertices.map(v => {
       const tv = transformVec4(mvp, v);
       const w = tv[3];
-      return [(tv[0]/w + 1) * width/2, (1 - tv[1]/w) * height/2, tv[2]/w, w];
+        return [(tv[0]/w + 1) * width/2, (1 - tv[1]/w) * height/2, tv[2]/w, w];
     });
-
-    triangles.forEach(t => {
-      const v0 = vertices[t.v[0]], v1 = vertices[t.v[1]], v2 = vertices[t.v[2]];
-      const e1 = [v1[0]-v0[0], v1[1]-v0[1], v1[2]-v0[2]];
-      const e2 = [v2[0]-v0[0], v2[1]-v0[1], v2[2]-v0[2]];
-      let normal = normalize(cross(e1, e2));
-      normal = transformNormal(invTransModel, normal);
-      const isFront = dot(normal, [0, 0, -1]) > 0; // Camera looks along -Z
-      const tex = isFront ? frontData : backData;
-      const lightNormal = isFront ? normal : [-normal[0], -normal[1], -normal[2]]; // Flip normal for back face
-      const factor = Math.max(0, dot(lightNormal, lightDir)) * (1 - ambient) + ambient;
-      const uv0 = uvs[t.uv[0]], uv1 = uvs[t.uv[1]], uv2 = uvs[t.uv[2]];
-      const p0 = projected[t.v[0]], p1 = projected[t.v[1]], p2 = projected[t.v[2]];
-      const z0 = p0[2], z1 = p1[2], z2 = p2[2];
-      const w0 = p0[3], w1 = p1[3], w2 = p2[3];
-      fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor);
-    });
-
+    renderTriangles(invTransModel, projected);
     ctx.putImageData(imgData, 0, 0);
     requestAnimationFrame(render);
   }
