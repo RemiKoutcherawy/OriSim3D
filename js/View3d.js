@@ -4,16 +4,9 @@
 
 export class View3d {
     angle = 0.0;
-    vertices = [
-        [-100,-100,0,1], [100,-100,0,1], [100,100,0,1], [-100,100,0,1]
-    ];
-    uvs = [
-        [0,0], [1,0], [1,1], [0,1]
-    ];
-    triangles = [
-        {v: [0,1,2], uv: [0,1,2]},
-        {v: [0,2,3], uv: [0,2,3]}
-    ];
+    vertices = [];
+    uvs = [];
+    triangles = [];
     frontData;
     backData;
     texWidth;
@@ -21,78 +14,6 @@ export class View3d {
     texturesLoaded = 0;
     lightDir = View3d.normalize([0, 0, -1]);
     ambient = 0.2;
-
-    static createMat4() {return [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]];}
-    static multiplyMat4(a, b) {
-      const r = View3d.createMat4();
-      for (let i = 0; i < 4; i++)
-        for (let j = 0; j < 4; j++)
-          r[i][j] = a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j] + a[i][3]*b[3][j];
-      return r;
-    }
-    static transformVec4(mat, vec) {
-      const r = [0, 0, 0, 0];
-      for (let i = 0; i < 4; i++)
-        r[i] = mat[i][0]*vec[0] + mat[i][1]*vec[1] + mat[i][2]*vec[2] + mat[i][3]*(vec[3] || 1);
-      return r;
-    }
-    static perspectiveMat4(fov, aspect, near, far) {
-      const f = 1/Math.tan(fov/2), nf = 1/(near-far);
-      return [[f/aspect,0,0,0], [0,f,0,0], [0,0,(far+near)*nf,2*far*near*nf], [0,0,-1,0]];
-    }
-    static translateMat4(tx, ty, tz) {
-      return [[1,0,0,tx], [0,1,0,ty], [0,0,1,tz], [0,0,0,1]];
-    }
-    static rotateYMat4(angle) {
-      const c = Math.cos(angle), s = Math.sin(angle);
-      return [[c,0,s,0], [0,1,0,0], [-s,0,c,0], [0,0,0,1]];
-    }
-    // rotateXMat4(angle) {
-    //   const c = Math.cos(angle), s = Math.sin(angle);
-    //   return [[1,0,0,0], [0,c,-s,0], [0,s,c,0], [0,0,0,1]];
-    // }
-    // scaleMat4(sx, sy, sz) {
-    //   return [[sx,0,0,0], [0,sy,0,0], [0,0,sz,0], [0,0,0,1]];
-    // }
-    // static frustumMat4(left, right, bottom, top, near, far) {
-    //   const rl = 1 / (right - left);
-    //   const tb = 1 / (top - bottom);
-    //   const nf = 1 / (near - far);
-    //   const result = View3d.createMat4();
-    //   result[0][0] = near * 2 * rl;
-    //   result[1][1] = near * 2 * tb;
-    //   result[2][0] = (right + left) * rl;
-    //   result[2][1] = (top + bottom) * tb;
-    //   result[2][2] = (far + near) * nf;
-    //   result[2][3] = -1;
-    //   result[3][2] = far * near * 2 * nf;
-    //   result[3][3] = 0;
-    //   return result;
-    // }
-    static cross(v1, v2) {
-      return [v1[1]*v2[2]-v1[2]*v2[1], v1[2]*v2[0]-v1[0]*v2[2], v1[0]*v2[1]-v1[1]*v2[0]];
-    }
-    static dot(v1, v2) {
-      return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
-    }
-    static normalize(v) {
-      const len = Math.sqrt(this.dot(v, v));
-      return len ? [v[0]/len, v[1]/len, v[2]/len] : v;
-    }
-    static transformNormal(mat, normal) {
-      const r = [0, 0, 0];
-      for (let i = 0; i < 3; i++)
-        r[i] = mat[i][0]*normal[0] + mat[i][1]*normal[1] + mat[i][2]*normal[2];
-      return View3d.normalize(r);
-    }
-    static inverseTransposeMat4(mat) {
-      const r = View3d.createMat4();
-      const c = mat[0][0], s = mat[2][0]; // For rotation Y matrix
-      r[0][0] = c; r[0][2] = -s;
-      r[1][1] = 1;
-      r[2][0] = s; r[2][2] = c;
-      return r;
-    }
     depthBuffer = null;
     frontTexture = null;
     backTexture = null;
@@ -114,8 +35,8 @@ export class View3d {
         this.height = this.canvas3d.height = this.canvas3d.clientHeight;
         this.imgData = this.context2d.getImageData(0, 0, this.canvas3d.width, this.canvas3d.height);
         this.depthBuffer = Array(this.canvas3d.height).fill(Infinity).map(() => Array(this.canvas3d.width).fill(Infinity));
-
         this.initTextures();
+        this.initBuffers();
         // Resize
         window.addEventListener('resize', () => {
             const c = this.canvas3d, ctx = c.getContext("2d");
@@ -140,16 +61,12 @@ export class View3d {
 
     // Textures
     initTextures() {
-        // Create texture objects
         this.frontTexture = { image: null, width: 1, height: 1 };
         this.backTexture = { image: null, width: 1, height: 1 };
-
-        // Load textures
         const frontImg = new Image(), backImg = new Image();
         frontImg.src = 'textures/front.jpg';
         backImg.src = 'textures/back.jpg';
         let scope = this;
-
         function loadTexture(img, callback) {
             img.onload = () => {
                 const texCanvas = document.createElement("canvas");
@@ -167,49 +84,33 @@ export class View3d {
         loadTexture(backImg, data => this.backData = data);
     }
 
-
-    // // Perspective and background
-    // perspective() {
-    //     // Clear canvas with light blue background (0xCCE4FF)
-    //     this.context2d.fillStyle = 'rgb(204, 228, 255)';
-    //     this.context2d.fillRect(0, 0, this.canvas3d.width, this.canvas3d.height);
-    //
-    //     // Reset canvas buffer
-    //     // this.canvasBuffer = this.context2d.getImageData(0, 0, this.canvas3d.width, this.canvas3d.height);
-    //
-    //     // Clear depth buffer
-    //     this.clearDepthBuffer();
-    //
-    //     // Choose portrait or landscape
-    //     const ratio = this.canvas3d.clientWidth / this.canvas3d.clientHeight;
-    //     const fov = 40;
-    //     const near = 50, far = 1200;
-    //     let top, bottom, left, right;
-    //     if (ratio >= 1.0) {
-    //         top = near * Math.tan(fov * (Math.PI / 360.0));
-    //         bottom = -top;
-    //         left = bottom * ratio;
-    //         right = top * ratio;
-    //     } else {
-    //         right = near * Math.tan(fov * (Math.PI / 360.0));
-    //         left = -right;
-    //         top = right / ratio;
-    //         bottom = left / ratio;
-    //     }
-    //
-    //     // Basic frustum at a distance of 700. Camera is at z=0, model at -700
-    //     const frustum = View3d.frustumMat4(left, right, bottom, top, near, far);
-    //
-    //     // Step back
-    //     // frustum[3][3] += 700;
-    //
-    //     this.projection = frustum;
-    // }
+    // Perspective and background
+    perspective() {
+        // Choose portrait or landscape
+        const ratio = this.canvas3d.clientWidth / this.canvas3d.clientHeight;
+        const fov = 40;
+        const near = 50, far = 1200;
+        let top, bottom, left, right;
+        if (ratio >= 1.0) {
+            top = near * Math.tan(fov * (Math.PI / 360.0));
+            bottom = -top;
+            left = bottom * ratio;
+            right = top * ratio;
+        } else {
+            right = near * Math.tan(fov * (Math.PI / 360.0));
+            left = -right;
+            top = right / ratio;
+            bottom = left / ratio;
+        }
+        const frustum = View3d.frustumMat4(left, right, bottom, top, near, far);
+    }
 
     // Buffers
     initBuffers() {
         // Faces with FAN
         let index = 0;
+        this.vertices = [];
+        this.uvs = [];
         for (let f of this.model.faces) {
             const pts = f.points;
             const n = normal(pts);
@@ -284,80 +185,33 @@ export class View3d {
 
     // Model view matrix
     initModelView() {
-        // // Rotation around X axis
-        // let ex = this.createMat4();
-        // ex = this.rotateXMat4(this.angleX / 200);
-        // // Rotation around Y axis
-        // let mv = this.rotateYMat4(this.angleY / 100);
-        // mv = this.multiplyMat4(mv, ex);
-        // // Scale ModelView
-        // this.modelView = this.scaleMat4(this.scale, this.scale, this.scale);
-        // this.modelView = this.multiplyMat4(this.modelView, mv);
-        //
-        // // Overlay
-        // // if (this.overlay) {
-        // //     this.overlay.width = this.overlay.clientWidth;
-        // //     this.overlay.height = this.overlay.clientHeight;
-        // //     const scale = this.scaleMat4(this.overlay.width / 2.0, -this.overlay.height / 2.0, 1.0);
-        // //     const translation = this.translateMat4(1, -1, 0);
-        // //     const overlay = this.multiplyMat4(scale, translation);
-        // //
-        // //     // canvasView = overlay * projection * modelView
-        // //     const projection = this.multiplyMat4(this.projection, this.modelView);
-        // //     this.canvasView = this.multiplyMat4(overlay, projection);
-        // //
-        // //     // Set xCanvas, yCanvas to model points
-        // //     for (let p of this.model.points) {
-        // //         const v = View3d.transformVec4(this.canvasView, [p.x, p.y, p.z]);
-        // //         p.xCanvas = v[0];
-        // //         p.yCanvas = v[1];
-        // //     }
-        // // }
-        //
-        // // Compute projected vertices for all triangles
-        // this.projectedVertices = [];
-        //
-        // // Combined projection and model view matrix
-        // const mvp = this.multiplyMat4(this.projection, this.modelView);
-        //
-        // // Project all vertices
-        // for (let i = 0; i < this.vtx.length; i += 3) {
-        //     const x = this.vtx[i];
-        //     const y = this.vtx[i + 1];
-        //     const z = this.vtx[i + 2];
-        //
-        //     // Apply MVP matrix
-        //     const projected = View3d.transformVec4(mvp, [x, y, z, 1.0]);
-        //
-        //     // Perspective division
-        //     const w = projected[3];
-        //     const px = projected[0] / w;
-        //     const py = projected[1] / w;
-        //     const pz = projected[2] / w;
-        //
-        //     this.projectedVertices.push({ x: px, y: py, z: pz, w: w });
-        // }
+        const aspect = this.width/this.height;
+        const proj = View3d.perspectiveMat4(Math.PI/3, aspect, 0.1, 1000);
+        const view = View3d.translateMat4(0, 0, -500);
+        let model = View3d.multiplyMat4(View3d.rotateYMat4(this.angleY),View3d.rotateXMat4(this.angleX));
+        model = View3d.multiplyMat4(model, View3d.scaleMat4(this.scale,this.scale, this.scale));
+        let mvp = View3d.multiplyMat4(proj, view);
+        mvp = View3d.multiplyMat4(mvp, model);
+        this.invTransModel = View3d.inverseTransposeMat4(model);
+        this.projected = this.vertices.map(v => {
+            const tv = View3d.transformVec4(mvp, v);
+            const w = tv[3];
+            return [(tv[0]/w + 1) * this.width/2, (1 - tv[1]/w) * this.height/2, tv[2]/w, w];
+        });
     }
 
     // Render
     render() {
         if (this.texturesLoaded < 2) return;
-        this.angle += 0.01;
-        for (let i = 0; i < this.imgData.data.length; i += 4) this.imgData.data[i + 3] = 0;
+        if (this.projected === undefined) return;
+        for (let i = 0; i < this.imgData.data.length; i += 4) {
+            this.imgData.data[i] = 204;
+            this.imgData.data[i + 1] = 228;
+            this.imgData.data[i + 2] = 255;
+            this.imgData.data[i + 3] = 255;
+        }
         for (let y = 0; y < this.height; y++) for (let x = 0; x < this.width; x++) this.depthBuffer[y][x] = Infinity;
-        const proj = View3d.perspectiveMat4(Math.PI/3, this.width/this.height, 0.1, 100);
-        const view = View3d.translateMat4(0, 0, -500);
-        const model = View3d.rotateYMat4(this.angle);
-        let mvp = View3d.multiplyMat4(proj, view);
-        mvp = View3d.multiplyMat4(mvp, model);
-        const invTransModel = View3d.inverseTransposeMat4(model);
-        const scope = this;
-        const projected = this.vertices.map(v => {
-            const tv = View3d.transformVec4(mvp, v);
-            const w = tv[3];
-            return [(tv[0]/w + 1) * scope.width/2, (1 - tv[1]/w) * scope.height/2, tv[2]/w, w];
-        });
-        this.renderTriangles(invTransModel, projected);
+        this.renderTriangles();
         const ctx = this.canvas3d.getContext("2d");
         ctx.putImageData(this.imgData, 0, 0);
 
@@ -410,19 +264,19 @@ export class View3d {
     }
 
     // Render triangles using software rendering
-    renderTriangles(invTransModel, projected) {
+    renderTriangles() {
         this.triangles.forEach(t => {
             const v0 = this.vertices[t.v[0]], v1 = this.vertices[t.v[1]], v2 = this.vertices[t.v[2]];
             const e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
             const e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
             let normal = View3d.normalize(View3d.cross(e1, e2));
-            normal = View3d.transformNormal(invTransModel, normal);
+            normal = View3d.transformNormal(this.invTransModel, normal);
             const isFront = View3d.dot(normal, [0, 0, -1]) > 0; // Camera looks along -Z
             const tex = isFront ? this.frontData : this.backData;
             const lightNormal = isFront ? normal : [-normal[0], -normal[1], -normal[2]]; // Flip normal for back face
             const factor = Math.max(0, View3d.dot(lightNormal, this.lightDir)) * (1 - this.ambient) + this.ambient;
             const uv0 = this.uvs[t.uv[0]], uv1 = this.uvs[t.uv[1]], uv2 = this.uvs[t.uv[2]];
-            const p0 = projected[t.v[0]], p1 = projected[t.v[1]], p2 = projected[t.v[2]];
+            const p0 = this.projected[t.v[0]], p1 = this.projected[t.v[1]], p2 = this.projected[t.v[2]];
             const z0 = p0[2], z1 = p1[2], z2 = p2[2];
             const w0 = p0[3], w1 = p1[3], w2 = p2[3];
             this.fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor);
@@ -590,6 +444,78 @@ export class View3d {
             context2d.fillText(txt, oneLabel.getX() - 4 * (txt.length), oneLabel.getY() + 5);
         }
     }
+
+    static createMat4() {return [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]];}
+    static multiplyMat4(a, b) {
+        const r = View3d.createMat4();
+        for (let i = 0; i < 4; i++)
+            for (let j = 0; j < 4; j++)
+                r[i][j] = a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j] + a[i][3]*b[3][j];
+        return r;
+    }
+    static transformVec4(mat, vec) {
+        const r = [0, 0, 0, 0];
+        for (let i = 0; i < 4; i++)
+            r[i] = mat[i][0]*vec[0] + mat[i][1]*vec[1] + mat[i][2]*vec[2] + mat[i][3]*(vec[3] || 1);
+        return r;
+    }
+    static perspectiveMat4(fov, aspect, near, far) {
+        const f = 1/Math.tan(fov/2), nf = 1/(near-far);
+        return [[f/aspect,0,0,0], [0,f,0,0], [0,0,(far+near)*nf,2*far*near*nf], [0,0,-1,0]];
+    }
+    static translateMat4(tx, ty, tz) {
+        return [[1,0,0,tx], [0,1,0,ty], [0,0,1,tz], [0,0,0,1]];
+    }
+    static rotateYMat4(angle) {
+        const c = Math.cos(angle), s = Math.sin(angle);
+        return [[c,0,s,0], [0,1,0,0], [-s,0,c,0], [0,0,0,1]];
+    }
+    static rotateXMat4(angle) {
+        const c = Math.cos(angle), s = Math.sin(angle);
+        return [[1,0,0,0], [0,c,-s,0], [0,s,c,0], [0,0,0,1]];
+    }
+    static scaleMat4(sx, sy, sz) {
+        return [[sx,0,0,0], [0,sy,0,0], [0,0,sz,0], [0,0,0,1]];
+    }
+    static frustumMat4(left, right, bottom, top, near, far) {
+        const rl = 1 / (right - left);
+        const tb = 1 / (top - bottom);
+        const nf = 1 / (near - far);
+        const result = View3d.createMat4();
+        result[0][0] = near * 2 * rl;
+        result[1][1] = near * 2 * tb;
+        result[2][0] = (right + left) * rl;
+        result[2][1] = (top + bottom) * tb;
+        result[2][2] = (far + near) * nf;
+        result[2][3] = -1;
+        result[3][2] = far * near * 2 * nf;
+        result[3][3] = 0;
+        return result;
+    }
+    static cross(v1, v2) {
+        return [v1[1]*v2[2]-v1[2]*v2[1], v1[2]*v2[0]-v1[0]*v2[2], v1[0]*v2[1]-v1[1]*v2[0]];
+    }
+    static dot(v1, v2) {
+        return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
+    }
+    static normalize(v) {
+        const len = Math.sqrt(this.dot(v, v));
+        return len ? [v[0]/len, v[1]/len, v[2]/len] : v;
+    }
+    static transformNormal(mat, normal) {
+        const r = [0, 0, 0];
+        for (let i = 0; i < 3; i++)
+            r[i] = mat[i][0]*normal[0] + mat[i][1]*normal[1] + mat[i][2]*normal[2];
+        return View3d.normalize(r);
+    }
+    static inverseTransposeMat4(mat) {
+        const r = View3d.createMat4();
+        const c = mat[0][0], s = mat[2][0]; // For rotation Y matrix
+        r[0][0] = c; r[0][2] = -s;
+        r[1][1] = 1;
+        r[2][0] = s; r[2][2] = c;
+        return r;
+    }
 }
 
 class Label {
@@ -622,4 +548,4 @@ class Label {
     }
 }
 
-// 574 lines of code
+// 552 lines of code

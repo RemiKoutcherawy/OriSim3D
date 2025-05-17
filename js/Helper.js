@@ -155,9 +155,7 @@ export class Helper {
                         // Adjust if double select
                         if (p.select === 2) {
                             this.model.adjust(p);
-                            this.view3d.initBuffers();
                             this.view3d.initModelView();
-                            // this.view3d.render();
                         }
                     });
                 }
@@ -366,14 +364,12 @@ export class Helper {
         if (points.length === 0 && segments.length === 0 && faces.length === 0
             && event.buttons === 1 && this.firstPoint === undefined && this.firstSegment === undefined && this.firstFace === undefined) {
             // Rotation
-            const factor = 600 / event.target.height;
+            const factor = (600.0 / event.target.height) /1000.0;
             const dx = factor * (xCanvas - this.currentX);
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
             this.view3d.angleY += dx;
-            this.view3d.initBuffers();
             this.view3d.initModelView();
-            this.view3d.render();
         }
         this.move(points, segments, faces, xCanvas, yCanvas);
     }
