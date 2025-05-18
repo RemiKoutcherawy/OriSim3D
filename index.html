@@ -8,14 +8,12 @@
   <style>
     #canvas2d { position: absolute; width: 50%; height: 100%; left: 0; top: 0; border: 1px solid black;}
     #canvas3d { position: absolute; width: 50%; height: 100%; left: 50%; top: 0; color: hsl(210 100% 50%);border: 1px solid black;}
-    #overlay  { position: absolute; width: 50%; height: 100%; left: 50%; top: 0; z-index: 1; color: hsl(60, 100%, 50%);}
   </style>
 </head>
 <body>
 <div>
   <canvas id="canvas2d"></canvas>
   <canvas id="canvas3d"></canvas>
-  <canvas id="overlay"></canvas>
 </div>
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
@@ -36,8 +34,7 @@
 
     // View 3d with 2D overlay
     const canvas3d = window.document.getElementById("canvas3d");
-    const overlay = window.document.getElementById("overlay");
-    const view3d = new View3d(model, canvas3d, overlay);
+    const view3d = new View3d(model, canvas3d);
     view3d.initBuffers(); // Needed only if number of points changed
 
     // View 2d
@@ -48,7 +45,7 @@
     const command = new Command(model);
 
     // Helper
-    const helper = new Helper(model, command, canvas2d, view3d, overlay);
+    const helper = new Helper(model, command, canvas2d, view3d, canvas3d);
 
     // Animation loop
     function loop() {

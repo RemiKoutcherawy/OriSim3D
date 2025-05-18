@@ -2,22 +2,22 @@ import {Segment} from './Segment.js';
 import {Face} from './Face.js';
 
 export class Helper {
-    constructor(model, command, canvas2d, view3d, overlay) {
+    constructor(model, command, canvas2d, view3d, canvas3d) {
         this.model = model;
         this.command = command;
         this.canvas2d = canvas2d;
         this.view3d = view3d;
-        this.overlay = overlay;
+        this.overlay = canvas3d;
         this.touchTime = 0;
         this.label = undefined;
         // To test with Deno
         if (canvas2d) {
             // 3d
-            overlay.addEventListener('mousedown', (event) => this.down3d(event));
-            overlay.addEventListener('mousemove', (event) => this.move3d(event));
-            overlay.addEventListener('mouseup', (event) => this.up3d(event));
-            overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
-            overlay.addEventListener('mouseout', (event) => this.out(event));
+            canvas3d.addEventListener('mousedown', (event) => this.down3d(event));
+            canvas3d.addEventListener('mousemove', (event) => this.move3d(event));
+            canvas3d.addEventListener('mouseup', (event) => this.up3d(event));
+            canvas3d.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
+            canvas3d.addEventListener('mouseout', (event) => this.out(event));
             // 2d
             canvas2d.addEventListener('mousedown', (event) => this.down2d(event));
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
