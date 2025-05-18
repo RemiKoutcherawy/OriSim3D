@@ -3,20 +3,15 @@
 // Using putPixel(x, y, color, z) for rendering with depth testing
 
 export class View3d {
-    angle = 0.0;
     vertices = [];
     uvs = [];
     triangles = [];
-    frontData;
-    backData;
     texWidth;
     texHeight;
     texturesLoaded = 0;
     lightDir = View3d.normalize([0, 0, -1]);
     ambient = 0.2;
     depthBuffer = null;
-    frontTexture = null;
-    backTexture = null;
     context2d = null;
     // Current rotation angle (x-axis, y-axis degrees)
     angleX = 0.0;
@@ -59,34 +54,19 @@ export class View3d {
         }
     }
 
-    // Textures
+    // No textures initialize rendering
     initTextures() {
-        this.frontTexture = { image: null, width: 1, height: 1 };
-        this.backTexture = { image: null, width: 1, height: 1 };
-        const frontImg = new Image(), backImg = new Image();
-        frontImg.src = 'textures/front.jpg';
-        backImg.src = 'textures/back.jpg';
-        let scope = this;
-        function loadTexture(img, callback) {
-            img.onload = () => {
-                const texCanvas = document.createElement("canvas");
-                texCanvas.width = scope.texWidth = img.width;
-                texCanvas.height = scope.texHeight = img.height;
-                const texCtx = texCanvas.getContext("2d");
-                texCtx.scale(1, -1);
-                texCtx.translate(0, -scope.texHeight);
-                texCtx.drawImage(img, 0, 0);
-                callback(texCtx.getImageData(0, 0, scope.texWidth, scope.texHeight).data);
-                if (++scope.texturesLoaded === 2) scope.render();
-            };
-        }
-        loadTexture(frontImg, data => this.frontData = data);
-        loadTexture(backImg, data => this.backData = data);
+        // Set default texture dimensions for UV calculations that might still be used
+        this.texWidth = 512;
+        this.texHeight = 512;
+        // Trigger render immediately since we don't need to wait for textures
+        this.texturesLoaded = 2;
+        this.render();
     }
 
     // Perspective and background
     perspective() {
-        // Choose portrait or landscape
+        // Choose a portrait or landscape aspect ratio
         const ratio = this.canvas3d.clientWidth / this.canvas3d.clientHeight;
         const fov = 40;
         const near = 50, far = 1200;
@@ -137,7 +117,7 @@ export class View3d {
                 const ft1v = (200 + pts[i].yf) / this.texHeight;
                 this.uvs.push([ft1u, ft1v]);
 
-                // Third point of triangle
+                // Third point of the triangle
                 const v2x = pts[i + 1].x + f.offset * n[0];
                 const v2y = pts[i + 1].y + f.offset * n[1];
                 const v2z = pts[i + 1].z + f.offset * n[2];
@@ -148,7 +128,7 @@ export class View3d {
                 const ft2v = (200 + pts[i + 1].yf) / this.texHeight;
                 this.uvs.push([ft2u, ft2v]);
 
-                // Add triangle to list
+                // Add triangle to the list
                 this.triangles.push({v: [index,index+1,index+2], uv: [index,index+1,index+2]},);
                 index+=3;
             }
@@ -232,12 +212,15 @@ export class View3d {
         // }
     }
 
-    // Helper function to fill a triangle with texture and lighting
-    fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor) {
+    // Helper function to fill a triangle with solid color and lighting
+    fillTriangle(p0, p1, p2, z0, z1, z2, isFront, factor) {
         const minX = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
         const maxX = Math.min(this.width-1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
         const minY = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1])));
         const maxY = Math.min(this.height-1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
+
+        // Blue for front faces, yellow for back faces
+        const baseColor = isFront ? [0, 0, 255] : [255, 255, 0];
 
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
@@ -248,15 +231,8 @@ export class View3d {
                 const b2 = 1 - b0 - b1;
                 if (b0 >= 0 && b1 >= 0 && b2 >= 0) {
                     const z = b0 * z0 + b1 * z1 + b2 * z2;
-                    const invW = b0/w0 + b1/w1 + b2/w2;
-                    const u = (b0*uv0[0]/w0 + b1*uv1[0]/w1 + b2*uv2[0]/w2) / invW;
-                    const v = (b0*uv0[1]/w0 + b1*uv1[1]/w1 + b2*uv2[1]/w2) / invW;
-                    const tx = Math.floor(u * this.texWidth) % this.texWidth;
-                    const ty = Math.floor(v * this.texHeight) % this.texHeight;
-                    const ti = (ty * this.texWidth + tx) * 4;
-                    const color = [tex[ti] * factor, tex[ti + 1] * factor, tex[ti + 2] * factor]
+                    const color = [baseColor[0] * factor, baseColor[1] * factor, baseColor[2] * factor]
                         .map(c => Math.min(255, Math.max(0, Math.floor(c))));
-                    // Draw pixel with depth testing
                     this.putPixel(x, y, color, z);
                 }
             }
@@ -272,14 +248,11 @@ export class View3d {
             let normal = View3d.normalize(View3d.cross(e1, e2));
             normal = View3d.transformNormal(this.invTransModel, normal);
             const isFront = View3d.dot(normal, [0, 0, -1]) > 0; // Camera looks along -Z
-            const tex = isFront ? this.frontData : this.backData;
             const lightNormal = isFront ? normal : [-normal[0], -normal[1], -normal[2]]; // Flip normal for back face
             const factor = Math.max(0, View3d.dot(lightNormal, this.lightDir)) * (1 - this.ambient) + this.ambient;
-            const uv0 = this.uvs[t.uv[0]], uv1 = this.uvs[t.uv[1]], uv2 = this.uvs[t.uv[2]];
             const p0 = this.projected[t.v[0]], p1 = this.projected[t.v[1]], p2 = this.projected[t.v[2]];
             const z0 = p0[2], z1 = p1[2], z2 = p2[2];
-            const w0 = p0[3], w1 = p1[3], w2 = p2[3];
-            this.fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor);
+            this.fillTriangle(p0, p1, p2, z0, z1, z2, isFront, factor);
         });
     }
 
