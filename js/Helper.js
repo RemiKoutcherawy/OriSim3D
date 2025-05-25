@@ -111,10 +111,23 @@ export class Helper {
                     // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
                     distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
                 } else {
-                    // Signed distance from first point to segment.
-                    distToFirst = (p.xCanvas - s.p1.xCanvas) * (s.p2.yCanvas - s.p1.yCanvas) - (p.yCanvas - s.p1.yCanvas) * (s.p2.xCanvas - s.p1.xCanvas);
-                    // Signed distance from current point to segment. Which to cos(angle) * distToFirst.
-                    distToCurrent = (x - s.p1.xCanvas) * (s.p2.yCanvas - s.p1.yCanvas) - (y - s.p1.yCanvas) * (s.p2.xCanvas - s.p1.xCanvas);
+                    // Get projected coordinates for points
+                    const pIdx = this.view3d.indexMap.get(p);
+                    const p1Idx = this.view3d.indexMap.get(s.p1);
+                    const p2Idx = this.view3d.indexMap.get(s.p2);
+
+                    if (pIdx !== undefined && p1Idx !== undefined && p2Idx !== undefined) {
+                        const pProj = this.view3d.projected[pIdx];
+                        const p1Proj = this.view3d.projected[p1Idx];
+                        const p2Proj = this.view3d.projected[p2Idx];
+
+                        if (pProj && p1Proj && p2Proj) {
+                            // Signed distance from first point to segment.
+                            distToFirst = (pProj[0] - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (pProj[1] - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
+                            // Signed distance from current point to segment. Which to cos(angle) * distToFirst.
+                            distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
+                        }
+                    }
                 }
                 // Clamp ratio = distToCurrent/distToFirst
                 let ratio = Math.abs(distToCurrent / distToFirst);
@@ -340,11 +353,33 @@ export class Helper {
     // Points, then segments, then faces near xCanvas, yCanvas
     search3d(xCanvas, yCanvas) {
         // Points near xCanvas, yCanvas
-        const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < 10);
+        const points = [];
+        for (const p of this.model.points) {
+            const idx = this.view3d.indexMap.get(p);
+            if (idx !== undefined) {
+                const proj = this.view3d.projected[idx];
+                if (proj && Math.abs(proj[0] - xCanvas) + Math.abs(proj[1] - yCanvas) < 10) {
+                    points.push(p);
+                }
+            }
+        }
+
         // Segments near xCanvas, yCanvas
-        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
+        const segments = [];
+        for (const s of this.model.segments) {
+            const idx1 = this.view3d.indexMap.get(s.p1);
+            const idx2 = this.view3d.indexMap.get(s.p2);
+            if (idx1 !== undefined && idx2 !== undefined) {
+                const proj1 = this.view3d.projected[idx1];
+                const proj2 = this.view3d.projected[idx2];
+                if (proj1 && proj2 && Segment.distance2d(proj1[0], proj1[1], proj2[0], proj2[1], xCanvas, yCanvas) < 6) {
+                    segments.push(s);
+                }
+            }
+        }
+
         // Face containing xCanvas, yCanvas
-        const faces = this.model.faces.filter(f => Face.contains3d(f, xCanvas, yCanvas));
+        const faces = this.model.faces.filter(f => Face.contains3d(f, xCanvas, yCanvas, this.view3d));
         return {points, segments, faces, xCanvas, yCanvas};
     }
 

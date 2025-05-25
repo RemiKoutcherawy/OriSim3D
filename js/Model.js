@@ -830,7 +830,7 @@ export class Model {
         // Define a reviver to convert points objects into Points instances, and indexes into instances
         function reviver(key, value) {
             if (key === 'points') {
-                return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z, p.xCanvas, p.yCanvas));
+                return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
             } else if (key === 'segments') {
                 return value.map((segment) => new Segment(this.points[segment.p1], this.points[segment.p2]));
             } else if (key === 'faces') {

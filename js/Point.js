@@ -1,13 +1,11 @@
 export class Point {
 
-    constructor(xf, yf, x=0, y=0, z=0, xCanvas=0, yCanvas=0) {
+    constructor(xf, yf, x=0, y=0, z=0) {
         this.xf = Number(xf);
         this.yf = Number(yf);
         this.x = Number(x);
         this.y = Number(y);
         this.z = Number(z);
-        this.xCanvas = Number(xCanvas);
-        this.yCanvas = Number(yCanvas);
         // Helper
         this.hover = false;
         this.select = 0;

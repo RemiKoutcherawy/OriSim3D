@@ -421,7 +421,12 @@ export class View3d {
         // Points
         for (let p of this.model.points) {
             const txt = String(this.model.points.indexOf(p));
-            const oneLabel = new Label(p.xCanvas, p.yCanvas);
+            const idx = this.indexMap.get(p);
+            if (!idx) continue;
+            const proj = this.projected[idx];
+            if (!proj) continue;
+            const x = proj[0], y = proj[1];
+            const oneLabel = new Label(x, y);
             this.labels.push(oneLabel);
             this.labels.forEach(label => {
                 if (label !== oneLabel && label.over(oneLabel)) {
@@ -431,7 +436,7 @@ export class View3d {
             // Line
             context2d.strokeStyle = 'black';
             context2d.beginPath();
-            context2d.moveTo(p.xCanvas, p.yCanvas);
+            context2d.moveTo(x, y);
             context2d.lineTo(oneLabel.getX(), oneLabel.getY());
             context2d.lineWidth = 1;
             context2d.stroke();

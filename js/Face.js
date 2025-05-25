@@ -79,20 +79,27 @@ export class Face {
     }
 
     // Face contains 3d point
-    static contains3d(face, xCanvas, yCanvas) {
+    static contains3d(face, xCanvas, yCanvas, view3d) {
         // ray-casting algorithm based on
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
 
-        const x = xCanvas, y = yCanvas
+        const x = xCanvas, y = yCanvas;
         let inside = false;
         const pts = face.points;
         for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-            const xi = pts[i].xCanvas, yi = pts[i].yCanvas;
-            const xj = pts[j].xCanvas, yj = pts[j].yCanvas;
+            const idxI = view3d.indexMap.get(pts[i]);
+            const idxJ = view3d.indexMap.get(pts[j]);
+            if (idxI === undefined || idxJ === undefined) continue;
+            const projI = view3d.projected[idxI];
+            const projJ = view3d.projected[idxJ];
+            if (!projI || !projJ) continue;
+            const xi = projI[0], yi = projI[1];
+            const xj = projJ[0], yj = projJ[1];
             // Special case where point is part of face.
             if (xi === xCanvas && yi === yCanvas) {
                 return true;
             }
+
             const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
             if (intersect) inside = !inside;
         }
