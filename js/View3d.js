@@ -6,9 +6,17 @@ export class View3d {
     vertices = [];
     lines = [];
     triangles = [];
+    uvs = [];
+    frontData;
+    backData;
+    texWidth;
+    texHeight;
+    texturesLoaded = 0;
     lightDir = View3d.normalize([0, 0, -1]);
     ambient = 0.2;
     depthBuffer = null;
+    frontTexture = null;
+    backTexture = null;
     context2d = null;
     // Current rotation angle (x-axis, y-axis degrees)
     angleX = 0.0;
@@ -22,6 +30,7 @@ export class View3d {
         this.width = canvas3d.width = canvas3d.clientWidth;
         this.height = canvas3d.height = canvas3d.clientHeight;
         this.imgData = this.context2d.createImageData(this.width, this.height);
+        this.initTextures();
         this.createDepthBuffer();
         this.initBuffers();
         this.render();
@@ -55,8 +64,32 @@ export class View3d {
             this.depthBuffer[pos] = z;
         }
     }
+    // Textures
+    initTextures() {
+        this.frontTexture = { image: null, width: 1, height: 1 };
+        this.backTexture = { image: null, width: 1, height: 1 };
+        const frontImg = new Image(), backImg = new Image();
+        frontImg.src = 'textures/front.jpg';
+        backImg.src = 'textures/back.jpg';
+        let scope = this;
+        function loadTexture(img, callback) {
+            img.onload = () => {
+                const texCanvas = document.createElement("canvas");
+                texCanvas.width = scope.texWidth = img.width;
+                texCanvas.height = scope.texHeight = img.height;
+                const texCtx = texCanvas.getContext("2d");
+                texCtx.scale(1, -1);
+                texCtx.translate(0, -scope.texHeight);
+                texCtx.drawImage(img, 0, 0);
+                callback(texCtx.getImageData(0, 0, scope.texWidth, scope.texHeight).data);
+                if (++scope.texturesLoaded === 2) scope.render();
+            };
+        }
+        loadTexture(frontImg, data => this.frontData = data);
+        loadTexture(backImg, data => this.backData = data);
+    }
 
-    // Initialize geometry buffers
+    // Buffers
     initBuffers() {
         const faces = this.model.faces;
         let triangleCount = 0;
@@ -65,46 +98,65 @@ export class View3d {
         }
         this.vertices = new Array(triangleCount * 3);
         this.triangles = new Array(triangleCount);
+        this.uvs = [];
         this.indexMap = new WeakMap();
         let index = 0;
-        const v0 = [0, 0, 0, 1.0];  // Center of the fan
-        const v1 = [0, 0, 0, 1.0];  // First vertex of the triangle
-        const v2 = [0, 0, 0, 1.0];  // Second vertex of the triangle
-        const normal = [0, 0, 0];
 
         // Process each face
         for (const f of faces) {
             const pts = f.points;
             if (pts.length < 3) continue;
             const offset = f.offset || 0;
+            const n = faceNormal(pts);
+            View3d.normalize(n, n);
+
             // Center of fan
             const p0 = pts[0];
-            v0[0] = p0.x + offset * normal[0];
-            v0[1] = p0.y + offset * normal[1];
-            v0[2] = p0.z + offset * normal[2];
-            this.indexMap.set(p0, index * 3);
 
             // Create triangles using triangle fan
             for (let i = 1; i < pts.length - 1; i++) {
                 const p1 = pts[i];
                 const p2 = pts[i + 1];
-                // First vertex
-                v1[0] = p1.x + offset * normal[0];
-                v1[1] = p1.y + offset * normal[1];
-                v1[2] = p1.z + offset * normal[2];
-                // Second vertex
-                v2[0] = p2.x + offset * normal[0];
-                v2[1] = p2.y + offset * normal[1];
-                v2[2] = p2.z + offset * normal[2];
-                // Assign calculated vertices directly to the preallocated buffer
-                this.vertices[index * 3] = [v0[0], v0[1], v0[2], v0[3]];
-                this.vertices[index * 3 + 1] = [v1[0], v1[1], v1[2], v1[3]];
-                this.vertices[index * 3 + 2] = [v2[0], v2[1], v2[2], v2[3]];
-                this.triangles[index] = { v: [index * 3, index * 3 + 1, index * 3 + 2] };
-                // Keep track of the index for each point to draw lines
-                if (!this.indexMap.has(p1)) this.indexMap.set(p1, index * 3 + 1);
-                if (!this.indexMap.has(p2)) this.indexMap.set(p2, index * 3 + 2);
-                index++;
+
+                // First point
+                const v0x = p0.x + offset * n[0];
+                const v0y = p0.y + offset * n[1];
+                const v0z = p0.z + offset * n[2];
+                this.vertices[index] = [v0x, v0y, v0z, 1.0];
+                // Texture at first point of triangle
+                const ft0u = (200 + pts[0].xf) / this.texWidth;
+                const ft0v = (200 + pts[0].yf) / this.texHeight;
+                this.uvs[index] = [ft0u, ft0v];
+                this.indexMap.set(p0, index);
+
+                // Second point of triangle
+                const v1x = p1.x + offset * n[0];
+                const v1y = p1.y + offset * n[1];
+                const v1z = p1.z + offset * n[2];
+                this.vertices[index + 1] = [v1x, v1y, v1z, 1.0];
+                // Texture at second point of triangle
+                const ft1u = (200 + pts[i].xf) / this.texWidth;
+                const ft1v = (200 + pts[i].yf) / this.texHeight;
+                this.uvs[index + 1] = [ft1u, ft1v];
+                this.indexMap.set(p1, index + 1);
+
+
+                // Third point of the triangle
+                const v2x = p2.x + f.offset * n[0];
+                const v2y = p2.y + f.offset * n[1];
+                const v2z = p2.z + f.offset * n[2];
+                this.vertices[index + 2] = [v2x, v2y, v2z, 1.0];
+                // Texture at third point of triangle
+                const ft2u = (200 + pts[i + 1].xf) / this.texWidth;
+                const ft2v = (200 + pts[i + 1].yf) / this.texHeight;
+                this.uvs[index + 2] = [ft2u, ft2v];
+                this.indexMap.set(p2, index + 2);
+
+                // Add triangle to the list
+                const triangleIndex = Math.floor(index / 3);
+                this.triangles[triangleIndex] = {v: [index,index+1,index+2], uv: [index,index+1,index+2]};
+
+                index+=3;
             }
         }
         // Segments
@@ -115,7 +167,26 @@ export class View3d {
             this.lines[i * 2] = this.indexMap.get(s.p1);
             this.lines[i * 2 + 1] = this.indexMap.get(s.p2);
         }
+
+        // Face normal in [3]
+        function faceNormal(pts) {
+            const n = [3];
+            for (let i = 0; i < pts.length - 2; i++) {
+                // Take triangles until p2p1 x p1p3 > 0.1
+                const p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
+                const u = [p2.x - p1.x, p2.y - p1.y, p2.z - p1.z];
+                const v = [p3.x - p1.x, p3.y - p1.y, p3.z - p1.z];
+                n[0] = u[1] * v[2] - u[2] * v[1];
+                n[1] = u[2] * v[0] - u[0] * v[2];
+                n[2] = u[0] * v[1] - u[1] * v[0];
+                if (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) > 0.1) {
+                    break;
+                }
+            }
+            return n;
+        }
     }
+
 
     // Calculate model-view-projection matrix and project vertices
     initModelView() {
@@ -166,10 +237,8 @@ export class View3d {
             data[i + 2] = 255; // B
             data[i + 3] = 255; // A
         }
-        const width = this.width;
-        const height = this.height;
         const depthBuffer = this.depthBuffer;
-        for (let i = 0; i < height * width; i++)  depthBuffer[i] = Infinity;
+        depthBuffer.fill(Infinity);
         // 3D rendering
         this.renderTriangles();
         this.renderLines();
@@ -184,8 +253,8 @@ export class View3d {
         console.log(`Render time: ${(endTime - startTime).toFixed(2)}ms`);
     }
 
-    // Helper function to fill a triangle with solid color and lighting
-    fillTriangle(p0, p1, p2, z0, z1, z2, isFront, factor) {
+    // Helper function to fill a triangle with texture and lighting
+    fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor) {
         // Calculate bounding box of the triangle (with clipping)
         const minX = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
         const maxX = Math.min(this.width-1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
@@ -197,30 +266,50 @@ export class View3d {
         const p2x_p1x = p2[0] - p1[0];
         const p2y_p0y = p2[1] - p0[1];
         const p0x_p2x = p0[0] - p2[0];
-        const denom1 = p1y_p2y * (p0[0] - p2[0]) + p2x_p1x * (p0[1] - p2[1]);
-        const denom2 = p2y_p0y * (p1[0] - p2[0]) + p0x_p2x * (p1[1] - p2[1]);
-        let r, g, b;
-        if (isFront) {
-            r = 0;
-            g = 0;
-            b = Math.min(255, Math.floor(255 * factor));
-        } else {
-            r = Math.min(255, Math.floor(255 * factor));
-            g = Math.min(255, Math.floor(255 * factor));
-            b = 0;
-        }
+        const denominator1 = p1y_p2y * (p0[0] - p2[0]) + p2x_p1x * (p0[1] - p2[1]);
+        const denominator2 = p2y_p0y * (p1[0] - p2[0]) + p0x_p2x * (p1[1] - p2[1]);
 
-        const color = [r, g, b];
+        // Skip triangle if either denominator is zero (would cause NaN in barycentric coordinates)
+        if (Math.abs(denominator1) < 0.0001 || Math.abs(denominator2) < 0.0001) {
+            console.log('Zero denominator in triangle');
+            return;
+        }
         // Bounding box
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
-                const b0 = (p1y_p2y * (x - p2[0]) + p2x_p1x * (y - p2[1])) / denom1;
+                const b0 = (p1y_p2y * (x - p2[0]) + p2x_p1x * (y - p2[1])) / denominator1;
                 if (b0 < 0) continue;
-                const b1 = (p2y_p0y * (x - p2[0]) + p0x_p2x * (y - p2[1])) / denom2;
+                const b1 = (p2y_p0y * (x - p2[0]) + p0x_p2x * (y - p2[1])) / denominator2;
                 if (b1 < 0) continue;
                 const b2 = 1 - b0 - b1;
                 if (b2 < 0) continue;
                 const z = b0 * z0 + b1 * z1 + b2 * z2;
+
+                // Prevent division by zero in w calculations
+                const safeW0 = Math.abs(w0) < 0.0001 ? 0.0001 : w0;
+                const safeW1 = Math.abs(w1) < 0.0001 ? 0.0001 : w1;
+                const safeW2 = Math.abs(w2) < 0.0001 ? 0.0001 : w2;
+
+                const invW = b0/safeW0 + b1/safeW1 + b2/safeW2;
+                const safeInvW = Math.abs(invW) < 0.0001 ? 0.0001 : invW;
+
+                const u = (b0*uv0[0]/safeW0 + b1*uv1[0]/safeW1 + b2*uv2[0]/safeW2) / safeInvW;
+                const v = (b0*uv0[1]/safeW0 + b1*uv1[1]/safeW1 + b2*uv2[1]/safeW2) / safeInvW;
+                // Ensure texture coordinates are valid
+                const tx = Math.floor(u * this.texWidth) % this.texWidth;
+                const ty = Math.floor(v * this.texHeight) % this.texHeight;
+
+                // Handle potential negative values from modulo operation
+                const texX = tx < 0 ? tx + this.texWidth : tx;
+                const texY = ty < 0 ? ty + this.texHeight : ty;
+
+                const ti = (texY * this.texWidth + texX) * 4;
+                // Ensure texture data exists and is valid
+                const color = tex && ti < tex.length - 2 ?
+                    [tex[ti] * factor, tex[ti + 1] * factor, tex[ti + 2] * factor]
+                        .map(c => Math.min(255, Math.max(0, Math.floor(c)))) :
+                    [0, 0, 0]; // Default to black if texture data is invalid
+                // Draw pixel with depth testing
                 this.putPixel(x, y, color, z);
             }
         }
@@ -234,41 +323,37 @@ export class View3d {
         const ambient = this.ambient;
         const lightDir = this.lightDir;
         const invTransModel = this.invTransModel;
-        const e1 = [0, 0, 0];
-        const e2 = [0, 0, 0];
-        const normal = [0, 0, 0];
-        const lightNormal = [0, 1, 1];
-        const cameraDir = [0, 0, -1]; // Camera looks along -Z
         // Process all triangles
         for (let i = 0; i < triangles.length; i++) {
             const t = triangles[i];
-            const v0 = vertices[t.v[0]];
-            const v1 = vertices[t.v[1]];
-            const v2 = vertices[t.v[2]];
-            e1[0] = v1[0] - v0[0]; e1[1] = v1[1] - v0[1]; e1[2] = v1[2] - v0[2];
-            e2[0] = v2[0] - v0[0]; e2[1] = v2[1] - v0[1]; e2[2] = v2[2] - v0[2];
-            View3d.cross(e1, e2, normal);
-            View3d.normalize(normal, normal);
-            View3d.transformNormal(invTransModel, normal, normal);
-            const isFront = View3d.dot(normal, cameraDir) > 0;
-            if (isFront) { lightNormal[0] = normal[0]; lightNormal[1] = normal[1]; lightNormal[2] = normal[2];}
-            else { lightNormal[0] = -normal[0]; lightNormal[1] = -normal[1]; lightNormal[2] = -normal[2]; }
+            const v0 = vertices[t.v[0]], v1 = vertices[t.v[1]], v2 = vertices[t.v[2]];
+            const e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
+            const e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+            let normal = View3d.normalize(View3d.cross(e1, e2));
+            normal = View3d.transformNormal(invTransModel, normal);
+            const isFront = View3d.dot(normal, [0, 0, -1]) > 0; // Camera looks along -Z
+            const tex = isFront ? this.frontData : this.backData;
+            const lightNormal = isFront ? normal : [-normal[0], -normal[1], -normal[2]]; // Flip normal for back face
             const factor = Math.max(0, View3d.dot(lightNormal, lightDir)) * (1 - ambient) + ambient;
-            const p0 = projected[t.v[0]];
-            const p1 = projected[t.v[1]];
-            const p2 = projected[t.v[2]];
-            this.fillTriangle(p0, p1, p2, p0[2], p1[2], p2[2], isFront, factor);
+            const uv0 = this.uvs[t.uv[0]], uv1 = this.uvs[t.uv[1]], uv2 = this.uvs[t.uv[2]];
+            const p0 = projected[t.v[0]], p1 = projected[t.v[1]], p2 = projected[t.v[2]];
+            const z0 = p0[2], z1 = p1[2], z2 = p2[2];
+            const w0 = p0[3], w1 = p1[3], w2 = p2[3];
+            this.fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor);
         }
     }
 
     // Render lines using software rendering
     renderLines() {
+        const projected = this.projected;
         for (let i = 0; i < this.lines.length; i += 2) {
             const idx1 = this.lines[i];
             const idx2 = this.lines[i + 1];
-            const v1 = this.projected[idx1];
-            const v2 = this.projected[idx2];
-            this.drawLine(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
+            if (idx1 !== undefined && idx2 !== undefined) {
+                const v1 = projected[idx1];
+                const v2 = projected[idx2];
+                this.drawLine(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
+            }
         }
     }
 
@@ -351,6 +436,7 @@ export class View3d {
             for (let w = -Math.floor(width / 2); w <= Math.floor(width / 2); w++) {
                 const p1 = this.projected[this.indexMap.get(s.p1)];
                 const p2 = this.projected[this.indexMap.get(s.p2)];
+                if (!p1 || !p2) continue;
                 const dx = p2[0] - p1[0];
                 const dy = p2[1] - p1[1];
                 const len = Math.sqrt(dx * dx + dy * dy);
@@ -485,22 +571,7 @@ export class View3d {
     static scaleMat4(sx, sy, sz) {
         return [[sx,0,0,0], [0,sy,0,0], [0,0,sz,0], [0,0,0,1]];
     }
-    static frustumMat4(left, right, bottom, top, near, far) {
-        const rl = 1 / (right - left);
-        const tb = 1 / (top - bottom);
-        const nf = 1 / (near - far);
-        const result = View3d.createMat4();
-        result[0][0] = near * 2 * rl;
-        result[1][1] = near * 2 * tb;
-        result[2][0] = (right + left) * rl;
-        result[2][1] = (top + bottom) * tb;
-        result[2][2] = (far + near) * nf;
-        result[2][3] = -1;
-        result[3][2] = far * near * 2 * nf;
-        result[3][3] = 0;
-        return result;
-    }
-    // Cross product: v1 × v2, optionally store in result
+    // Cross product: v1 × v2, optionally store in result arg
     static cross(v1, v2, result = null) {
         if (!result) result = [0, 0, 0];
         result[0] = v1[1]*v2[2] - v1[2]*v2[1];
@@ -509,7 +580,7 @@ export class View3d {
         return result;
     }
     static dot(v1, v2) {return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];}
-    // Normalize vector, optionally store in result
+    // Normalize vector, optionally store in result arg
     static normalize(v, result = null) {
         if (!result) result = [0, 0, 0];
         const len = Math.sqrt(this.dot(v, v));
@@ -526,7 +597,7 @@ export class View3d {
         }
         return result;
     }
-    // Transform normal by matrix, optionally store in result
+    // Transform normal by matrix, optionally store in the result arg
     static transformNormal(mat, normal, result = null) {
         if (!result) result = [0, 0, 0];
         result[0] = mat[0][0]*normal[0] + mat[0][1]*normal[1] + mat[0][2]*normal[2];
@@ -557,7 +628,6 @@ class Label {
         const dx = this.getX() - other.getX();
         const dy = this.getY() - other.getY();
         return !(Math.abs(dy) > 20 || Math.abs(dx) > 20);
-
     }
 }
-// 558 lines
+// 633 lines
