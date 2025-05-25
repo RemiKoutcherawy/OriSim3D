@@ -3,28 +3,23 @@ Origami simulation
 
 Test and Coverage
 ```bash
-deno test --coverage=cov_profile  test/*.test.ts
+deno test --coverage=cov_profile test
 deno coverage cov_profile
+open cov_profile/html/index.html
 ```
 
 Serve index.html
 ```bash
 deno run --allow-net --allow-read jsr:@std/http/file-server
+open http://localhost:8000
 ```
-and open
-http://localhost:8000
 
-To use assert in deno.json:
-```
-deno add jsr:@std/assert
-```
 
 Work in progress, any help is welcome.
 
 ### Doc for developers
 
 1. Point.js has x,y,z coordinates in 3D, xf,yf on flat crease pattern
-   and xCanvas,yCanvas on view3D overlay
 2. Segment.js is two points references : p1,p2
 3. Face.js is a list of points references : p1,p2,p3...
 4. Model.js has Points, Segments, Faces with methods to manipulate them
