@@ -228,7 +228,7 @@ export class View3d {
     // Render
     render() {
         if (this.projected === undefined) return;
-        const startTime = performance.now();
+        // const startTime = performance.now();
         const data = this.imgData.data;
         const len = data.length;
         for (let i = 0; i < len; i += 4) {
@@ -249,8 +249,8 @@ export class View3d {
 
         this.context2d.putImageData(this.imgData, 0, 0);
 
-        const endTime = performance.now();
-        console.log(`Render time: ${(endTime - startTime).toFixed(2)}ms`);
+        // const endTime = performance.now();
+        // console.log(`Render time: ${(endTime - startTime).toFixed(2)}ms`);
     }
 
     // Helper function to fill a triangle with texture and lighting
@@ -370,7 +370,7 @@ export class View3d {
         let err = dx - dy;
         let x = x1;
         let y = y1;
-        let z = z1 +1;
+        let z = z1 - 1; // Draw above to see the line
         const totalSteps = Math.max(dx, dy);
         const zStep = totalSteps > 0 ? (z2 - z1) / totalSteps : 0;
         this.putPixel(Math.round(x), Math.round(y), lineColor, z);
@@ -390,6 +390,7 @@ export class View3d {
         let x = 0;
         let y = r;
         let d = 3 - 2 * r;
+        z = z - 1;  // Draw above to see the circle
         const fillSpan = (x1, x2, y) => {
             for (let x = x1; x <= x2; x++) {
                 this.putPixel(x, y, color, z);
@@ -490,7 +491,7 @@ export class View3d {
                         const z2 = intersections[i + 1].z;
                         for (let x = x1; x <= x2; x++) {
                             const t = (x - x1) / (x2 - x1);
-                            const z = z1 + t * (z2 - z1) +1;
+                            const z = z1 + t * (z2 - z1) -1; // -1 to draw above to see the face
                             this.putPixel(x, y, [255, 192, 203], z); // Pink color
                         }
                     }
