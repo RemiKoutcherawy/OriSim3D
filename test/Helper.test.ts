@@ -4,10 +4,27 @@ import { Helper } from "../js/Helper.js";
 
 import { assertEquals } from "jsr:@std/assert";
 
+// Mock View3d class to test Helper.search3d
+class MockView3d {
+  indexMap = new Map();
+  projected: number[][] = [];
+  constructor(model: Model) {
+    model.points.forEach((point, index) => {
+      this.indexMap.set(point, index);
+      this.projected[index] = [0, 0, 0, 1];
+    });
+    this.projected[0] = [3, 3, 0, 1];
+    this.projected[1] = [3, -3, 0, 1];
+    this.projected[2] = [-3, -3, 0, 1];
+    this.projected[3] = [-3, 3, 0, 1];
+  }
+}
+
 Deno.test("Helper Tests", async (t) => {
   const model = new Model().init(200, 200);
   const command = new Command(model);
-  const helper = new Helper(model, command, null, null, null);
+  const mockView3d = new MockView3d(model);
+  const helper = new Helper(model, command, null, mockView3d, null);
 
   await t.step("down()", () => {
     const points = model.points.slice(0, 0);
@@ -67,7 +84,7 @@ Deno.test("Helper Tests", async (t) => {
   });
 
   await t.step(
-    "search3d() points, segments, faces near xCanvas,yCanvas", () => {
+    "search3d() points, segments, faces near x,y in 3d canvas", () => {
       const result = helper.search3d(0, 0);
       assertEquals(result.points.length, 4);
       assertEquals(result.segments.length, 4);

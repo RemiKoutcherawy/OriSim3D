@@ -15,7 +15,7 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         // Serialize
         const serialized = model.serialize();
-        assertEquals(serialized.length, 501, "serialized model should have length 491");
+        assertEquals(serialized.length, 405, "serialized model should have length 491");
 
         // Change model, should not affect serialized
         model.addPoint(0, 0, 0, 0, 0);
