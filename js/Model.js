@@ -47,51 +47,6 @@ export class Model {
         return this;
     }
 
-    // Search points near x, y in 2D Crease pattern
-    searchPoints2d(xf, yf) {
-        const list = [];
-        for (let i = 0; i < this.points.length; i++) {
-            const p = this.points[i];
-            const df = Math.sqrt(
-                (p.xf - xf) * (p.xf - xf) + (p.yf - yf) * (p.yf - yf),
-            );
-            if (df < 10) {
-                list.push(p);
-            }
-        }
-        return list;
-    }
-
-    // Search all segments near xf, yf
-    searchSegments2d(xf, yf) {
-        const list = [];
-        for (let i = 0; i < this.segments.length; i++) {
-            const s = this.segments[i];
-            const d = Segment.distance2d(
-                s.p1.xf,
-                s.p1.yf,
-                s.p2.xf,
-                s.p2.yf,
-                xf,
-                yf,
-            );
-            if (d < 10) {
-                list.push(s);
-            }
-        }
-        return list;
-    }
-
-    // Get first face containing xf, yf
-    searchFaces2d(xf, yf) {
-        const list = [];
-        for (let i = 0; i < this.faces.length; i++) {
-            const f = this.faces[i];
-            if (Face.contains2d(f, xf, yf)) list.push(f);
-        }
-        return list;
-    }
-
     // Update hover2d3d on points, segments, faces 2d and 3d
     hover2d3d(points, segments, faces) {
         // Clean
