@@ -34,9 +34,9 @@
 
   function init() {
     // Model 3D
-    let model = new Model().init(200, 200);
+    const model = new Model().init(200, 200);
 
-    // View 3d with 2D overlay
+    // View 3d
     const canvas3d = window.document.getElementById("canvas3d");
     const view3d = new View3d(model, canvas3d);
     view3d.initBuffers(); // Needed only if number of points changed
@@ -50,7 +50,7 @@
     new CommandArea(command, document.getElementById('commandArea'));
 
     // Helper
-    const helper = new Helper(model, command, canvas2d, view3d, overlay);
+    const helper = new Helper(model, command, canvas2d, view3d, canvas3d);
 
     // Animation loop
     function loop() {
