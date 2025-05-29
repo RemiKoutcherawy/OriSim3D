@@ -84,6 +84,15 @@ export class View3d {
                 callback(texCtx.getImageData(0, 0, scope.texWidth, scope.texHeight).data);
                 if (++scope.texturesLoaded === 2) scope.render();
             };
+            img.onerror = () => {
+                scope.texWidth = 1;
+                scope.texHeight = 1;
+                const frontData = new Uint8ClampedArray([173, 216, 230, 255]); // lightblue pixel for front
+                const backData = new Uint8ClampedArray([255, 182, 193, 255]);  // lightpink pixel for back
+                const data = img === frontImg ? frontData : backData;
+                callback(data);
+                if (++scope.texturesLoaded === 2) scope.render();
+            };
         }
         loadTexture(frontImg, data => this.frontData = data);
         loadTexture(backImg, data => this.backData = data);
@@ -249,6 +258,9 @@ export class View3d {
 
         this.context2d.putImageData(this.imgData, 0, 0);
 
+        if (this.model.labels) {
+            this.drawLabels(this.context2d);
+        }
         // const endTime = performance.now();
         // console.log(`Render time: ${(endTime - startTime).toFixed(2)}ms`);
     }
@@ -331,9 +343,9 @@ export class View3d {
             const e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
             let normal = View3d.normalize(View3d.cross(e1, e2));
             normal = View3d.transformNormal(invTransModel, normal);
-            const isFront = View3d.dot(normal, [0, 0, -1]) > 0; // Camera looks along -Z
+            const isFront = View3d.dot(normal, [0, 0, -1]) < 0;
             const tex = isFront ? this.frontData : this.backData;
-            const lightNormal = isFront ? normal : [-normal[0], -normal[1], -normal[2]]; // Flip normal for back face
+            const lightNormal = isFront ? [-normal[0], -normal[1], -normal[2]] : normal;
             const factor = Math.max(0, View3d.dot(lightNormal, lightDir)) * (1 - ambient) + ambient;
             const uv0 = this.uvs[t.uv[0]], uv1 = this.uvs[t.uv[1]], uv2 = this.uvs[t.uv[2]];
             const p0 = projected[t.v[0]], p1 = projected[t.v[1]], p2 = projected[t.v[2]];
