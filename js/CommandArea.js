@@ -14,7 +14,7 @@ export class CommandArea {
             // Insert at the end
             this.textarea.value += `${text}\n`;
         } else {
-            // Only new line
+            // Only a new line
             this.textarea.value += `\n`;
         }
         // Scroll to the end

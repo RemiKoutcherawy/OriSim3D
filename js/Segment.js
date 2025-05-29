@@ -13,13 +13,13 @@ export class Segment {
     // 2d distance from Segment to Point
     static distance2d(x1, y1, x2, y2, x, y) {
         // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
-        // Handle case where the segment degenerate in a single point.
+        // Handle case where the segment degenerates in a single point.
         const l2 = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
         if (l2 === 0) {
             return Math.sqrt((x - x1) * (x - x1) + (y - y1) * (y - y1));
         }
         // Consider the line extending the segment, parameterized as v + t (w - v).
-        // Find projection of point p onto the line.
+        // Find the projection of point p onto the line.
         // It falls where t = [(p-v) . (w-v)] / |w-v|^2
         const t = ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / l2;
         if (t < 0) {
@@ -38,7 +38,7 @@ export class Segment {
         return (a.x - c.x) * (b.y - c.y) - (a.y - c.y) * (b.x - c.x);
     }
 
-    // Area counter clock wise, CCW, gives  2d signed distance between Point and Segment in 2d Crease pattern
+    // Area CounterClockWise, CCW, gives 2d signed distance between Point and Segment in 2d Crease pattern
     static CCWFlat(a, b, c) {
         return (a.xf - c.xf) * (b.yf - c.yf) - (a.yf - c.yf) * (b.xf - c.xf);
     }
@@ -46,7 +46,7 @@ export class Segment {
     // 2d intersection between two segments ab and cd
     static intersectionFlat(a, b, c, d) {
 
-        // Collinear case, maybe to much
+        // Collinear case, maybe too much
         function collinear(a, b, c, d) {
             // length
             const ab = (b.xf - a.xf) * (b.xf - a.xf) + (b.yf - a.yf) * (b.yf - a.yf);
@@ -72,12 +72,12 @@ export class Segment {
                 } else if (td > 1) { // d on the right of ab
                     return a; // could be a or b
                 }
-                return d; // d between a and b, could return a or d
+                return d; // d between a and b could return a or d
             } else if (tc > 1) { // c on the right of ab
                 if (td > 1) {  // d on the right of ab
                     return undefined;
                 }
-                return d; // d between a and b, could return b or d
+                return d; // d between a and b could return b or d
             }
             return c; // could be c or b
         }
@@ -142,7 +142,7 @@ export class Segment {
         return Vector3.length3d(pq);
     }
 
-    // Closest points between line [A,B] and line [C, D] return {p, q}
+    // Closest points between line [A, B] and line [C, D] return {p, q}
     static closestSegment(A, B, C, D) {
 
         // On AB segment we have : P(s)=A+s*(B-C)
@@ -160,7 +160,7 @@ export class Segment {
         const a = Vector3.dot(AB, AB); // squared length of AB
         const e = Vector3.dot(CD, CD); // squared length of CD
         const f = Vector3.dot(CD, CA);
-        // Check degeneration of segments into points
+        // Check for degeneration of segments into points
         if (a < EPSILON && e < EPSILON) {
             // Both degenerate into points
             // s = t = 0.0;

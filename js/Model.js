@@ -14,7 +14,7 @@ export class Model {
         this.segments = [];
         this.faces = [];
 
-        // State of model
+        // State of the model
         this.state = State.run;
         this.scale = 1.0;
 
@@ -87,7 +87,7 @@ export class Model {
         }
     }
 
-    // Get point on flat crease pattern
+    // Get point on the flat crease pattern
     getPoint(xf, yf, epsilon = 2) {
         for (const p of this.points) {
             const df = Math.abs(p.xf - xf) + Math.abs(p.yf - yf);
@@ -98,7 +98,7 @@ export class Model {
         return undefined;
     }
 
-    // Add a point, or return existing point
+    // Add a point or return an existing point
     addPoint(xf, yf, x, y, z) {
         let point = this.getPoint(xf, yf);
         // None found, create one
@@ -109,12 +109,10 @@ export class Model {
         return point;
     }
 
-    // Get segment containing points a and b on flat crease pattern
+    // Get the segment containing points a and b on the flat crease pattern
     getSegment(a, b) {
-        // Replace with existing
         a = this.getPoint(a.xf, a.yf);
         b = this.getPoint(b.xf, b.yf);
-        // Search existing
         for (let s of this.segments) {
             if ((s.p1 === a && s.p2 === b) || (s.p1 === b && s.p2 === a)) {
                 return s;
@@ -123,7 +121,7 @@ export class Model {
         return undefined;
     }
 
-    // Add a segment, or return existing segment
+    // Add a segment or return an existing segment
     addSegment(a, b) {
         let segment = this.getSegment(a, b);
         // None found, create one
@@ -144,12 +142,12 @@ export class Model {
         return undefined;
     }
 
-    // Add a face, or return existing face
+    // Add a face or return an existing face
     addFace(points) {
         let face = this.getFace(points);
         // None found, create one
         if (!face) {
-            // Add segments for face
+            // Add segments for the face
             points.forEach((p, i, a) => {
                 this.addSegment(p, a[(i + 1) % a.length]);
             });
@@ -168,7 +166,7 @@ export class Model {
         let lastInter = undefined;
 
         // Segment from last to current
-        // 9 cases : left <0, on 0, right >0
+        // 9 cases: left <0, on 0, right >0
         //         Current
         // last | < | 0 | > |
         //    < | 1 | 3 | 9 |
@@ -177,14 +175,14 @@ export class Model {
         // Not exactly 0 for distance but epsilon = 10
         const epsilon = 10;
 
-        // Begin with last point
+        // Begin with the last point
         let last = face.points[face.points.length - 1];
         let dLast = Face.planeToPointSignedDistance(plane, last);
         for (let n = 0; n < face.points.length; n++) {
             // Segment from previous to current
             const current = face.points[n];
             const dCurrent = Face.planeToPointSignedDistance(plane, current);
-            // last and current on same side // 1, 2
+            // last and current on the same side // 1, 2
             if (dLast * dCurrent > epsilon) {
                 dCurrent < 0 ? left.push(current) : right.push(current);
             }
@@ -211,7 +209,7 @@ export class Model {
         }
 
         // Modify initial face and add new face if not degenerated
-        // Discard degenerated polygons artefacts
+        // Discard degenerated polygons artifacts
         left = Face.area3d(left) !== 0 ? left : undefined;
         right = Face.area3d(right) !== 0 ? right : undefined;
         if (left && right) {
@@ -234,10 +232,10 @@ export class Model {
             Model.splitSegment(segment, last, inter);
         }
 
-        // Add new segment
+        // Add a new segment
         this.addSegment(inter, current);
 
-        // Eventually, if last intersection was on plane, add segment from last intersection to inter
+        // Eventually, if last intersection was on plane, add a segment from the last intersection to inter
         if (lastInter && inter !== lastInter) {
             this.addSegment(lastInter, inter);
             lastInter = undefined;
@@ -264,10 +262,10 @@ export class Model {
             // Segment from previous to current
             const current = face.points[n];
             const dCurrent = Face.distance2dLineToPoint(a, b, current);
-            if (dLast < -EPSILON) { // Last on left
-                if (dCurrent < -EPSILON) { // Current on left
+            if (dLast < -EPSILON) { // Last on the left
+                if (dCurrent < -EPSILON) { // Current on the left
                     left.push(current);
-                } else if (Math.abs(dCurrent) <= EPSILON) { // Last on left Current on the line ab
+                } else if (Math.abs(dCurrent) <= EPSILON) { // Last on the left Current on the line ab
                     // Do not split face if inter is on the line but not on the segment ab
                     if (
                         Segment.intersectionFlat(a, b, last, current) ===
@@ -301,11 +299,11 @@ export class Model {
                     right.push(current);
                 }
             } else if (Math.abs(dLast) <= EPSILON) { // Last on the line
-                if (dCurrent < -EPSILON) { // Current on left
+                if (dCurrent < -EPSILON) { // Current on the left
                     left.push(current);
                 } else if (Math.abs(dCurrent) <= EPSILON) { // Current on the line
                     // Current on the line TEST 0 Point { xf: 0, yf: 0, x: 0, y: 0, z: 0, xCanvas: 0, yCanvas: 0 }
-                    // Do not split face if intersection is on the line but not on the segment
+                    // Do not split face if the intersection is on the line but not on the segment
                     if (
                         Segment.intersectionFlat(a, b, last, current) === undefined
                     ) {
@@ -316,9 +314,9 @@ export class Model {
                 } else if (dCurrent > EPSILON) { // Current on right
                     right.push(current);
                 }
-            } else if (dLast > EPSILON) { // Last on right
-                if (dCurrent < -EPSILON) { // Current on left crossing
-                    // Do not split face if intersection is on the line but not on the segment
+            } else if (dLast > EPSILON) { // Last on the right
+                if (dCurrent < -EPSILON) { // Current on the left => crossing
+                    // Do not split face if the intersection is on the line but not on the segment
                     inter = Segment.intersectionFlat(a, b, last, current);
                     if (inter === undefined) {
                         return;
@@ -354,7 +352,7 @@ export class Model {
             last = current;
             dLast = dCurrent;
         }
-        // Discard degenerated polygons artefacts
+        // Discard degenerated polygons artifacts
         const areaLeft = Face.area2dFlat(left);
         const areaRight = Face.area2dFlat(right);
         // Modify initial face and add new face if not degenerated
@@ -393,7 +391,7 @@ export class Model {
         // Add this as a new point to the model
         p = this.addPoint(p.xf, p.yf);
         Point.align3dFrom2d(a, b, p);
-        // Add point P to both face.
+        // Add the point p to both faces.
         const listFaces = this.searchFacesWithAB(a, b);
         for (let i = 0; i < listFaces.length; i++) {
             const face = listFaces[i];
@@ -417,7 +415,7 @@ export class Model {
                 }
             }
         }
-        // Reduce s to a,p
+        // Reduce segment s to [a, p]
         Model.splitSegment(s, a, p);
         // And add a new segment p,b
         this.addSegment(p, b);
@@ -467,7 +465,7 @@ export class Model {
     splitCross2d(p1, p2) {
         const normal = {x: p2.yf - p1.yf, y: -(p2.xf - p1.xf) }; // x,y -> y,-x
         const middle = {x: (p1.xf + p2.xf) / 2, y: (p1.yf + p2.yf) / 2 };
-        // Two points apart from middle
+        // Two points apart from the middle
         const a = new Point(middle.x + normal.x, middle.y + normal.y);
         const b = new Point(middle.x - normal.x, middle.y - normal.y);
         this.splitAllFacesByLine2d(a, b);
@@ -506,7 +504,7 @@ export class Model {
     // Split faces by a plane between two lines [ab] [cd]
     bisector3d(a, b, c, d) {
         const {p, q} = Segment.closestSegment(a, b, c, d);
-        // Closest line is just one point
+        // The closest line is just one point
         if (p.x === q.x && p.y === q.y && p.z === q.z) {
             // Choose points a and c far from center p (which could be a or c)
             a = Vector3.length3d(Vector3.sub(a, p)) > Vector3.length3d(Vector3.sub(b, p)) ? a : b;
@@ -523,12 +521,12 @@ export class Model {
     bisector2d(s1, s2) {
         let inter = Segment.intersection2dLines(s1.p1, s1.p2, s2.p1, s2.p2);
         if (inter) {
-            // Farther from inter on each segment
+            // Farther from the intersection on each segment
             const a = Point.distance2d(inter, s1.p1) < Point.distance2d(inter, s1.p2) ? s1.p2 : s1.p1;
             const b = Point.distance2d(inter, s2.p1) < Point.distance2d(inter, s2.p2) ? s2.p2 : s2.p1;
             this.bisector2dPoints(a, inter, b);
         } else {
-            // Lines do not cross, parallel : split by line between from (p1+p2)/2 oriented by p1p2
+            // Lines do not cross, parallel: split by line between from (p1+p2)/2 oriented by p1p2
             const middle = {xf: (s1.p1.xf + s2.p1.xf) / 2, yf: (s1.p1.yf + s2.p1.yf) / 2};
             const p1p2 = {xf: s1.p2.xf - s1.p1.xf, yf: s1.p2.yf - s1.p1.yf};
             const middleDecal = {xf: middle.xf + p1p2.xf, yf: middle.yf + p1p2.yf};
@@ -549,18 +547,18 @@ export class Model {
         this.splitAllFacesByPlane3d(plane);
     }
 
-    // Split faces by a line between three point A, B, C.
+    // Split faces by a line between three points: A, B, C.
     bisector2dPoints(a, b, c) {
         // Two vectors from b to a and c
         const v1 = {xf: b.xf - a.xf, yf: b.yf - a.yf};
         const v2 = {xf: b.xf - c.xf, yf: b.yf - c.yf};
-        // Two normalised vectors
+        // Two normalized vectors
         const v1n = Point.normalise(v1);
         const v2n = Point.normalise(v2);
-        // Two point from b aligned on ba and bc
+        // Two points from b aligned on ba and bc
         const p = {xf: b.xf + v1n.xf * 10, yf: b.yf + v1n.yf * 10};
         const q = {xf: b.xf + v2n.xf * 10, yf: b.yf + v2n.yf * 10};
-        // Middle from inter
+        // Middle intersection
         const pq = {xf: (p.xf + q.xf) / 2, yf: (p.yf + q.yf) / 2};
         this.splitAllFacesByLine2d(b, pq);
     }
@@ -592,8 +590,7 @@ export class Model {
         // Take all segments containing point p
         const segments = this.searchSegmentsOnePoint(point);
         let max = 1.0;
-        // 'Kaczmarz' method or Verlet integration
-        // Iterate while length difference between 2d and 3d is > 1e-3
+        // Iterate while the length difference between 2d and 3d is > 1e-3
         for (let i = 0; max > 0.01 && i < 200; i++) {
             max = 0;
             // Iterate over all segments
@@ -622,7 +619,7 @@ export class Model {
                     pm.z += s.p2.z + (s.p1.z - s.p2.z) * r;
                 }
             }
-            // Set Point with average position taking all segments
+            // Set Point with an average position taking all segments
             if (segments.length !== 0) {
                 point.x = pm.x / segments.length;
                 point.y = pm.y / segments.length;
@@ -676,19 +673,19 @@ export class Model {
         return list;
     }
 
-    // Search faces containing segment [a, b]
+    // Search faces containing a segment [a, b]
     searchFacesWithAB(a, b) {
         const faces = [];
         this.faces.forEach((f) => {
             if (f.points.indexOf(b) !== -1 && f.points.indexOf(a) !== -1) {
-                // Should test if a and b are adjacent ?
+                // Should test if a and b are adjacent?
                 faces.push(f);
             }
         });
         return faces;
     }
 
-    // Move list of points by dx,dy,dz
+    // Move a list of points by dx,dy,dz
     movePoints(dx, dy, dz, points) {
         points.forEach((p) => {
             p.x += dx;
@@ -712,7 +709,7 @@ export class Model {
         points.forEach((point) => point.z = 0)
     }
 
-    // Turn model around axis by angle
+    // Turn the model around axis by angle
     turn(axe, angle) {
         this.rotate(axe, angle, this.points);
     }
@@ -762,7 +759,7 @@ export class Model {
         return {xMin, xMax, yMin, yMax};
     }
 
-    // Serialize model, replace instances by indexes in JSON, and return a JSON string
+    // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Cache model for replacer
         const model = this;
@@ -780,7 +777,7 @@ export class Model {
         return JSON.stringify(this, replacer);
     }
 
-    // Deserialize model, revive objects, and return a new model
+    // Deserialize the model, revive objects, and return a new model
     deserialize(json) {
         // Define a reviver to convert points objects into Points instances, and indexes into instances
         function reviver(key, value) {

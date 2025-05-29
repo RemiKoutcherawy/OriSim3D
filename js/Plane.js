@@ -2,8 +2,8 @@ import {Vector3} from "./Vector3.js";
 
 export class Plane {
 
-    // Plane is defined by an origin point R and a normal vector N
-    // point P is on plane if and only if RP.N = 0
+    // Plane is defined by an origin point R, and a normal vector N
+    // point P is on the plane if and only if RP.N = 0
     constructor(origin, normal) {
         this.origin = origin;
         this.normal = Vector3.normalize(normal);
@@ -18,7 +18,7 @@ export class Plane {
 
     // Plane by 2 points on xy orthogonal to z
     static by = function (p1, p2) {
-        // Turn 90° on right (x,y) to (y,-x)
+        // Turn 90° on the right (x,y) to (y,-x)
         const normal = new Vector3((p2.y - p1.y), -(p2.x - p1.x), 0);
         return new Plane(p1, normal);
     };

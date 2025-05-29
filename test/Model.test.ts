@@ -17,7 +17,7 @@ Deno.test("Model", async (t) => {
         const serialized = model.serialize();
         assertEquals(serialized.length, 405, "serialized model should have length 491");
 
-        // Change model, should not affect serialized
+        // Model change should not affect serialized
         model.addPoint(0, 0, 0, 0, 0);
         model.addSegment(model.points[0], model.points[1]);
         model.addFace([model.points[2], model.points[3]]);
@@ -71,11 +71,11 @@ Deno.test("Model", async (t) => {
     await t.step("addPoint", () => {
         const model = new Model().init(200, 200);
         const p = model.points[0];
-        // Should not create a new point, but return existing point.
+        // Should not create a new point but return an existing point.
         const p1 = model.addPoint(p.xf, p.yf, p.x, p.y, p.z);
         assertEquals(model.points.length, 4, 'Model should have 4 points');
         assertEquals(p, p1, 'Point should be the same');
-        // Should add and return new point
+        // Should add and return a new point
         const p2 = model.addPoint(0, 0, 0, 0, 0);
         assertEquals(model.points.length, 5, 'Model should have 5 points');
         assertEquals(model.points[4], p2, 'Model should have the new point');
@@ -83,11 +83,11 @@ Deno.test("Model", async (t) => {
     await t.step("addSegment", () => {
         const model = new Model().init(200, 200);
         const s0 = model.segments[0];
-        // Should not create a new segment, but return existing segment.
+        // Should not create a new segment but return an existing segment.
         let s = model.addSegment(s0.p1, s0.p2);
         assertEquals(model.segments.length, 4, 'Model should have 4 segments');
         assertEquals(model.segments[0], s, 'Model first segment should be added segment');
-        // Should add new segment with 2 points
+        // Should add a new segment with 2 points
         s = model.addSegment(model.points[0], model.points[2]);
         assertEquals(model.segments.length, 5, 'Model should have 5 segments');
         assertEquals(model.segments[4], s, 'Model should have the new segment');
@@ -95,11 +95,11 @@ Deno.test("Model", async (t) => {
     await t.step("addFace", () => {
         const model = new Model().init(200, 200);
         const f0 = model.faces[0];
-        // Should not create a new face, but return existing face.
+        // Should not create a new face but return an existing face.
         const face = model.addFace(f0.points);
         assertEquals(model.faces.length, 1, 'Model should have 1 face');
         assertEquals(model.faces[0], face, 'Model first face should be added face');
-        // Should add new face with 3 first points
+        // Should add a new face with 3 first points
         model.addFace([f0.points[0], f0.points[1], f0.points[2]]);
         assertEquals(model.faces.length, 2, 'Model should have 2 faces');
         assertEquals(model.segments.length, 5, 'Model should have 5 segments');
@@ -107,10 +107,10 @@ Deno.test("Model", async (t) => {
     await t.step("searchSegment3d", () => {
         const model = new Model().init(200, 200);
         const s0 = model.segments[0];
-        // Should find first segment.
+        // Should find the first segment.
         let segment = model.getSegment(s0.p1, s0.p2);
         assertEquals(model.segments[0], segment, 'Model first segment should be found');
-        // Should find first segment.
+        // Should find the first segment.
         segment = model.getSegment(model.points[0], model.points[3]);
         assertEquals(model.segments[3], segment, 'Model third segment should be found');
         // Should not find any segment
@@ -150,7 +150,7 @@ Deno.test("Model", async (t) => {
         });
         await t.step("splitFaceByPlane3d on diagonal", () => {
             const model = new Model().init(200, 200);
-            // Plane by [0] [2] diagonal
+            // Plane by [0] [2] split on diagonal
             const plane = Plane.by(model.points[0], model.points[2]);
             const face = model.faces[0];
             model.splitFaceByPlane3d(face, plane);
@@ -162,7 +162,7 @@ Deno.test("Model", async (t) => {
         });
         await t.step("splitFaceByPlane3d diagonal on triangle", () => {
             const model = new Model().init(200, 200);
-            // Plane across [0] [2] diagonal on triangle
+            // Plane across [0] [2] split diagonal on triangle
             const plane = Plane.across(model.points[0], model.points[2]);
             const face = model.faces[0];
             model.splitFaceByPlane3d(face, plane);
@@ -237,7 +237,7 @@ Deno.test("Model", async (t) => {
             assertEquals(model.points[4].y, -200, 'Point 4 should be at y=-200');
             assertEquals(model.points[5].y, 200, 'Point 4 should be at y=200');
 
-            // Same should not modify anything
+            // The same should not modify anything
             model.splitCross2d(model.points[0], model.points[1]);
             assertEquals(model.faces.length, 2, 'Model should have 2 faces');
             assertEquals(model.points.length, 6, 'Model should have 6 points');
@@ -260,7 +260,7 @@ Deno.test("Model", async (t) => {
             model.splitBy3d(model.points[0], model.points[2]);
             assertEquals(model.faces.length, 2, 'Model should have 2 faces');
             assertEquals(model.points.length, 4, 'Model should have 4 points');
-            // On other diagonal
+            // On the other diagonal
             model.splitBy3d(model.points[1], model.points[3]);
             assertEquals(model.faces.length, 4, 'Model should have 4 faces');
             assertEquals(model.points.length, 5, 'Model should have 5 points');
@@ -278,7 +278,7 @@ Deno.test("Model", async (t) => {
             assertEquals(model.faces[1].points.length, 3, 'Face should have 3 points');
             assertEquals(model.faces.length, 2, 'Model should have 2 faces');
             assertEquals(model.points.length, 4, 'Model should have 4 points');
-            // On other diagonal
+            // On the other diagonal
             model.splitBy2d(model.points[1], model.points[3]);
             assertEquals(model.faces.length, 4, 'Model should have 4 faces');
             assertEquals(model.points.length, 5, 'Model should have 5 points');
@@ -303,7 +303,7 @@ Deno.test("Model", async (t) => {
             assertEquals(model.points.length, 4, 'Model should have 4 points');
             // Add center
             const p = model.addPoint(0, 200, 0, 0, 0);
-            // Split perpendicular to edge by top point
+            // Split perpendicular to edge by the top point
             model.splitPerpendicular2d(model.segments[0], p);
             assertEquals(model.faces.length, 2,);
             assertEquals(model.points.length, 6);
@@ -403,12 +403,12 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         const p = model.points[0];
         p.x = -100; // arbitrary move
-        // Adjust one point on all segments
+        // Adjusts one point on all segments
         let max = model.adjust(p);
         assertEquals(Math.round(p.x), -200, 'Got:' + p.x);
         assertEquals(max < 0.01, true, 'Got:' + max);
         p.x = -400; // arbitrary move
-        // Adjust one point on list of segments
+        // Adjusts one point on the list of segments
         max = model.adjust(p);
         assertEquals(Math.round(p.x), -200, 'Got:' + p.x);
         assertEquals(max < 0.01, true, 'Got:' + max);
@@ -476,7 +476,7 @@ Deno.test("Model", async (t) => {
         const p1 = model.points[1];
         model.movePoints(0, 0, 3, [p0, p1]);
 
-        // Move flat points p0 p1
+        // Move flat points p0, p1
         model.flat([p1]);
         assertEquals(Math.round(p1.x), 200, 'Got:' + p1.x);
         assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);

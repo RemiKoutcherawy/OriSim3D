@@ -9,7 +9,7 @@ Deno.test("Face", async (t) => {
     const p1 = new Point(100, -100, 100, -100, 0);
     const p2 = new Point(100, 100, 100, 100, 0);
     const p3 = new Point(-100, 100, -100, 100, 0);
-    // Face is a square -100,-100 to 100,100 counter clock wise
+    // Face is a square -100,-100 to 100,100 counter-clock wise
     const face = new Face([p0, p1, p2, p3]);
 
     await t.step("area2dFlat", () => {

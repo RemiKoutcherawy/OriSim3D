@@ -1,4 +1,4 @@
-// Interprets a list of commands, and apply them on Model
+// Interprets a list of commands and apply them on Model
 import {Interpolator} from './Interpolator.js';
 import {Segment} from './Segment.js';
 import {Point} from './Point.js';
@@ -11,7 +11,7 @@ export class Command {
     iToken = 0;
     done = []; // List of model states
     instructions = []; // List of commands done
-    // Time interpolated at instant 'p' preceding and at instant 'n' now
+    // Time interpolated at an instant 'p' preceding and at instant 'n' now
     tpi = 0;
     tni = 1;
     // scale, cx, cy, cz used in ZoomFit
@@ -28,8 +28,7 @@ export class Command {
         this.model = model;
     }
 
-    // Main entry Point
-    // Execute a string of commands
+    // The main entry point executes a string of commands
     command(cde) {
         if (this.commandArea !== undefined) {
             this.commandArea.addLine(cde);
@@ -63,8 +62,8 @@ export class Command {
         return text.split(/\s+/).filter(e => e !== '')
     }
 
-    // State machine returns true if model need redraw
-    // Only 4 states : run, anim, undo, pause
+    // State machine returns true if the model needs redrawing
+    // Only 4 states: run, anim, undo, pause
     // Called by requestAnimationFrame(loop)
     anim() {
         if (this.model.state === State.pause) {
@@ -101,7 +100,7 @@ export class Command {
         else if (this.model.state === State.undo) {
             // Restore model
             this.popUndo();
-            // Continue undo if model was in animation
+            // Continue undo if the model was in animation
             if (this.model.state === State.anim) {
                 this.model.state = State.undo;
             }
@@ -151,66 +150,66 @@ export class Command {
         }
     }
 
-    // Execute one instruction from tokenTodo starting at idx on model
+    // Execute one instruction from tokenTodo starting at idx on the model
     execute(idx) {
         let list = [];
         const tokenList = this.tokenTodo;
 
         // Define sheet
         if (tokenList[idx] === 'd' || tokenList[idx] === 'define') {
-            // Define sheet by N points x,y CCW
+            // Define a sheet by N points x,y CCW
             idx++;
             const width = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
             const height = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
             this.model.init(width, height);
-            // this.command('fit'); // Fits 3D but breaks tests !
+            // this.command('fit'); // Fits 3D but breaks tests!
         }
 
         // Origami splits
         else if (tokenList[idx] === 'by3d') {
-            // Split by two points in 3d : b3d p1 p2
+            // Split by two points in 3d: b3d p1 p2
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitBy3d(p1, p2);
         } else if (tokenList[idx] === 'by2d') {
-            // Split by two points in 2d on crease pattern : by 2d p1 p2
+            // Split by two points in 2d on the crease pattern: by 2d p1 p2
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitBy2d(p1, p2);
         } else if (tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d' || tokenList[idx] === 'cross3d') {
-            // Split across two points in 3d : c3d p1 p2;
+            // Split across two points in 3d: c3d p1 p2;
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitCross3d(p1, p2);
         } else if (tokenList[idx] === 'c2d' || tokenList[idx] === 'across2d') {
-            // Split across two points on 2d crease pattern : c2d p1 p2;
+            // Split across two points on 2d the crease pattern: c2d p1 p2;
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitCross2d(p1, p2);
         } else if (tokenList[idx] === 'p2d' || tokenList[idx] === 'perpendicular2d') {
-            // Split perpendicular to segment by point in 2d : p s1 p1;
+            // Split perpendicular to segment by point in 2d: p s1 p1;
             idx++;
             const s = this.model.segments[tokenList[idx++]];
             let p = this.model.points[tokenList[idx++]];
             this.model.splitPerpendicular2d(s, p);
         } else if (tokenList[idx] === 'p3d' || tokenList[idx] === 'perpendicular3d') {
-            // Split perpendicular to segment by point in 3d : p s1 p1;
+            // Split perpendicular to segment by point in 3d: p s1 p1;
             idx++;
             const s = this.model.segments[tokenList[idx++]];
             let p = this.model.points[tokenList[idx++]];
             this.model.splitPerpendicular3d(s, p);
         } else if (tokenList[idx] === 'bisector2d') {
-            // Split by a line passing between segments : s2d s1 s2;
+            // Split by a line passing between segments: s2d s1 s2;
             idx++;
             const s1 = this.model.segments[tokenList[idx++]];
             const s2 = this.model.segments[tokenList[idx++]];
             this.model.bisector2d(s1, s2);
         } else if (tokenList[idx] === 'bisector3d') {
-            // Split by a plane passing between segments : ll s1 s2;
+            // Split by a plane passing between segments: ll s1 s2;
             idx++;
             const s1 = this.model.segments[tokenList[idx++]];
             const s2 = this.model.segments[tokenList[idx++]];
@@ -232,7 +231,7 @@ export class Command {
         }
 
         // Segments splits
-        else if (tokenList[idx] === 'splitSegment2d') { // "s : split segment numerator denominator"
+        else if (tokenList[idx] === 'splitSegment2d') { // "s: split segment numerator denominator"
             // Split segment by N/D
             idx++;
             const s = this.model.segments[tokenList[idx++]];
@@ -243,7 +242,7 @@ export class Command {
 
         // Origami folding
         else if (tokenList[idx] === 'r' || tokenList[idx] === 'rotate') {
-            // Rotate around 'Seg' with 'Angle' all 'Points' with animation : r s1 p1 p2 p3...
+            // Rotate around 'Seg' with 'Angle' all 'Points' with animation: r s1 p1 p2 p3...
             idx++;
             const s = this.model.segments[tokenList[idx++]];
             const angle = tokenList[idx++] * (this.tni - this.tpi);
@@ -281,7 +280,7 @@ export class Command {
             this.model.segments.forEach(s => s.select = 0);
             this.model.checkSegments();
         } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
-            // Offset by dz a list of faces : o dz f1 f2...
+            // Offset by dz a list of faces: o dz f1 f2...
             idx++;
             const dz = Number(tokenList[idx++]);
             list = this.listFaces(tokenList, idx);
@@ -291,29 +290,29 @@ export class Command {
 
         // Model turn, zoom and move
         else if (tokenList[idx] === 'turn') {
-            // Turn model around axis x,y,z by angle : turn 0 1 0 180
+            // Turn the model around axis x,y,z by angle: turn 0 1 0 180
             idx++;
             const axis = new Segment(new Point(0, 0), new Point(0, 0, tokenList[idx++], tokenList[idx++], tokenList[idx++]));
             this.model.turn(axis, Number(tokenList[idx++]) * (this.tni - this.tpi));
         }
         // Turns
         else if (tokenList[idx] === 'tx') {
-            // "tx : TurnX"
+            // "tx: TurnX"
             idx++;
             const axis = new Segment(new Point(0, 0), new Point(0, 0, 1, 0, 0));
             this.model.turn(axis, Number(tokenList[idx++]) * (this.tni - this.tpi));
         } else if (tokenList[idx] === 'ty') {
-            // "ty : TurnY"
+            // "ty: TurnY"
             idx++;
             const axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 1, 0));
             this.model.turn(axis, Number(tokenList[idx++]) * (this.tni - this.tpi));
         } else if (tokenList[idx] === 'tz') {
-            // "tz : TurnZ"
+            // "tz: TurnZ"
             idx++;
             const axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 0, 1));
             this.model.turn(axis, Number(tokenList[idx++]) * (this.tni - this.tpi));
         } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') {
-            // Zoom scale x y. The zoom is centered on x y z=0 : z 2 50 50
+            // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
             idx++;
             let scale = Number(tokenList[idx++]);
             const x = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 0;
@@ -324,7 +323,7 @@ export class Command {
             this.model.movePoints(x * b, y * b, 0, this.model.points);
             this.model.scaleModel(a);
         } else if (tokenList[idx] === 'zf' || tokenList[idx] === 'fit') {
-            // Zoom fit 3d : fit3d
+            // Zoom fit 3d: fit3d
             idx++;
             if (this.tpi === 0) {
                 let bounds = this.model.get3DBounds();
@@ -340,22 +339,22 @@ export class Command {
         }
 
         // Interpolator
-        else if (tokenList[idx] === 'il') { // "il : Interpolator Linear"
+        else if (tokenList[idx] === 'il') { // "il: Interpolator Linear"
             idx++;
             this.interpolator = Interpolator.LinearInterpolator;
-        } else if (tokenList[idx] === 'ib') { // "ib : Interpolator Bounce"
+        } else if (tokenList[idx] === 'ib') { // "ib: Interpolator Bounce"
             idx++;
             this.interpolator = Interpolator.BounceInterpolator;
-        } else if (tokenList[idx] === 'io') { // "io : Interpolator OverShoot"
+        } else if (tokenList[idx] === 'io') { // "io: Interpolator OverShoot"
             idx++;
             this.interpolator = Interpolator.OvershootInterpolator;
-        } else if (tokenList[idx] === 'ia') { // "ia : Interpolator Anticipate"
+        } else if (tokenList[idx] === 'ia') { // "ia: Interpolator Anticipate"
             idx++;
             this.interpolator = Interpolator.AnticipateInterpolator;
-        } else if (tokenList[idx] === 'iao') { // "iao : Interpolator Anticipate OverShoot"
+        } else if (tokenList[idx] === 'iao') { // "iao: Interpolator Anticipate OverShoot"
             idx++;
             this.interpolator = Interpolator.AnticipateOvershootInterpolator;
-        } else if (tokenList[idx] === 'iad') { // "iad : Interpolator Accelerate Decelerate"
+        } else if (tokenList[idx] === 'iad') { // "iad: Interpolator Accelerate Decelerate"
             idx++;
             this.interpolator = Interpolator.AccelerateDecelerateInterpolator;
         } else if (tokenList[idx] === 'iso') { // "iso Interpolator Spring Overshoot"
@@ -364,7 +363,7 @@ export class Command {
         } else if (tokenList[idx] === 'isb') { // "isb Interpolator Spring Bounce"
             idx++;
             this.interpolator = Interpolator.SpringBounceInterpolator;
-        } else if (tokenList[idx] === 'igb') { // "igb : Interpolator Gravity Bounce"
+        } else if (tokenList[idx] === 'igb') { // "igb: Interpolator Gravity Bounce"
             idx++;
             this.interpolator = Interpolator.GravityBounceInterpolator;
         }
@@ -394,18 +393,18 @@ export class Command {
             idx++;
         }
 
-        // Anticipate end
+        // Unexpected end
         else {
             console.log('Syntax error', tokenList[idx-2], tokenList[idx-1], tokenList[idx], tokenList[idx+1], tokenList[idx+2])
             idx = tokenList.length + 1;
         }
 
-        // Keep state after execute
+        // Keep state after executing
         this.pushUndo();
         this.iToken = idx;
     }
 
-    // Make a list from following points numbers @testOK
+    // Make a list from the following points numbers @testOK
     listPoints(tokenList, iStart) {
         const list = [];
         while (Number.isInteger(Number(tokenList[iStart]))) {
@@ -414,7 +413,7 @@ export class Command {
         return list;
     }
 
-    // Make a list from following segments numbers @testOK
+    // Make a list from the following segments numbers @testOK
     listSegments(tokenList, iStart) {
         const list = [];
         while (Number.isInteger(Number(tokenList[iStart]))) {
@@ -423,7 +422,7 @@ export class Command {
         return list;
     }
 
-    // Make a list from following faces numbers @testOK
+    // Make a list from the following faces numbers @testOK
     listFaces(tokenList, iStart) {
         const list = [];
         while (Number.isInteger(Number(tokenList[iStart]))) {

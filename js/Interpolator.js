@@ -1,5 +1,5 @@
 // ReadWrite: js/Interpolator.js
-// Maps time to time
+//  Maps from time to time
 // interpolate(tn) returns t for tn.
 // t and tn should start at 0.0 and end at 1.0
 // between 0 and 1, t can be < 0 (anticipate) and >1 (overshoot)
@@ -43,7 +43,7 @@ export class Interpolator {
         else x = (((-299.289 * t) + 945.190) * t - 991.734) * t + 346.834;
         return x > 1 ? 2 - x : x;
     }
-    // Model of a gravity with bounce "igb"
+    // Model of gravity with bounce "igb"
     // a = 8.0, k=1.5; x=(a*t*t-v0*t)*Math.exp(-k*t);
     /** @return {number} */
     static GravityBounceInterpolator = function GravityBounceInterpolator(t) {

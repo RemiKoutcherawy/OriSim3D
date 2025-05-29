@@ -6,7 +6,7 @@ export class Vector3 {
         this.z = z;
     }
 
-    // Closest point between point C and line [A,B] return new Vector3 on the line AB
+    // The closest point between point C and line [A, B] return new Vector3 on the line AB
     static closestPoint(C, A, B) {
         // Vector AB and AC
         const AB = new Vector3(B.x - A.x, B.y - A.y, B.z - A.z);
@@ -18,7 +18,7 @@ export class Vector3 {
         return Vector3.add(new Vector3(A.x, A.y, A.z), (Vector3.scale(AB, t)));
     }
 
-    // Distance between point C and line [A,B] return number
+    // Distance between point C and line [A, B] return number
     static pointLineDistance(C, A, B) {
         const AC = Vector3.sub(C, A);
         const BC = Vector3.sub(C, B);

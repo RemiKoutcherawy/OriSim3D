@@ -316,14 +316,14 @@ Deno.test("Segment 3D", async (t) => {
     assertEquals(s.q, a, "Both segments degenerate to same point");
   });
   await t.step("Segment 3D closestSegment distinct points", () => {
-    // First segment degenerates and second segment degenerates but is distinct
+    // First segment degenerates, and second segment degenerates but is distinct
     const c = new Point(0, 0, 0, -100, 0);
     const s = Segment.closestSegment(a, a, c, c);
     assertEquals(s.p, a, "Both segments degenerate to distinct points");
     assertEquals(s.q, c, "First segment degenerate to distinct points");
   });
   await t.step("Segment 3D closestSegment one point", () => {
-    // First segment degenerates (0,0,0) and second segment is crossing first segment
+    // The first segment degenerates (0,0,0) and second segment is crossing first segment
     const c = new Point(0, 0, 0, -100, 0);
     const d = new Point(0, 0, 0, 100, 0);
     const a=  new Vector3(0, 0, 0);
@@ -337,13 +337,13 @@ Deno.test("Segment 3D", async (t) => {
     const a=  new Vector3(0, 0, 0);
     const c = new Point(0, 0, 100, -100, 0);
     const d = new Point(0, 0, 100, 100, 0);
-    const e = new Vector3(100, 0, 0); // Closest to  0,0,0
+    const e = new Vector3(100, 0, 0); // Closest to 0,0,0
     const s = Segment.closestSegment(a, a, c, d);
     assertEquals(s.p, a, "First segment degenerate to one point, second segment apart");
     assertEquals(s.q, e, "First segment degenerate to one point, second segment apart");
   });
   await t.step("Segment 3D closestSegment parallel segments", () => {
-    // First and second are parallel segments
+    // The first and second are parallel segments
     const a = new Vector3( 0, -100, 0);
     const b = new Point(0, 0, 0, 100, 0);
     const c = new Point(0, 0, 100, -200, 0);
@@ -355,7 +355,7 @@ Deno.test("Segment 3D", async (t) => {
     assertEquals(s.q, e, "Parallel segments");
   });
   await t.step("Segment 3D closestSegment intersecting segments", () => {
-    // First and second are intersecting segments
+    // The first and second are intersecting segments
     const a = new Point(0, 0, 100, 0, 0); // vertical on x = 100
     const b = new Point(0, 0, 100, 400, 0);
     const c = new Point(0, 0, 0, 0, 0); // 45° from 0,0 to 200,200
@@ -367,7 +367,7 @@ Deno.test("Segment 3D", async (t) => {
   });
 
   await t.step("Segment 3D closestSegment non intersecting segments same plane", () => {
-    // First and second are non-intersecting segments
+    // The first and second are non-intersecting segments
     const a = new Point(0, 0, 100, 0, 0); // vertical x=100 y[0,100]
     const b = new Point(0, 0, 100, 100, 0);
     const c = new Point(0, 0, 0, 200, 0); // horizontal y=200 x[0,200]
@@ -380,10 +380,10 @@ Deno.test("Segment 3D", async (t) => {
   });
 
   await t.step("Segment 3D closestSegment non intersecting segments in 3D", () => {
-    // First and second are non-intersecting lines in 3D
-    const  a = new Point(0, 0, 0, 0, 100); // diagonal on back side of cube
+    // The first and second are non-intersecting lines in 3D
+    const  a = new Point(0, 0, 0, 0, 100); // diagonal on backside of cube
     const b = new Point(0, 0, 100, 100, 100);
-    const c = new Point(0, 0, 0, 100, 0); // diagonal on front side of cube
+    const c = new Point(0, 0, 0, 100, 0); // diagonal on frontside of cube
     const d = new Point(0, 0, 100, 0, 0);
     const s = Segment.closestSegment(a, b, c, d); // line between middle of front face to middle of back face
     let expect = new Vector3( 50, 50, 100);

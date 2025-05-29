@@ -10,7 +10,7 @@ export class Face {
         this.select = 0;
     }
 
-    // Area 2d of an array of points
+    // Area 2d for an array of points
     static area2dFlat(points) {
         let area = 0;
         for (let i = 0; i < points.length; i++) {
@@ -21,17 +21,17 @@ export class Face {
 
     // Distance 2d from line AB to point C
     static distance2dLineToPoint(a, b, c) {
-        // Cross product AC x AB give z > 0 if C is on the right, ACB is CCW
+        // Cross-product AC x AB give z > 0 if C is on the right, ACB is CCW
         // AC = C-A and AB = B-A
         return (c.xf - a.xf) * (b.yf - a.yf) - (c.yf - a.yf) * (b.xf - a.xf);
     }
 
-    // Intersection with segment (a,b)
+    // Intersection with a segment (a,b)
     static intersectionPlaneSegment(plane, a, b) {
         // (A+tAB).N = d <=> t = (d-A.N) / (AB.N) then Q=A+tAB 0<t<1
         const ab = new Vector3(b.x - a.x, b.y - a.y, b.z - a.z);
         const abn = Vector3.dot(plane.normal, ab);
-        // segment parallel to plane
+        // segment parallel to the plane
         if (abn === 0) return undefined;
         // segment crossing
         const t = (Vector3.dot(plane.normal, plane.origin) - Vector3.dot(plane.normal, a)) / abn;
@@ -68,7 +68,7 @@ export class Face {
         for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
             const xi = vs[i].xf, yi = vs[i].yf;
             const xj = vs[j].xf, yj = vs[j].yf;
-            // Special case where point is part of face.
+            // Special case where the point is part of the face.
             if (xi === xf && yi === yf) {
                 return true;
             }
@@ -95,7 +95,7 @@ export class Face {
             if (!projI || !projJ) continue;
             const xi = projI[0], yi = projI[1];
             const xj = projJ[0], yj = projJ[1];
-            // Special case where point is part of face.
+            // Special case where the point is part of the face.
             if (xi === xCanvas && yi === yCanvas) {
                 return true;
             }

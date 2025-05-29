@@ -43,7 +43,7 @@ export class Point {
         return Math.sqrt((b.xf - a.xf) * (b.xf - a.xf) + (b.yf - a.yf) * (b.yf - a.yf));
     }
 
-    // Normalise as if Vector 2d
+    // Normalize as if Vector 2d
     static normalise(a) {
         const length = Math.sqrt(a.xf * a.xf + a.yf * a.yf);
         return {xf: a.xf / length, yf: a.yf / length};

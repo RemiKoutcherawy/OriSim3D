@@ -24,7 +24,7 @@ Deno.test('Command', async (t) => {
         const tokens = cde.tokenize('0 1');
         const list = cde.listPoints(tokens, 0);
         assertEquals(list.length, 2);
-        // Second point should be (200,-200)
+        // The second point should be (200,-200)
         assertEquals(list[1].x, 200);
         assertEquals(list[1].y, -200);
         assertEquals(list[1].z, 0);

@@ -39,7 +39,7 @@
     // View 3d
     const canvas3d = window.document.getElementById("canvas3d");
     const view3d = new View3d(model, canvas3d);
-    view3d.initBuffers(); // Needed only if number of points changed
+    view3d.initBuffers(); // Needed only if the number of points changed
 
     // View 2d
     const canvas2d = window.document.getElementById("canvas2d");
@@ -55,7 +55,7 @@
     // Animation loop
     function loop() {
       if (command.anim()) {
-        view3d.initBuffers(); // Needed only if number of points changed
+        view3d.initBuffers(); // Needed only if the number of points changed
         view3d.initModelView();
       }
       view2d.drawModel();

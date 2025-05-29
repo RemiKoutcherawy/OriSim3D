@@ -106,7 +106,7 @@ export class Helper {
                 p.select = 1;
                 let distToFirst, distToCurrent;
                 if (this.currentCanvas === '2d') {
-                    // Signed distance from first point to segment.
+                    // Signed distance from the first point to segment.
                     distToFirst = (p.xf - s.p1.xf) * (s.p2.yf - s.p1.yf) - (p.yf - s.p1.yf) * (s.p2.xf - s.p1.xf);
                     // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
                     distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
@@ -122,7 +122,7 @@ export class Helper {
                         const p2Proj = this.view3d.projected[p2Idx];
 
                         if (pProj && p1Proj && p2Proj) {
-                            // Signed distance from first point to segment.
+                            // Signed distance from the first point to segment.
                             distToFirst = (pProj[0] - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (pProj[1] - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
                             // Signed distance from current point to segment. Which to cos(angle) * distToFirst.
                             distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
@@ -143,11 +143,11 @@ export class Helper {
         else if (this.firstSegment) {
             this.firstSegment.hover = true;
         } else if (this.firstFace) {
-            // Offset face positive if mouse moves right
+            // Offset face positive if the mouse moves right
             if ((x - this.currentX) > 0) {
                 this.model.faces.filter(f => f.select === 1).forEach(f => f.offset += 1);
             }
-            // Offset face negative if mouse moves left
+            // Offset face negative if the mouse moves left
             else if ((x - this.currentX) < 0) {
                 this.model.faces.filter(f => f.select === 1).forEach(f => f.offset -= 1);
             }
@@ -157,26 +157,26 @@ export class Helper {
     }
 
     up(points, segments, faces) {
-        // From  point
+        // From a point
         if (this.firstPoint) {
             // To Point
             if (points.length !== 0 && this.label === undefined) {
                 if (this.firstPoint === points[0]) {
-                    // To same point select
+                    // To the same point select
                     points.forEach((p) => {
                         p.select = (p.select + 1) % 3;
-                        // Adjust if double select
+                        // Adjust if double-select
                         if (p.select === 2) {
                             this.model.adjust(p);
                             this.view3d.initModelView();
                         }
                     });
                 }
-                // To other point
+                // To another point
                 else if (points.length > 0) {
                     const aIndex = this.model.indexOf(this.firstPoint);
                     const bIndex = this.model.indexOf(points[0]);
-                    // Two points on existing segment
+                    // Two points on an existing segment
                     if (this.model.getSegment(this.firstPoint, points[0])) {
                         if (this.currentCanvas === '2d') {
                             this.command.command(`across2d ${aIndex} ${bIndex}`);
@@ -252,10 +252,10 @@ export class Helper {
             // To face
             if (faces.length !== 0) {
                 if (this.firstFace === faces[0]) {
-                    // To same face
+                    // To the same face
                     this.model.click2d3d(points, segments, faces);
                 } else {
-                    // To other face
+                    // To another face
                 }
             } else {
                 // Deselect
@@ -433,7 +433,7 @@ export class Helper {
         if (this.touchTime === 0) {
             this.touchTime = new Date().getTime();
         } else {
-            // Double click ?
+            // Double click?
             if (((new Date().getTime()) - this.touchTime) < 400) {
                 this.command.command('fit');
                 this.view3d.angleX = 0.0;

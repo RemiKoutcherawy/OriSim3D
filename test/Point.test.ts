@@ -4,12 +4,12 @@ import { assertEquals } from "jsr:@std/assert";
 Deno.test("Point.align2dFrom3d", () => {
     const p0 = new Point(-100, -100, -100, -100, 0);
     const p1 = new Point(100, -100, 100, -100, 0);
-    // p is the middle of segment a b, with wrong x, y
+    // p is the middle of the segment a b, with wrong x, y
     let p = new Point(1, 1, 0, -100, 0);
     Point.align2dFrom3d(p0, p1, p);
     assertEquals(p.xf, 0, "x should be 0");
     assertEquals(p.yf, -100, "y should be -100");
-    // degenerated case p is on segment
+    // degenerated case p is on the segment
     p = new Point(1, 1, p1.x, p1.y, p1.z);
     Point.align2dFrom3d(p0, p1, p);
     assertEquals(p.xf, 100, "x should be 100");
