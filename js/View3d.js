@@ -263,6 +263,10 @@ export class View3d {
 
     // Helper function to fill a triangle with texture and lighting
     fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor) {
+        const area = Math.abs((p1[0] - p0[0]) * (p2[1] - p0[1]) - (p2[0] - p0[0]) * (p1[1] - p0[1])) / 2;
+        if (area < 0.01) {
+            return; // Skip triangles that are too small
+        }
         // Calculate bounding box of the triangle (with clipping)
         const minX = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
         const maxX = Math.min(this.width-1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
@@ -277,12 +281,6 @@ export class View3d {
         const denominator1 = p1y_p2y * (p0[0] - p2[0]) + p2x_p1x * (p0[1] - p2[1]);
         const denominator2 = p2y_p0y * (p1[0] - p2[0]) + p0x_p2x * (p1[1] - p2[1]);
 
-        // Skip triangle if either denominator is zero (would cause NaN in barycentric coordinates)
-        if (Math.abs(denominator1) < 0.0001 || Math.abs(denominator2) < 0.0001) {
-            console.log('Zero denominator in triangle');
-            // console.log(p0, p1, p2);
-            return;
-        }
         // Bounding box
         for (let y = minY; y <= maxY; y++) {
             for (let x = minX; x <= maxX; x++) {
@@ -295,11 +293,11 @@ export class View3d {
                 const z = b0 * z0 + b1 * z1 + b2 * z2;
 
                 // Prevent division by zero in w calculations
-                w0 = Math.abs(w0) < 0.0001 ? 0.0001 : w0;
-                w1 = Math.abs(w1) < 0.0001 ? 0.0001 : w1;
-                w2 = Math.abs(w2) < 0.0001 ? 0.0001 : w2;
+                w0 = Math.abs(w0) < 0.001 ? 0.001 : w0;
+                w1 = Math.abs(w1) < 0.001 ? 0.001 : w1;
+                w2 = Math.abs(w2) < 0.001 ? 0.001 : w2;
                 let invW = b0/w0 + b1/w1 + b2/w2;
-                invW = Math.abs(invW) < 0.0001 ? 0.0001 : invW;
+                invW = Math.abs(invW) < 0.001 ? 0.001 : invW;
                 const u = (b0*uv0[0]/w0 + b1*uv1[0]/w1 + b2*uv2[0]/w2) / invW;
                 const v = (b0*uv0[1]/w0 + b1*uv1[1]/w1 + b2*uv2[1]/w2) / invW;
                 // Ensure texture coordinates are valid
