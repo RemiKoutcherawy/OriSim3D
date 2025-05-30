@@ -284,18 +284,7 @@ export class Model {
                     } else {
                         // Origami
                         Point.align3dFrom2d(last, current, inter);
-
-                        // Add intersection to both sides
-                        inter = this.addPoint(inter.xf, inter.yf, inter.x, inter.y, inter.z);
-                        left.push(inter);
-                        right.push(inter);
-
-                        // Set Segment [last,current] to [last,inter]
-                        const segment = this.getSegment(last, current);
-                        if (segment) {
-                            Model.splitSegment(segment, last, inter);
-                            this.addSegment(inter, current);
-                        }
+                        inter = this.addIntersectionPoint(inter, left, right, last, current);
                     }
                     right.push(current);
                 }
@@ -325,15 +314,7 @@ export class Model {
                         // Origami
                         Point.align3dFrom2d(last, current, inter);
                         // Add intersection to both sides
-                        inter = this.addPoint(inter.xf, inter.yf, inter.x, inter.y, inter.z);
-                        left.push(inter);
-                        right.push(inter);
-                        // Set Segment [last,current] to [last,inter] and add [inter,current]
-                        const segment = this.getSegment(last, current);
-                        if (segment) {
-                            Model.splitSegment(segment, last, inter);
-                            this.addSegment(inter, current);
-                        }
+                        inter = this.addIntersectionPoint(inter, left, right, last, current);
                     }
                     left.push(current);
                 } else if (Math.abs(dCurrent) <= EPSILON) { // Current on the line
@@ -363,6 +344,20 @@ export class Model {
             // Keep offset for added face
             newFace.offset = face.offset;
         }
+    }
+
+    addIntersectionPoint(inter, left, right, last, current) {
+        // Add intersection to both sides
+        inter = this.addPoint(inter.xf, inter.yf, inter.x, inter.y, inter.z);
+        left.push(inter);
+        right.push(inter);
+        // Set Segment [last,current] to [last,inter]
+        const segment = this.getSegment(last, current);
+        if (segment) {
+            Model.splitSegment(segment, last, inter);
+            this.addSegment(inter, current);
+        }
+        return inter;
     }
 
     static splitSegment(segment, last, inter) {
