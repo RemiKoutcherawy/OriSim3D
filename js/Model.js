@@ -20,6 +20,7 @@ export class Model {
 
         // Helper
         this.labels = false;
+        this.textures = false;
     }
 
     // Initialize with 2d coordinates

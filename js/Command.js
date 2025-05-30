@@ -386,6 +386,9 @@ export class Command {
         } else if (tokenList[idx] === 'labels') {
             idx++;
             this.model.labels = !this.model.labels;
+        } else if (tokenList[idx] === 'textures') {
+            idx++;
+            this.model.textures = !this.model.textures;
         }
 
         // End of command

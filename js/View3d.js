@@ -7,16 +7,14 @@ export class View3d {
     lines = [];
     triangles = [];
     uvs = [];
-    frontData;
-    backData;
+    frontTexture;
+    backTexture;
     texWidth;
     texHeight;
     texturesLoaded = 0;
     lightDir = View3d.normalize([0, 0, -1]);
     ambient = 0.2;
     depthBuffer = null;
-    frontTexture = null;
-    backTexture = null;
     context2d = null;
     // Current rotation angle (x-axis, y-axis degrees)
     angleX = 0.0;
@@ -30,10 +28,8 @@ export class View3d {
         this.width = canvas3d.width = canvas3d.clientWidth;
         this.height = canvas3d.height = canvas3d.clientHeight;
         this.imgData = this.context2d.createImageData(this.width, this.height);
-        this.initTextures();
         this.createDepthBuffer();
         this.initBuffers();
-        this.render();
 
         // Handle window resize
         window.addEventListener('resize', () => {
@@ -66,40 +62,41 @@ export class View3d {
     }
     // Textures
     initTextures() {
-        this.frontTexture = { image: null, width: 1, height: 1 };
-        this.backTexture = { image: null, width: 1, height: 1 };
-        const frontImg = new Image(), backImg = new Image();
-        frontImg.src = 'textures/front.jpg';
-        backImg.src = 'textures/back.jpg';
-        let scope = this;
-        function loadTexture(img, callback) {
+        const textureLoad = (img, data) => {
             img.onload = () => {
                 const texCanvas = document.createElement("canvas");
-                texCanvas.width = scope.texWidth = img.width;
-                texCanvas.height = scope.texHeight = img.height;
+                texCanvas.width = this.texWidth = img.width;
+                texCanvas.height = this.texHeight = img.height;
                 const texCtx = texCanvas.getContext("2d");
                 texCtx.scale(1, -1);
-                texCtx.translate(0, -scope.texHeight);
+                texCtx.translate(0, -this.texHeight);
                 texCtx.drawImage(img, 0, 0);
-                callback(texCtx.getImageData(0, 0, scope.texWidth, scope.texHeight).data);
-                if (++scope.texturesLoaded === 2) scope.render();
+                data(texCtx.getImageData(0, 0, this.texWidth, this.texHeight).data);
+                if (++this.texturesLoaded === 2) this.render();
             };
             img.onerror = () => {
-                scope.texWidth = 1;
-                scope.texHeight = 1;
-                const frontData = new Uint8ClampedArray([173, 216, 230, 255]); // lightblue pixel for front
-                const backData = new Uint8ClampedArray([255, 182, 193, 255]);  // lightpink pixel for back
-                const data = img === frontImg ? frontData : backData;
-                callback(data);
-                if (++scope.texturesLoaded === 2) scope.render();
+                this.texturesLoaded = 2;
+                this.render();
             };
+        };
+        if (this.model.textures) {
+            const frontImg = new Image(), backImg = new Image();
+            frontImg.src = 'textures/front.jpg';
+            backImg.src = 'textures/back.jpg';
+            textureLoad(frontImg, data => this.frontTexture = data);
+            textureLoad(backImg, data => this.backTexture = data);
+        } else {
+            // Defaults
+            this.frontTexture = new Uint8ClampedArray([0xA5, 0xC6, 0xFA, 255]);  // lightblue for front
+            this.backTexture = new Uint8ClampedArray([0xFF, 0xF3, 0x6D, 255]);  // lemon yellow for back
+            this.texWidth = 1;
+            this.texHeight = 1;
         }
-        loadTexture(frontImg, data => this.frontData = data);
-        loadTexture(backImg, data => this.backData = data);
     }
 
     // Buffers
     initBuffers() {
+        this.initTextures();
         const faces = this.model.faces;
         let triangleCount = 0;
         for (const f of faces) {
@@ -148,7 +145,6 @@ export class View3d {
                 const ft1v = (200 + pts[i].yf) / this.texHeight;
                 this.uvs[index + 1] = [ft1u, ft1v];
                 this.indexMap.set(p1, index + 1);
-
 
                 // Third point of the triangle
                 const v2x = p2.x + f.offset * n[0];
@@ -200,8 +196,8 @@ export class View3d {
     // Calculate model-view-projection matrix and project vertices
     initModelView() {
         const aspect = this.width / this.height;
-        const proj = View3d.perspectiveMat4(Math.PI/3, aspect, 0.1, 1000);
-        const view = View3d.translateMat4(0, 0, -500);
+        const proj = View3d.perspectiveMat4(Math.PI/4.2, aspect, 0.1, 1000);
+        const view = View3d.translateMat4(0, 0, -800);
         let model = View3d.multiplyMat4(
             View3d.rotateYMat4(this.angleY),
             View3d.rotateXMat4(this.angleX)
@@ -284,6 +280,7 @@ export class View3d {
         // Skip triangle if either denominator is zero (would cause NaN in barycentric coordinates)
         if (Math.abs(denominator1) < 0.0001 || Math.abs(denominator2) < 0.0001) {
             console.log('Zero denominator in triangle');
+            // console.log(p0, p1, p2);
             return;
         }
         // Bounding box
@@ -298,29 +295,25 @@ export class View3d {
                 const z = b0 * z0 + b1 * z1 + b2 * z2;
 
                 // Prevent division by zero in w calculations
-                const safeW0 = Math.abs(w0) < 0.0001 ? 0.0001 : w0;
-                const safeW1 = Math.abs(w1) < 0.0001 ? 0.0001 : w1;
-                const safeW2 = Math.abs(w2) < 0.0001 ? 0.0001 : w2;
-
-                const invW = b0/safeW0 + b1/safeW1 + b2/safeW2;
-                const safeInvW = Math.abs(invW) < 0.0001 ? 0.0001 : invW;
-
-                const u = (b0*uv0[0]/safeW0 + b1*uv1[0]/safeW1 + b2*uv2[0]/safeW2) / safeInvW;
-                const v = (b0*uv0[1]/safeW0 + b1*uv1[1]/safeW1 + b2*uv2[1]/safeW2) / safeInvW;
+                w0 = Math.abs(w0) < 0.0001 ? 0.0001 : w0;
+                w1 = Math.abs(w1) < 0.0001 ? 0.0001 : w1;
+                w2 = Math.abs(w2) < 0.0001 ? 0.0001 : w2;
+                let invW = b0/w0 + b1/w1 + b2/w2;
+                invW = Math.abs(invW) < 0.0001 ? 0.0001 : invW;
+                const u = (b0*uv0[0]/w0 + b1*uv1[0]/w1 + b2*uv2[0]/w2) / invW;
+                const v = (b0*uv0[1]/w0 + b1*uv1[1]/w1 + b2*uv2[1]/w2) / invW;
                 // Ensure texture coordinates are valid
                 const tx = Math.floor(u * this.texWidth) % this.texWidth;
                 const ty = Math.floor(v * this.texHeight) % this.texHeight;
-
                 // Handle potential negative values from modulo operation
                 const texX = tx < 0 ? tx + this.texWidth : tx;
                 const texY = ty < 0 ? ty + this.texHeight : ty;
-
                 const ti = (texY * this.texWidth + texX) * 4;
                 // Ensure texture data exists and is valid
                 const color = tex && ti < tex.length - 2 ?
                     [tex[ti] * factor, tex[ti + 1] * factor, tex[ti + 2] * factor]
                         .map(c => Math.min(255, Math.max(0, Math.floor(c)))) :
-                    [0, 0, 0]; // Default to black if texture data is invalid
+                    [0xFF, 0xFF, 0xFF]; // Default to white
                 // Draw pixel with depth testing
                 this.putPixel(x, y, color, z);
             }
@@ -335,6 +328,7 @@ export class View3d {
         const ambient = this.ambient;
         const lightDir = this.lightDir;
         const invTransModel = this.invTransModel;
+        // console.log(this.frontTexture, this.backTexture);
         // Process all triangles
         for (let i = 0; i < triangles.length; i++) {
             const t = triangles[i];
@@ -344,7 +338,7 @@ export class View3d {
             let normal = View3d.normalize(View3d.cross(e1, e2));
             normal = View3d.transformNormal(invTransModel, normal);
             const isFront = View3d.dot(normal, [0, 0, -1]) < 0;
-            const tex = isFront ? this.frontData : this.backData;
+            const tex = isFront ? this.frontTexture : this.backTexture;
             const lightNormal = isFront ? [-normal[0], -normal[1], -normal[2]] : normal;
             const factor = Math.max(0, View3d.dot(lightNormal, lightDir)) * (1 - ambient) + ambient;
             const uv0 = this.uvs[t.uv[0]], uv1 = this.uvs[t.uv[1]], uv2 = this.uvs[t.uv[2]];
