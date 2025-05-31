@@ -11,13 +11,15 @@ export class Helper {
         this.touchTime = 0;
         this.label = undefined;
         // To test with Deno
-        if (canvas2d) {
+        if (canvas3d) {
             // 3d
             canvas3d.addEventListener('mousedown', (event) => this.down3d(event));
             canvas3d.addEventListener('mousemove', (event) => this.move3d(event));
             canvas3d.addEventListener('mouseup', (event) => this.up3d(event));
             canvas3d.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             canvas3d.addEventListener('mouseout', (event) => this.out(event));
+        }
+        if(canvas2d) {
             // 2d
             canvas2d.addEventListener('mousedown', (event) => this.down2d(event));
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
