@@ -6,18 +6,15 @@
   <meta charset="utf-8">
   <meta content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" name="viewport">
   <style>
-    #canvas2d { position: absolute; width: 50%; height: 80%; left: 0; top: 0; border: 1px solid black;}
-    #canvas3d { position: absolute; width: 50%; height: 80%; left: 50%; top: 0; color: hsl(210 100% 50%);border: 1px solid black}
-    #commandArea  { position: absolute; width: 100%; height: 20%; left: 0; bottom:0;}
+    #canvas3d { position: absolute; width: 100%; height: 100%; left: 0; top: 0; color: hsl(210 100% 50%);border: 1px solid black}
   </style>
 </head>
 <body>
 <div>
-  <canvas id="canvas2d"></canvas>
   <canvas id="canvas3d"></canvas>
 </div>
-<label for="commandArea">Commandes</label>
-<textarea id="commandArea">d 200 200</textarea>
+<!--<label for="commandArea">Commandes</label>-->
+<!--<textarea id="commandArea">d 200 200</textarea>-->
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
 <img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>
@@ -41,16 +38,12 @@
     const view3d = new View3d(model, canvas3d);
     view3d.initBuffers(); // Needed only if the number of points changed
 
-    // View 2d
-    const canvas2d = window.document.getElementById("canvas2d");
-    const view2d = new View2d(model, canvas2d);
-
     // Command
     const command = new Command(model);
-    new CommandArea(command, document.getElementById('commandArea'));
+    // new CommandArea(command, document.getElementById('commandArea'));
 
     // Helper
-    const helper = new Helper(model, command, canvas2d, view3d, canvas3d);
+    const helper = new Helper(model, command, null, view3d, canvas3d);
 
     // Animation loop
     function loop() {
@@ -58,9 +51,9 @@
         view3d.initBuffers(); // Needed only if the number of points changed
         view3d.initModelView();
       }
-      view2d.drawModel();
+      // view2d.drawModel();
       view3d.render();
-      helper.draw();
+      // helper.draw();
       requestAnimationFrame(loop);
     }
     loop();
@@ -116,7 +109,7 @@ t 100 r 28 -90 19 22 2 14 15 18 23 r 38 -90 3;
 t 100 r 28 -70 19 22 2 14 15 18 23 a 3;
 
 // Pretty
-t 1000 tz -45
+t 100 tz -45
 iao
 t 1000 zf)
 iao
