@@ -514,6 +514,8 @@ Deno.test("Model", async (t) => {
         model.offset(42, [model.faces[0]]);
         assertEquals(model.faces[0].offset, 42, 'Got:' + model.faces[0].offset);
         assertEquals(model.faces[1].offset, 0, 'Got:' + model.faces[1].offset);
+        model.offset(42, []);
+        assertEquals(model.faces[0].offset, 0, 'Got:' + model.faces[0].offset);
     });
     await t.step('get2DBounds', () => {
         const model = new Model().init(200, 200);

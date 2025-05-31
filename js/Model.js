@@ -712,9 +712,11 @@ export class Model {
 
     // Offset faces by dz
     offset(dz, faces) {
-        faces.forEach(function (face) {
-            face.offset += dz;
-        });
+        if (dz === 0 || faces.length === 0) {
+            this.faces.forEach(function (face) {face.offset = 0;});
+        } else {
+            faces.forEach(function (face) {face.offset += dz;});
+        }
     }
 
     // 2d Boundary [xMin, yMin, xMax, yMax]
