@@ -36,6 +36,7 @@ export class View3d {
             this.width = this.canvas3d.width = window.innerWidth;
             this.height = this.canvas3d.height = window.innerHeight;
             this.imgData = this.context2d.createImageData(this.width, this.height);
+            this.initModelView();
             this.createDepthBuffer();
             this.render();
         });
@@ -192,12 +193,20 @@ export class View3d {
         }
     }
 
-
     // Calculate model-view-projection matrix and project vertices
     initModelView() {
         const aspect = this.width / this.height;
-        const proj = View3d.perspectiveMat4(Math.PI/4.2, aspect, 0.1, 1000);
-        const view = View3d.translateMat4(0, 0, -800);
+        const bounds = this.model.get3DBounds();
+        const modelWidth = bounds.xMax - bounds.xMin;
+        const modelHeight = bounds.yMax - bounds.yMin;
+        const fov = Math.PI/4.2;
+        const viewDistance = Math.max(modelWidth / aspect, modelHeight) / Math.tan(fov/2) *0.7; //* 1.2;
+        const proj = View3d.perspectiveMat4(fov, aspect, 0.1, viewDistance * 2);
+        const view = View3d.translateMat4(
+            -(bounds.xMin + bounds.xMax) / 2, // Center model horizontally
+            -(bounds.yMin + bounds.yMax) / 2, // Center model vertically
+            -viewDistance // Position camera at calculated distance
+        );
         let model = View3d.multiplyMat4(
             View3d.rotateYMat4(this.angleY),
             View3d.rotateXMat4(this.angleX)
@@ -246,12 +255,15 @@ export class View3d {
         depthBuffer.fill(Infinity);
         // 3D rendering
         this.renderTriangles();
-        this.renderLines();
+        if (this.model.lines) {
+            this.renderLines();
+        }
         // Overlay
-        this.drawFaces();
-        this.drawSegments();
-        this.drawPoints();
-
+        if (this.model.overlay) {
+            this.drawFaces();
+            this.drawSegments();
+            this.drawPoints();
+        }
         this.context2d.putImageData(this.imgData, 0, 0);
 
         if (this.model.labels) {
@@ -635,4 +647,4 @@ class Label {
         return !(Math.abs(dy) > 20 || Math.abs(dx) > 20);
     }
 }
-// 633 lines
+// 650 lines

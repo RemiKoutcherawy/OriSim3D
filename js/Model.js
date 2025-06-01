@@ -21,6 +21,8 @@ export class Model {
         // Helper
         this.labels = false;
         this.textures = false;
+        this.overlay = false;
+        this.lines = false;
     }
 
     // Initialize with 2d coordinates
@@ -585,7 +587,7 @@ export class Model {
     adjust(point) {
         // Take all segments containing point p
         const segments = this.searchSegmentsOnePoint(point);
-        let max = 1.0;
+        let max = 0.1;
         // Iterate while the length difference between 2d and 3d is > 1e-3
         for (let i = 0; max > 0.01 && i < 200; i++) {
             max = 0;
@@ -767,7 +769,7 @@ export class Model {
                 return {'p1': model.points.indexOf(value.p1), 'p2': model.points.indexOf(value.p2)};
             } else if (value instanceof Face) {
                 return value.points.map((point) => model.points.indexOf(point));
-            } else if (key === 'labels') {
+            } else if (key === 'labels' || key==='textures' || key==='overlay' || key==='lines') {
                 return undefined;
             }
             return value;

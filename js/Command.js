@@ -389,6 +389,12 @@ export class Command {
         } else if (tokenList[idx] === 'textures') {
             idx++;
             this.model.textures = !this.model.textures;
+        } else if (tokenList[idx] === 'overlay') {
+            idx++;
+            this.model.overlay = !this.model.overlay;
+        } else if (tokenList[idx] === 'lines') {
+            idx++;
+            this.model.lines = !this.model.lines;
         }
 
         // End of command

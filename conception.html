@@ -75,6 +75,8 @@ c3d 0 4 c3d 4 1 c3d 6 0 c3d 6 1 c3d 6 2 c3d 6 3
 // Movements with Accelerate Decelerate Interpolator (iad)
 iad
 t 100 ty 180;
+overlay
+lines
 
 // Fold one corner
 offset 1 13 14 30 31
@@ -113,28 +115,34 @@ t 100 r 48 -80 21 9 0
 
 // Fold along median
 t 100 r 28 -90 19 5 22 2 14 15 18 23 7 r 38 -90 3;
-t 100 r 28 -90 19 5 22 2 14 15 18 23 7 a 3;
+t 100 r 28 -80 19 5 22 2 14 15 18 23 7 a 3;
+// Open front leg
+t 100 r 28 0 9 10 21 20 8;
+
 
 // Pretty
 r 50 -5 12
 offset // Remove offset for all faces
 r 55 5 17 a 3 r 55 -5 19 a 3 // Beak
+a 12
+// r 19 -10 12 a 1;
+// r 23 10 4 ;
+// r 12 20 19;
+// a 8 12 19 4
 // t 100 rotate 50 -10 12;
 // t 100 rotate 37 10 8 9;
-t 100 rotate 12 20 19;
+
 // t 100 rotate 26 -5 22;
 // t 100 rotate 54 10 5 19;
-
-
 //   // r 24 10 4 r 37 -10 8
 //   // r 29 -5 5 8 r 23 -5 7 4
 //   // r 15 10 21  r 15 -10 10
 // Show
-t 1000 tz -45
-iao
-t 1000 zf)
-iao
-t 1000 ty 360
+// t 1000 tz -45
+// iao
+// t 1000 zf)
+// iao
+// t 1000 ty 360
 `);
     }, 500);
   }
