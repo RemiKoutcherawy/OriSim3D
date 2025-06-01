@@ -29,6 +29,7 @@ export class View3d {
         this.height = canvas3d.height = canvas3d.clientHeight;
         this.imgData = this.context2d.createImageData(this.width, this.height);
         this.createDepthBuffer();
+        this.resized = true;
         this.initBuffers();
 
         // Handle window resize
@@ -36,6 +37,7 @@ export class View3d {
             this.width = this.canvas3d.width = window.innerWidth;
             this.height = this.canvas3d.height = window.innerHeight;
             this.imgData = this.context2d.createImageData(this.width, this.height);
+            this.resized = true;
             this.initModelView();
             this.createDepthBuffer();
             this.render();
@@ -202,11 +204,21 @@ export class View3d {
         const fov = Math.PI/4.2;
         const viewDistance = Math.max(modelWidth / aspect, modelHeight) / Math.tan(fov/2) *0.7; //* 1.2;
         const proj = View3d.perspectiveMat4(fov, aspect, 0.1, viewDistance * 2);
-        const view = View3d.translateMat4(
-            -(bounds.xMin + bounds.xMax) / 2, // Center model horizontally
-            -(bounds.yMin + bounds.yMax) / 2, // Center model vertically
-            -viewDistance // Position camera at calculated distance
-        );
+        if (this.resized) {
+            this.viewMatrix = View3d.translateMat4(
+                -(bounds.xMin + bounds.xMax) / 2,
+                -(bounds.yMin + bounds.yMax) / 2,
+                -viewDistance // Position camera
+            );
+            this.resized = false;
+        } else if (!this.viewMatrix) {
+            this.viewMatrix = View3d.translateMat4(
+                -(bounds.xMin + bounds.xMax) / 2,
+                -(bounds.yMin + bounds.yMax) / 2,
+                -viewDistance // Position camera
+            );
+        }
+        const view = this.viewMatrix;
         let model = View3d.multiplyMat4(
             View3d.rotateYMat4(this.angleY),
             View3d.rotateXMat4(this.angleX)
