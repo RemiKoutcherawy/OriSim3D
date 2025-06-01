@@ -38,10 +38,8 @@
 
     // Command
     const command = new Command(model);
-    // new CommandArea(command, document.getElementById('commandArea'));
-
-    // Helper
-    const helper = new Helper(model, command, null, view3d, canvas3d);
+    // Helper to handle mouse rotation and zoom
+    new Helper(model, command, null, view3d, canvas3d);
 
     // Animation loop
     function loop() {
@@ -49,9 +47,7 @@
         view3d.initBuffers(); // Needed only if the number of points changed
         view3d.initModelView();
       }
-      // view2d.drawModel();
       view3d.render();
-      // helper.draw();
       requestAnimationFrame(loop);
     }
     loop();
@@ -104,13 +100,16 @@ t 100 r 48 -80 21 9 0
 
 // Fold along median
 t 100 r 28 -90 19 5 22 2 14 15 18 23 7 r 38 -90 3;
-t 100 r 28 -90 19 5 22 2 14 15 18 23 7 a 3;
+t 100 r 28 -80 19 5 22 2 14 15 18 23 7 a 3;
+// Open front leg
+t 100 r 28 0 9 10 21 20 8;
+
 
 // Pretty
 r 50 -5 12
 offset // Remove offset for all faces
 r 55 5 17 a 3 r 55 -5 19 a 3 // Beak
-t 100 rotate 12 20 19;
+a 12
 
 // Show
 t 1000 tz -45
