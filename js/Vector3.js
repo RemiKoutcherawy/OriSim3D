@@ -6,7 +6,7 @@ export class Vector3 {
         this.z = z;
     }
 
-    // The closest point between point C and line [A, B] return new Vector3 on the line AB
+    // The closest point between point C and segment [A, B] return Vector3 on segment AB
     static closestPoint(C, A, B) {
         // Vector AB and AC
         const AB = new Vector3(B.x - A.x, B.y - A.y, B.z - A.z);
@@ -15,7 +15,7 @@ export class Vector3 {
         const ab = Vector3.dot(AB, AB);
         const t = ab === 0 ? 0 : Vector3.dot(AC, AB) / ab;
         // P = a+t*(b-a)
-        return Vector3.add(new Vector3(A.x, A.y, A.z), (Vector3.scale(AB, t)));
+        return new Vector3(A.x + AB.x * t, A.y + AB.y * t, A.z + AB.z * t);
     }
 
     // Distance between point C and line [A, B] return number

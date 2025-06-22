@@ -269,7 +269,7 @@ export class Model {
                 if (dCurrent < -EPSILON) { // Current on the left
                     left.push(current);
                 } else if (Math.abs(dCurrent) <= EPSILON) { // Last on the left Current on the line ab
-                    // Do not split face if inter is on the line but not on the segment ab
+                    // Don't split face if inter is on the line but not on the segment ab
                     if (
                         Segment.intersectionFlat(a, b, last, current) ===
                             undefined
@@ -279,7 +279,7 @@ export class Model {
                     left.push(current);
                     right.push(current);
                 } else if (dCurrent > EPSILON) { // Last on left Current on right => crossing
-                    // Do not split face if inter is on the line but not on the segment
+                    // Don't split face if inter is on the line but not on the segment
                     inter = Segment.intersectionFlat(a, b, last, current);
                     if (inter === undefined) {
                         return;
@@ -295,7 +295,7 @@ export class Model {
                     left.push(current);
                 } else if (Math.abs(dCurrent) <= EPSILON) { // Current on the line
                     // Current on the line TEST 0 Point { xf: 0, yf: 0, x: 0, y: 0, z: 0, xCanvas: 0, yCanvas: 0 }
-                    // Do not split face if the intersection is on the line but not on the segment
+                    // Don't split face if the intersection is on the line but not on the segment
                     if (
                         Segment.intersectionFlat(a, b, last, current) === undefined
                     ) {
@@ -308,7 +308,7 @@ export class Model {
                 }
             } else if (dLast > EPSILON) { // Last on the right
                 if (dCurrent < -EPSILON) { // Current on the left => crossing
-                    // Do not split face if the intersection is on the line but not on the segment
+                    // Don't split face if the intersection is on the line but not on the segment
                     inter = Segment.intersectionFlat(a, b, last, current);
                     if (inter === undefined) {
                         return;
@@ -606,12 +606,12 @@ export class Model {
                 // AB * r is based on length 3d to match length 2d
                 const r = lg2d / lg3d;
                 if (s.p2 === point) {
-                    // move p2
+                    // move s.p2
                     pm.x += s.p1.x + (s.p2.x - s.p1.x) * r;
                     pm.y += s.p1.y + (s.p2.y - s.p1.y) * r;
                     pm.z += s.p1.z + (s.p2.z - s.p1.z) * r;
                 } else if (s.p1 === point) {
-                    // move p1
+                    // move s.p1
                     pm.x += s.p2.x + (s.p1.x - s.p2.x) * r;
                     pm.y += s.p2.y + (s.p1.y - s.p2.y) * r;
                     pm.z += s.p2.z + (s.p1.z - s.p2.z) * r;
@@ -693,11 +693,23 @@ export class Model {
     }
 
     // Move on a point p0 all following points, k from 0 to 1 for animation
-    moveOn(p0, k1, k2, points) {
+    moveOnPoint(p0, k, points) {
         points.forEach(function (p) {
-            p.x = p0.x * k1 + p.x * k2;
-            p.y = p0.y * k1 + p.y * k2;
-            p.z = p0.z * k1 + p.z * k2;
+            p.x += (p0.x - p.x) * k;
+            p.y += (p0.y - p.y) * k;
+            p.z += (p0.z - p.z) * k;
+        });
+    }
+    // Move on the segment s all following points. Use k from 0 to 1 for animation
+    moveOnSegment(s, k, points) {
+        points.forEach(function (p) {
+            // Project point and get vector from point to segment
+            const closest = Vector3.closestPoint(p, s.p1, s.p2);
+            const v = Vector3.sub(closest, p);
+            // Move point p along vector v
+            p.x += v.x * k;
+            p.y += v.y * k;
+            p.z += v.z * k;
         });
     }
 

@@ -436,19 +436,33 @@ Deno.test("Model", async (t) => {
         assertEquals(Math.round(p0.y), -196, 'Got:' + p0.y);
         assertEquals(Math.round(p0.z), 6, 'Got:' + p0.z);
     });
-    await t.step("moveOn", () => {
+    await t.step("moveOnPoint", () => {
         const model = new Model().init(200, 200);
-        const p0 = model.points[0];
-        const p1 = model.points[1];
-        // Move on p0 points p1
-        model.moveOn(p0, 0, 1, [p1]);
-        assertEquals(Math.round(p1.x), 200, 'Got:' + p1.x);
-        assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);
-        assertEquals(Math.round(p1.z), 0, 'Got:' + p1.z);
-        model.moveOn(p0, 1, 0, [p1]);
-        assertEquals(Math.round(p1.x), -200, 'Got:' + p1.x);
-        assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);
-        assertEquals(Math.round(p1.z), 0, 'Got:' + p1.z);
+        const p0 = model.points[0]; // -200,-200
+        const p = {x: 0, y: 50, z: 100};
+        // Move on p0 points p1 k from 0 to 1 for animation
+        model.moveOnPoint(p0, 0, [p]); // k = 0 do not move
+        assertEquals(Math.round(p.x), 0, 'Got:' + p.x);
+        assertEquals(Math.round(p.y), 50, 'Got:' + p.y);
+        assertEquals(Math.round(p.z), 100, 'Got:' + p.z);
+        model.moveOnPoint(p0, 1, [p]); // k= 1 reach goal: p is on p0
+        assertEquals(Math.round(p.x), -200, 'Got:' + p.x);
+        assertEquals(Math.round(p.y), -200, 'Got:' + p.y);
+        assertEquals(Math.round(p.z), 0, 'Got:' + p.z);
+    });
+    await t.step("moveOnSegment", () => {
+        const model = new Model().init(200, 200);
+        const s = model.segments[0]; // -200, -200 to 200, -200
+        const p = {x: 0, y: 50, z: 100};
+        // Move on s the point p with k from 0 to 1 for animation
+        model.moveOnSegment(s, 0,  [p]); // k = 0 do not move
+        assertEquals(Math.round(p.x), 0, 'Got:' + p.x);
+        assertEquals(Math.round(p.y), 50, 'Got:' + p.y);
+        assertEquals(Math.round(p.z), 100, 'Got:' + p.z);
+        model.moveOnSegment(s, 1, [p]); // k= 1 reach goal
+        assertEquals(Math.round(p.x), 0, 'Got:' + p.x);
+        assertEquals(Math.round(p.y), -200, 'Got:' + p.y);
+        assertEquals(Math.round(p.z), 0, 'Got:' + p.z);
     });
     await t.step("split Segment", async (t) => {
         await t.step("splitSegmentOnPoint2d", () => {
@@ -463,7 +477,7 @@ Deno.test("Model", async (t) => {
         await t.step("splitSegmentByRatio2d", () => {
             const model = new Model().init(200, 200);
             const s = model.segments[0];
-            const k = 1 / 2;
+            const k = 1.0 / 2.0;
             model.splitSegmentByRatio2d(s, k);
             assertEquals(model.faces.length, 1, 'Model should have 1 faces');
             assertEquals(model.points.length, 5, 'Model should have 5 points');
