@@ -447,12 +447,21 @@ export class View3d {
         for (let p of this.model.points) {
             const idx = this.indexMap.get(p);
             const proj = this.projected[idx];
-            if (!proj) continue;
+            if (!proj || p.select !== 0 || p.hover === true) continue;
+            const color = [135, 206, 235]; // skyblue
+            const radius = 6;
+            this.DrawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
+        }
+        // Overlay with selected and hovered
+        for (let p of this.model.points) {
+            const idx = this.indexMap.get(p);
+            const proj = this.projected[idx];
+            if (!proj || (p.select === 0 && p.hover === false)) continue;
             const radius = p.hover ? 10 : 6;
             const color = p.select === 1 ? [255, 0, 0] : // red
                 p.select === 2 ? [255, 165, 0] : // orange
                     p.hover ? [0, 0, 255] : // blue
-                        [135, 206, 235]; // skyblue
+                        [0, 0, 0]; // skyblue
             this.DrawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
         }
     }

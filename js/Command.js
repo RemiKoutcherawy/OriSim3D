@@ -256,14 +256,14 @@ export class Command {
             let p0 = this.model.points[tokenList[idx++]];
             list = this.listPoints(tokenList, idx);
             idx += list.length;
-            this.model.moveOnPoint(p0, k, list);
+            this.model.moveOnPoint(p0, 1, list);
         } else if (tokenList[idx] === 'mos' || tokenList[idx] === 'moveOnSegment') {
             // Move all points on the segment with animation
             idx++;
             const s = this.model.segments[tokenList[idx++]];
             list = this.listPoints(tokenList, idx);
             idx += list.length;
-            this.model.moveOnSegment(s, k, list);
+            this.model.moveOnSegment(s, 1, list);
         } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
             // Move 1 point by dx,dy,dz in 3D with animation : move dx dy dz p1 p2 p3...
             idx++;
