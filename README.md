@@ -53,3 +53,9 @@ Work in progress, any help is welcome.
 - click drag a point rotates around a selected segment
 - swipe from left to right on 2D undo
 - swipe from right to left on 2D turns model
+
+### Commands in CommandArea 
+- ss selectSegments to select without mouse
+- sp selectPoints to select without mouse
+- labels
+- textures

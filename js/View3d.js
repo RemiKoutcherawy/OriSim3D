@@ -414,7 +414,7 @@ export class View3d {
     }
 
     // Draw a filled circle using Bresenham's algorithm
-    DrawFilledCircle(xc, yc, r, z, color) {
+    drawFilledCircle(xc, yc, r, z, color) {
         let x = 0;
         let y = r;
         let d = 3 - 2 * r;
@@ -450,7 +450,7 @@ export class View3d {
             if (!proj || p.select !== 0 || p.hover === true) continue;
             const color = [135, 206, 235]; // skyblue
             const radius = 6;
-            this.DrawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
+            this.drawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
         }
         // Overlay with selected and hovered
         for (let p of this.model.points) {
@@ -462,7 +462,7 @@ export class View3d {
                 p.select === 2 ? [255, 165, 0] : // orange
                     p.hover ? [0, 0, 255] : // blue
                         [0, 0, 0]; // skyblue
-            this.DrawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
+            this.drawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
         }
     }
     // Draw hovered segments
