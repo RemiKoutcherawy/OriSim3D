@@ -47,10 +47,10 @@
 
     // Command
     const command = new Command(model);
-    new CommandArea(command, document.getElementById('commandArea'));
+    let commandArea = new CommandArea(command, document.getElementById('commandArea'));
 
     // Helper
-    const helper = new Helper(model, command, canvas2d, view3d, canvas3d);
+    const helper = new Helper(model, command, canvas2d, view3d, canvas3d, commandArea);
 
     // Animation loop
     function loop() {
@@ -79,16 +79,17 @@ t 100 fit
 across3d 4 5
 bisector3d 7 9
 bisector3d 6 9
-// Small angle to see BREAKS HOVER
-// t 100 ty 45
-// t 100 z 2;
 // Fold corners
+offset -1 3 0
 t 100 rotate 13 -180 4
 t 100 rotate 17 180 5
-// Crease bottom
-by3d 9 11
-// Fold front and back
-t 100 rotate 24 -180 2 3 8;
+// Crease bottom and top
+by3d 9 12
+by3d 10 11
+// Fold front
+// offset -5 5 6;
+t 100 rotate 24 180 3 8 2;
+// offset 5 8 9;
 t 100 rotate 25 -180 0 1 7;
 // Crease corners on 2D
 bisector2d 3 24 bisector2d 23 16
@@ -97,7 +98,7 @@ bisector2d 25 12 bisector2d 1 21
 t 100 rotate 31 -180 0 3;
 // Fold right
 t 100 rotate 29 180 1 2;
-// Open. Tricky part. BUG
+// Open. Tricky part.
 t 1000 rotate 15 -90 4 5 8 14 a 11 12 16 18 mos 21 2 mos 17 16 18 mos 21 1 mop 11 12;
 t 1000 rotate 15 -90 4 5 8 14 a 11 12 16 18 mos 21 2 mos 17 16 18 mos 21 1 mop 11 12;
 t 100 fit
@@ -106,14 +107,17 @@ mop 0 1 2 3
 mop 17 15 16 18
 mop 9 10 11 12
 // Turn on left
-t 1000 tz 45
-// Mark
+// t 1000 tz 45
+// Crease
 perpendicular3d 13 15
-t 100 rotate 53 180 11 12 1 2;
-t 100 rotate 53 -180 9 10 0 3;
-// BUG
-t 1000 r 13 -90 20 22 14 a 8 10 mop 10 11 mos 17 12 mos 22 8;
-
+// Double rotation tricky
+t 1000 rotate 53 180 11 12 1 2;
+t 1000 rotate 53 -180 9 10 0 3;
+// Flat
+t 1000 rotate 13 -180 14 8 4 5 20 22 27 28 30 29   rotate 9 -180 11 12 1 2 16 18 23 24 19 a 22 mop 22 27 28;
+fit
+// Fix me
+// t 1000 r 10 -120 30 20 29 4 5 22 27 28   r 10 120 21 13 14 19  a 10 11 mop 10 9 mop 11 12;
 `);
     }, 500);
   }

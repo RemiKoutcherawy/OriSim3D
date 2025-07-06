@@ -2,12 +2,13 @@ import {Segment} from './Segment.js';
 import {Face} from './Face.js';
 
 export class Helper {
-    constructor(model, command, canvas2d, view3d, canvas3d) {
+    constructor(model, command, canvas2d, view3d, canvas3d, commandArea) {
         this.model = model;
         this.command = command;
         this.canvas2d = canvas2d;
         this.view3d = view3d;
         this.overlay = canvas3d;
+        this.commandArea = commandArea;
         this.touchTime = 0;
         this.label = undefined;
         // To test with Deno
@@ -19,7 +20,7 @@ export class Helper {
             canvas3d.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             canvas3d.addEventListener('mouseout', (event) => this.out(event));
         }
-        if(canvas2d) {
+        if (canvas2d) {
             // 2d
             canvas2d.addEventListener('mousedown', (event) => this.down2d(event));
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
@@ -134,15 +135,14 @@ export class Helper {
                 // Clamp ratio = distToCurrent/distToFirst
                 let ratio = Math.abs(distToCurrent / distToFirst);
                 // Angle in degrees
-                let angle = (ratio -1) * 180 * -Math.sign(distToFirst);
+                let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
                 // Round to step 10
                 angle = Math.round(angle / 10) * 10;
                 // Round to 0 for angles less than 10
                 angle = Math.abs(Math.abs(angle) - 10) < 10 ? '00' : angle;
                 this.label = angle;
             }
-        }
-        else if (this.firstSegment) {
+        } else if (this.firstSegment) {
             this.firstSegment.hover = true;
         } else if (this.firstFace) {
             // Offset face positive if the mouse moves right
@@ -173,6 +173,8 @@ export class Helper {
                             this.view3d.initModelView();
                         }
                     });
+                    let liste = points.map(p => this.model.indexOf(p) + '[' + Math.round(p.x * 10) / 10 + ',' + Math.round(p.y * 10) / 10 + ',' + Math.round(p.z * 10) / 10 + ']').join(' ');
+                    this.commandArea.addLine(`points ${liste}`);
                 }
                 // To another point
                 else if (points.length > 0) {
@@ -256,6 +258,8 @@ export class Helper {
                 if (this.firstFace === faces[0]) {
                     // To the same face
                     this.model.click2d3d(points, segments, faces);
+                    let liste = faces.map(f => this.model.indexOf(f) + ':' + f.offset).join(' ');
+                    this.commandArea.addLine(`offsets ${liste}`);
                 } else {
                     // To another face
                 }
@@ -266,7 +270,7 @@ export class Helper {
                 this.model.faces.forEach(f => f.select = 0);
             }
         }
-        // From Nothing to Nothing
+            // From Nothing to Nothing
         //  Handle swipe
         else if (((new Date().getTime()) - this.touchTime) < 1000 && this.currentCanvas === '2d') {
             if ((this.firstX - this.currentX) < -50) {
@@ -316,7 +320,7 @@ export class Helper {
         // Segments near xf, yf
         const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 4);
         // Face containing xf, yf
-        const faces = this.model.faces.filter(f =>  Face.contains2d(f, xf, yf));
+        const faces = this.model.faces.filter(f => Face.contains2d(f, xf, yf));
         return {points, segments, faces};
     }
 
@@ -401,7 +405,7 @@ export class Helper {
         if (points.length === 0 && segments.length === 0 && faces.length === 0
             && event.buttons === 1 && this.firstPoint === undefined && this.firstSegment === undefined && this.firstFace === undefined) {
             // Rotation
-            const factor = (600.0 / event.target.height) /100.0;
+            const factor = (600.0 / event.target.height) / 100.0;
             const dx = factor * (xCanvas - this.currentX);
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
@@ -448,4 +452,5 @@ export class Helper {
     }
 
 }
+
 // 403
