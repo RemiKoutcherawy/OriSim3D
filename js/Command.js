@@ -412,6 +412,7 @@ export class Command {
         else {
             console.log('Syntax error', tokenList[idx-2], tokenList[idx-1], tokenList[idx], tokenList[idx+1], tokenList[idx+2])
             idx = tokenList.length + 1;
+            throw new Error("Syntax error!");
         }
 
         // Keep state after executing
