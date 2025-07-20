@@ -440,12 +440,8 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         const p0 = model.points[0]; // -200,-200
         const p = {x: 0, y: 50, z: 100};
-        // Move on p0 points p1 k from 0 to 1 for animation
-        model.moveOnPoint(p0, 0, [p]); // k = 0 do not move
-        assertEquals(Math.round(p.x), 0, 'Got:' + p.x);
-        assertEquals(Math.round(p.y), 50, 'Got:' + p.y);
-        assertEquals(Math.round(p.z), 100, 'Got:' + p.z);
-        model.moveOnPoint(p0, 1, [p]); // k= 1 reach goal: p is on p0
+        // Move on p0 point p
+        model.moveOnPoint(p0, [p]); // p is on p0
         assertEquals(Math.round(p.x), -200, 'Got:' + p.x);
         assertEquals(Math.round(p.y), -200, 'Got:' + p.y);
         assertEquals(Math.round(p.z), 0, 'Got:' + p.z);
@@ -454,12 +450,8 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         const s = model.segments[0]; // -200, -200 to 200, -200
         const p = {x: 0, y: 50, z: 100};
-        // Move on s the point p with k from 0 to 1 for animation
-        model.moveOnSegment(s, 0,  [p]); // k = 0 do not move
-        assertEquals(Math.round(p.x), 0, 'Got:' + p.x);
-        assertEquals(Math.round(p.y), 50, 'Got:' + p.y);
-        assertEquals(Math.round(p.z), 100, 'Got:' + p.z);
-        model.moveOnSegment(s, 1, [p]); // k= 1 reach goal
+        // Move on s the point p
+        model.moveOnSegment(s, [p]);
         assertEquals(Math.round(p.x), 0, 'Got:' + p.x);
         assertEquals(Math.round(p.y), -200, 'Got:' + p.y);
         assertEquals(Math.round(p.z), 0, 'Got:' + p.z);

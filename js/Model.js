@@ -692,24 +692,24 @@ export class Model {
         });
     }
 
-    // Move on a point p0 all following points, k from 0 to 1 for animation
-    moveOnPoint(p0, k, points) {
+    // Move on a point p0 all following list of points
+    moveOnPoint(p0, points) {
         points.forEach(function (p) {
-            p.x += (p0.x - p.x) * k;
-            p.y += (p0.y - p.y) * k;
-            p.z += (p0.z - p.z) * k;
+            p.x = p0.x;
+            p.y = p0.y;
+            p.z = p0.z;
         });
     }
-    // Move on the segment s all following points. Use k from 0 to 1 for animation
-    moveOnSegment(s, k, points) {
+    // Move on the segment s all following points.
+    moveOnSegment(s, points) {
         points.forEach(function (p) {
             // Project point and get vector from point to segment
             const closest = Vector3.closestPoint(p, s.p1, s.p2);
             const v = Vector3.sub(closest, p);
             // Move point p along vector v
-            p.x += v.x * k;
-            p.y += v.y * k;
-            p.z += v.z * k;
+            p.x += v.x ;
+            p.y += v.y ;
+            p.z += v.z ;
         });
     }
 
