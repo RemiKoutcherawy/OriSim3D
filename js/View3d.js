@@ -6,6 +6,7 @@ export class View3d {
     vertices = [];
     lines = [];
     triangles = [];
+    // Textures
     uvs = [];
     frontTexture;
     backTexture;
@@ -14,8 +15,11 @@ export class View3d {
     texturesLoaded = 0;
     lightDir = View3d.normalize([0, 0, -1]);
     ambient = 0.2;
+    // Buffer
     depthBuffer = null;
     context2d = null;
+    width = 0;
+    height = 0;
     // Current rotation angle (x-axis, y-axis degrees)
     angleX = 0.0;
     angleY = 0.0;
@@ -35,8 +39,8 @@ export class View3d {
 
         // Handle window resize
         window.addEventListener('resize', () => {
-            this.width = this.canvas3d.width = window.innerWidth;
-            this.height = this.canvas3d.height = window.innerHeight;
+            this.width = this.canvas3d.width = canvas3d.clientWidth;
+            this.height = this.canvas3d.height= canvas3d.clientHeight;
             this.imgData = this.context2d.createImageData(this.width, this.height);
             this.initModelView();
             this.createDepthBuffer();
@@ -45,8 +49,7 @@ export class View3d {
     }
 
     createDepthBuffer() {
-        const {width, height} = this;
-        this.depthBuffer = new Array(width * height).fill(Infinity);
+        this.depthBuffer = new Array(this.width * this.height).fill(Infinity);
     }
 
     // Pixel drawing with depth testing
