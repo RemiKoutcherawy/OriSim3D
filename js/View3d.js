@@ -255,7 +255,7 @@ export class View3d {
     // Render
     render() {
         if (this.projected === undefined) return;
-        // const startTime = performance.now();
+        const startTime = performance.now();
         const data = this.imgData.data;
         const len = data.length;
         for (let i = 0; i < len; i += 4) {
@@ -283,8 +283,10 @@ export class View3d {
             this.drawLabels(this.context2d);
         }
         // 30 ms is ok
-        // const endTime = performance.now();
-        // console.log(`Render time: ${(endTime - startTime).toFixed(2)}ms`);
+        const endTime = performance.now();
+        if ((endTime - startTime) > 200) {
+            console.log(`Render time: ${(endTime - startTime).toFixed(2)}ms`);
+        }
     }
 
     // Helper function to fill a triangle with texture and lighting

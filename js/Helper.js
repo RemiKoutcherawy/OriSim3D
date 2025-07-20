@@ -229,6 +229,9 @@ export class Helper {
             // To same segment select
             if (segments.length !== 0 && segments[0] === this.firstSegment) {
                 segments.forEach((s) => s.select = (s.select + 1) % 3);
+                let liste = segments.map(s => (this.model.indexOf(s) + '[' + Math.round(Segment.length2d(s) * 10) / 10 + ',' + Math.round(Segment.length3d(s) * 10) / 10)+ ']').join(' ');
+                this.commandArea.addLine(`segments ${liste}`);
+                console.log(Segment.length2d(segments[0]), Segment.length3d(segments[0]));
             }
             // To point crease perpendicular from segment to point
             else if (points.length !== 0) {

@@ -87,9 +87,9 @@ t 100 rotate 17 180 5
 by3d 9 12
 by3d 10 11
 // Fold front
-// offset -5 5 6;
+offset -5 5 6;
 t 100 rotate 24 180 3 8 2;
-// offset 5 8 9;
+offset 5 8 9;
 t 100 rotate 25 -180 0 1 7;
 // Crease corners on 2D
 bisector2d 3 24 bisector2d 23 16
@@ -112,11 +112,11 @@ t 100 r 53 180 11 12 1 2;
 t 100 r 53 -180 9 10 0 3;
 
 // Close Fixme
-// t 100 r 15 -90 4 5 14 8 21 25 26 32 33 27 28 30 29 r 9 -90 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
-// t 100 r 15 -90 4 5 14 8 21 25 26 32 33 27 28 30 29 r 9 -90 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
-// // Open Fixme simplify
-// t 1000 r 36 135 32 14 33 mop 32 27 28 mop 14 4 5 mop 33 30 29 r 36 -135 31 13 34 a 9 mop 9 10 a 12 mop 12 11 mos 25 3 mos 60 0 a 0 3 mos 64 2 mos 23 1 a 2 1;
-// check
+t 1000 r 15 -90 4 5 14 8 21 25 26 32 33 27 28 30 29 r 9 -135 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
+t 1000 r 13 -90 4 5 14 8 21 25 26 32 33 27 28 30 29 r 9 -60 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
+// Open Fixme simplify
+t 1000 r 36 135 32 14 33 mop 32 27 28 mop 14 4 5 mop 33 30 29 r 36 -135 31 13 34 a 9 mop 9 10 a 12 mop 12 11 mos 25 3 mos 60 0 a 0 3 mos 64 2 mos 23 1 a 2 1;
+mos 25 3 mos 60 0
 `);
     }, 500);
   }
