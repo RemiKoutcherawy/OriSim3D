@@ -68,7 +68,8 @@
     //Test
     setTimeout( () => {
       command.command(`define 210 300
-overlay lines
+// overlay lines
+textures
 // Boat
 // Fold top on bottom
 across2d 1 2;
@@ -87,9 +88,9 @@ t 100 rotate 17 180 5
 by3d 9 12
 by3d 10 11
 // Fold front
-offset -5 5 6;
+offset -2 5 6;
 t 100 rotate 24 180 3 8 2;
-offset 5 8 9;
+offset 2 8 9;
 t 100 rotate 25 -180 0 1 7;
 // Crease corners on 2D
 bisector2d 3 24 bisector2d 23 16
