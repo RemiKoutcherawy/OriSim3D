@@ -20,6 +20,8 @@ export class View3d {
     angleX = 0.0;
     angleY = 0.0;
     scale = 1.0;
+    translationX = 0;
+    translationY = 0;
 
     constructor(model, canvas3d) {
         this.model = model;
@@ -29,7 +31,6 @@ export class View3d {
         this.height = canvas3d.height = canvas3d.clientHeight;
         this.imgData = this.context2d.createImageData(this.width, this.height);
         this.createDepthBuffer();
-        this.resized = true;
         this.initBuffers();
 
         // Handle window resize
@@ -37,7 +38,6 @@ export class View3d {
             this.width = this.canvas3d.width = window.innerWidth;
             this.height = this.canvas3d.height = window.innerHeight;
             this.imgData = this.context2d.createImageData(this.width, this.height);
-            this.resized = true;
             this.initModelView();
             this.createDepthBuffer();
             this.render();
@@ -204,32 +204,30 @@ export class View3d {
         const fov = Math.PI/4.2;
         const viewDistance = Math.max(modelWidth / aspect, modelHeight) / Math.tan(fov/2) *0.7; //* 1.2;
         const proj = View3d.perspectiveMat4(fov, aspect, 0.1, viewDistance * 2);
-        if (this.resized) {
-            this.viewMatrix = View3d.translateMat4(
+        const viewMatrix = View3d.translateMat4(
                 -(bounds.xMin + bounds.xMax) / 2,
                 -(bounds.yMin + bounds.yMax) / 2,
                 -viewDistance // Position camera
             );
-            this.resized = false;
-        } else if (!this.viewMatrix) {
-            this.viewMatrix = View3d.translateMat4(
-                -(bounds.xMin + bounds.xMax) / 2,
-                -(bounds.yMin + bounds.yMax) / 2,
-                -viewDistance // Position camera
-            );
-        }
-        const view = this.viewMatrix;
-        let model = View3d.multiplyMat4(
+        // Handle Model rotation
+        let modelMatrix = View3d.multiplyMat4(
             View3d.rotateYMat4(this.angleY),
             View3d.rotateXMat4(this.angleX)
         );
-        model = View3d.multiplyMat4(
-            model,
+        // Handle Model translation on X only
+        modelMatrix = View3d.multiplyMat4(
+            modelMatrix,
+            View3d.translateMat4(this.translationX, 0, 0)
+        );
+        // Handle model scale
+        modelMatrix = View3d.multiplyMat4(
+            modelMatrix,
             View3d.scaleMat4(this.scale, this.scale, this.scale)
         );
-        let mvp = View3d.multiplyMat4(proj, view);
-        mvp = View3d.multiplyMat4(mvp, model);
-        this.invTransModel = View3d.inverseTransposeMat4(model);
+        let mvp = View3d.multiplyMat4(proj, viewMatrix);
+        mvp = View3d.multiplyMat4(mvp, modelMatrix);
+        // Used for normals
+        this.invTransModel = View3d.inverseTransposeMat4(modelMatrix);
 
         // Project vertices
         const vertices = this.vertices;
@@ -281,6 +279,7 @@ export class View3d {
         if (this.model.labels) {
             this.drawLabels(this.context2d);
         }
+        // 30 ms is ok
         // const endTime = performance.now();
         // console.log(`Render time: ${(endTime - startTime).toFixed(2)}ms`);
     }

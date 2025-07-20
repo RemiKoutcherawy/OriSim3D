@@ -428,9 +428,13 @@ export class Helper {
 
     // Mouse wheel on 3d overlay
     wheel(event) {
-        if (event.deltaY) {
+        if (Math.abs(event.deltaX) < Math.abs(event.deltaY)) {
             this.view3d.scale = event.scale !== undefined ? event.scale : this.view3d.scale + event.deltaY / 300.0;
             this.view3d.scale = Math.max(this.view3d.scale, 0.0);
+            this.view3d.initModelView();
+        }
+        else if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+            this.view3d.translationX -= event.deltaX * 2;
             this.view3d.initModelView();
         }
     }
@@ -445,6 +449,8 @@ export class Helper {
                 this.view3d.angleX = 0.0;
                 this.view3d.angleY = 0.0;
                 this.view3d.scale = 1.0;
+                this.view3d.translationX = 0.0;
+                this.view3d.translationY = 0.0;
             } else {
                 this.touchTime = new Date().getTime();
             }
