@@ -700,17 +700,15 @@ export class Model {
             p.z = p0.z;
         });
     }
-    // Move on the segment s all following points.
-    moveOnSegment(s, points) {
-        points.forEach(function (p) {
-            // Project point and get vector from point to segment
-            const closest = Vector3.closestPoint(p, s.p1, s.p2);
-            const v = Vector3.sub(closest, p);
-            // Move point p along vector v
-            p.x += v.x ;
-            p.y += v.y ;
-            p.z += v.z ;
-        });
+    // Move on the segment s the following point.
+    moveOnSegment(s, p) {
+        // Project point and get vector from point to segment
+        const closest = Vector3.closestPoint(p, s.p1, s.p2);
+        const v = Vector3.sub(closest, p);
+        // Move point p along vector v
+        p.x += v.x ;
+        p.y += v.y ;
+        p.z += v.z ;
     }
 
     // Move given or all points to z = 0

@@ -413,7 +413,7 @@ export class Helper {
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
             this.view3d.angleY += dx;
-            this.view3d.initModelView();
+            this.view3d.initModelView(true);
         }
         this.move(points, segments, faces, xCanvas, yCanvas);
     }
@@ -434,11 +434,11 @@ export class Helper {
         if (Math.abs(event.deltaX) < Math.abs(event.deltaY)) {
             this.view3d.scale = event.scale !== undefined ? event.scale : this.view3d.scale + event.deltaY / 300.0;
             this.view3d.scale = Math.max(this.view3d.scale, 0.0);
-            this.view3d.initModelView();
+            this.view3d.initModelView(true);
         }
         else if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
             this.view3d.translationX -= event.deltaX * 2;
-            this.view3d.initModelView();
+            this.view3d.initModelView(true);
         }
     }
 
@@ -454,6 +454,7 @@ export class Helper {
                 this.view3d.scale = 1.0;
                 this.view3d.translationX = 0.0;
                 this.view3d.translationY = 0.0;
+                this.view3d.initModelView(true);
             } else {
                 this.touchTime = new Date().getTime();
             }

@@ -251,19 +251,18 @@ export class Command {
             idx += list.length;
             this.model.rotate(s, angle, list);
         } else if (tokenList[idx] === 'mop' || tokenList[idx] === 'moveOnPoint') {
-            // Move all points on first with animation
+            // Move all points on first
             idx++;
             let p0 = this.model.points[tokenList[idx++]];
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.moveOnPoint(p0, list);
         } else if (tokenList[idx] === 'mos' || tokenList[idx] === 'moveOnSegment') {
-            // Move all points on the segment with animation
+            // Move point on the segment
             idx++;
+            const p = this.model.points[tokenList[idx++]];
             const s = this.model.segments[tokenList[idx++]];
-            list = this.listPoints(tokenList, idx);
-            idx += list.length;
-            this.model.moveOnSegment(s, list);
+            this.model.moveOnSegment(s, p);
         } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
             // Move 1 point by dx,dy,dz in 3D with animation : move dx dy dz p1 p2 p3...
             idx++;
@@ -273,6 +272,12 @@ export class Command {
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.movePoints(dx, dy, dz, list);
+        } else if (tokenList[idx] === 'flat') {
+            // Set z = 0 for p1 p2 p3...
+            idx++;
+            list = this.listPoints(tokenList, idx);
+            this.model.flat(list);
+            idx += list.length;
         } else if (tokenList[idx] === 'a' || tokenList[idx] === 'adjust') {
             // Adjust points in 3D to equal 2D length of segments : a p1 p2 p3...
             idx++;

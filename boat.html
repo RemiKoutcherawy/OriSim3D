@@ -1,34 +1,27 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <title>OriSim3D</title>
+  <title>Boat</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta charset="utf-8">
   <meta content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" name="viewport">
   <style>
-    #canvas2d { position: absolute; width: 50%; height: 80%; left: 0; top: 0; border: 1px solid black;}
-    #canvas3d { position: absolute; width: 50%; height: 80%; left: 50%; top: 0; color: hsl(210 100% 50%);border: 1px solid black}
-    #commandArea  { position: absolute; width: 100%; height: 20%; left: 0; bottom:0;}
+    #canvas3d { position: absolute; width: 100%; height: 100%; left: 0; top: 0; color: hsl(210 100% 50%);border: 1px solid black}
   </style>
 </head>
 <body>
 <div>
-  <canvas id="canvas2d"></canvas>
   <canvas id="canvas3d"></canvas>
 </div>
-<label for="commandArea">Commandes</label>
-<textarea id="commandArea">d 200 200</textarea>
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
 <img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>
 <!-- Main program -->
 <script type="module">
   import {Model} from "./js/Model.js";
-  import {View2d} from "./js/View2d.js";
   import {View3d} from "./js/View3d.js";
   import {Command} from "./js/Command.js";
   import {Helper} from './js/Helper.js';
-  import {CommandArea} from './js/CommandArea.js';
 
   init();
 
@@ -39,28 +32,20 @@
     // View 3d
     const canvas3d = window.document.getElementById("canvas3d");
     const view3d = new View3d(model, canvas3d);
-    view3d.initBuffers(); // Needed only if the number of points changed
-
-    // View 2d
-    const canvas2d = window.document.getElementById("canvas2d");
-    const view2d = new View2d(model, canvas2d);
+    view3d.initBuffers();
 
     // Command
     const command = new Command(model);
-    let commandArea = new CommandArea(command, document.getElementById('commandArea'));
-
-    // Helper
-    const helper = new Helper(model, command, canvas2d, view3d, canvas3d, commandArea);
+    // Helper to handle mouse rotation and zoom
+    new Helper(model, command, null, view3d, canvas3d);
 
     // Animation loop
     function loop() {
       if (command.anim()) {
-        view3d.initBuffers(); // Needed only if the number of points changed
+        view3d.initBuffers();
         view3d.initModelView();
       }
-      view2d.drawModel();
       view3d.render();
-      helper.draw();
       requestAnimationFrame(loop);
     }
     loop();
@@ -68,49 +53,48 @@
     //Test
     setTimeout( () => {
       command.command(`define 210 300
-overlay lines
-textures
+lines
 // Boat
 // Fold top on bottom
 across2d 1 2;
 offset -1 0
-t 100 r 6 -180 2 3;
-t 100 fit;
+t 500 r 6 -180 2 3;
+t 500 fit;
 // Crease edges at 45°
 across3d 4 5
 bisector3d 7 9
 bisector3d 6 9
 // Fold corners
 offset -1 3 0
-t 100 rotate 13 -180 4
-t 100 rotate 17 180 5
+t 500 rotate 13 -180 4
+t 500 rotate 17 180 5
 // Crease bottom and top
 by3d 9 12
 by3d 10 11
 // Fold front
 offset -2 5 6;
-t 100 rotate 24 180 3 8 2;
+t 500 rotate 24 180 3 8 2;
 offset 2 8 9;
-t 100 rotate 25 -180 0 1 7;
+t 500 rotate 25 -180 0 1 7;
 // Crease corners on 2D
 bisector2d 3 24 bisector2d 23 16
 bisector2d 25 12 bisector2d 1 21
 // Fold left
-t 100 rotate 31 -180 0 3;
+t 500 rotate 31 -180 0 3;
 // Fold right
-t 100 rotate 29 180 1 2;
+t 500 rotate 29 180 1 2;
 // Crease top
 by3d 15 16
 // Open.
-t 100 r 15 -180 4 5 8 14 21 25 26  r 9 180 1 2 11 12 16 18 19 22;
-// t 100 fit
+t 500 r 15 -180 4 5 8 14 21 25 26  r 9 180 1 2 11 12 16 18 19 22;
+// t 500 fit
 // Turn on left
 // t 1000 tz 45
 // Crease diagonal
 perpendicular3d 13 15
 // Rotate in front and in back
-t 100 r 53 180 11 12 1 2;
-t 100 r 53 -180 9 10 0 3;
+t 500 r 53 180 11 12 1 2;
+t 500 r 53 -180 9 10 0 3;
 
 // Close Fixme
 t 1000 r 15 -90 4 5 14 8 21 25 26 32 33 27 28 30 29 r 9 -135 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
@@ -119,9 +103,15 @@ t 1000 r 13 -90 4 5 14 8 21 25 26 32 33 27 28 30 29 r 9 -60 1 2 11 12 16 18 19 2
 flat
 t 1000 r 36 135 32 14 33 mop 32 27 28 mop 14 4 5 mop 33 30 29 r 36 -135 31 13 34 a 9 mop 9 10 a 12 mop 12 11 mos 3 60 mos 0 25 a 0 3 mos 2 64 mos 1 23 a 2 1;
 mos 3 60 mos 0 25 mos 2 64 mos 1 23 // Fixme
+
+// Show
+iao
+t 1000 z 0.5;
+t 1000 zf;
 `);
     }, 500);
   }
+
 </script>
 </body>
 </html>

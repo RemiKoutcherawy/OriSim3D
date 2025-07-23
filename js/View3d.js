@@ -26,6 +26,7 @@ export class View3d {
     scale = 1.0;
     translationX = 0;
     translationY = 0;
+    mvp = View3d.createMat4();
 
     constructor(model, canvas3d) {
         this.model = model;
@@ -36,13 +37,14 @@ export class View3d {
         this.imgData = this.context2d.createImageData(this.width, this.height);
         this.createDepthBuffer();
         this.initBuffers();
+        this.initModelView(true);
 
         // Handle window resize
         window.addEventListener('resize', () => {
             this.width = this.canvas3d.width = canvas3d.clientWidth;
             this.height = this.canvas3d.height= canvas3d.clientHeight;
             this.imgData = this.context2d.createImageData(this.width, this.height);
-            this.initModelView();
+            this.initModelView(true);
             this.createDepthBuffer();
             this.render();
         });
@@ -199,19 +201,22 @@ export class View3d {
     }
 
     // Calculate model-view-projection matrix and project vertices
-    initModelView() {
-        const aspect = this.width / this.height;
-        const bounds = this.model.get3DBounds();
-        const modelWidth = bounds.xMax - bounds.xMin;
-        const modelHeight = bounds.yMax - bounds.yMin;
-        const fov = Math.PI/4.2;
-        const viewDistance = Math.max(modelWidth / aspect, modelHeight) / Math.tan(fov/2) *0.7; //* 1.2;
-        const proj = View3d.perspectiveMat4(fov, aspect, 0.1, viewDistance * 2);
-        const viewMatrix = View3d.translateMat4(
+    initModelView(resize=false) {
+        if (resize) {
+            const aspect = this.width / this.height;
+            const bounds = this.model.get3DBounds();
+            const modelWidth = bounds.xMax - bounds.xMin;
+            const modelHeight = bounds.yMax - bounds.yMin;
+            const fov = Math.PI/4.2;
+            const viewDistance = Math.max(modelWidth / aspect, modelHeight) / Math.tan(fov/2) *0.7; //* 1.2;
+            const projMatrix = View3d.perspectiveMat4(fov, aspect, 0.1, viewDistance * 2);
+            const viewMatrix = View3d.translateMat4(
                 -(bounds.xMin + bounds.xMax) / 2,
                 -(bounds.yMin + bounds.yMax) / 2,
                 -viewDistance // Position camera
             );
+            this.mvp = View3d.multiplyMat4(projMatrix, viewMatrix);
+        }
         // Handle Model rotation
         let modelMatrix = View3d.multiplyMat4(
             View3d.rotateYMat4(this.angleY),
@@ -227,8 +232,7 @@ export class View3d {
             modelMatrix,
             View3d.scaleMat4(this.scale, this.scale, this.scale)
         );
-        let mvp = View3d.multiplyMat4(proj, viewMatrix);
-        mvp = View3d.multiplyMat4(mvp, modelMatrix);
+        this.mvp = View3d.multiplyMat4(this.mvp, modelMatrix);
         // Used for normals
         this.invTransModel = View3d.inverseTransposeMat4(modelMatrix);
 
@@ -239,7 +243,7 @@ export class View3d {
         const projected = new Array(vertices.length);
         for (let i = 0; i < vertices.length; i++) {
             const v = vertices[i];
-            const tv = View3d.transformVec4(mvp, v);
+            const tv = View3d.transformVec4(this.mvp, v);
             const w = tv[3] || 1;
             const invW = 1 / w;
             projected[i] = [
