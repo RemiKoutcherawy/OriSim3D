@@ -210,7 +210,7 @@ export class Command {
             const s2 = this.model.segments[tokenList[idx++]];
             this.model.bisector2d(s1, s2);
         } else if (tokenList[idx] === 'bisector3d') {
-            // Split by a plane passing between segments: ll s1 s2;
+            // Split by a plane passing between segments: s1 s2;
             idx++;
             const s1 = this.model.segments[tokenList[idx++]];
             const s2 = this.model.segments[tokenList[idx++]];
@@ -243,7 +243,7 @@ export class Command {
 
         // Origami folding
         else if (tokenList[idx] === 'r' || tokenList[idx] === 'rotate') {
-            // Rotate around 'Seg' with 'Angle' all 'Points' with animation: r s1 p1 p2 p3...
+            // Rotate around 'Seg' with 'Angle' all 'Points' with animation: r s1 angle p1 p2 p3...
             idx++;
             const s = this.model.segments[tokenList[idx++]];
             const angle = tokenList[idx++] * k;
@@ -417,7 +417,7 @@ export class Command {
         else {
             console.log('Syntax error', tokenList[idx-2], tokenList[idx-1], tokenList[idx], tokenList[idx+1], tokenList[idx+2])
             idx = tokenList.length + 1;
-            throw new Error("Syntax error!");
+            throw new Error("Syntax error!", idx);
         }
 
         // Keep state after executing

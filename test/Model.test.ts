@@ -451,7 +451,7 @@ Deno.test("Model", async (t) => {
         const s = model.segments[0]; // -200, -200 to 200, -200
         const p = {x: 0, y: 50, z: 100};
         // Move on s the point p
-        model.moveOnSegment(s, [p]);
+        model.moveOnSegment(s, p);
         assertEquals(Math.round(p.x), 0, 'Got:' + p.x);
         assertEquals(Math.round(p.y), -200, 'Got:' + p.y);
         assertEquals(Math.round(p.z), 0, 'Got:' + p.z);

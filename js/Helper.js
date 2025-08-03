@@ -368,7 +368,8 @@ export class Helper {
             const idx = this.view3d.indexMap.get(p);
             if (idx !== undefined) {
                 const proj = this.view3d.projected[idx];
-                if (proj && Math.abs(proj[0] - xCanvas) + Math.abs(proj[1] - yCanvas) < 10) {
+                const delta = 10.0 / this.view3d.scale;
+                if (proj && Math.abs(proj[0] - xCanvas) + Math.abs(proj[1] - yCanvas) < delta) {
                     points.push(p);
                 }
             }
@@ -382,7 +383,8 @@ export class Helper {
             if (idx1 !== undefined && idx2 !== undefined) {
                 const proj1 = this.view3d.projected[idx1];
                 const proj2 = this.view3d.projected[idx2];
-                if (proj1 && proj2 && Segment.distance2d(proj1[0], proj1[1], proj2[0], proj2[1], xCanvas, yCanvas) < 6) {
+                const delta = 6.0 / this.view3d.scale;
+                if (proj1 && proj2 && Segment.distance2d(proj1[0], proj1[1], proj2[0], proj2[1], xCanvas, yCanvas) < delta) {
                     segments.push(s);
                 }
             }
@@ -407,7 +409,9 @@ export class Helper {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         // Handle 3d rotation
-        if (event.buttons === 1 && !this.firstPoint && !this.firstSegment && !this.firstFace) {
+        if (points.length === 0 && segments.length === 0 && faces.length === 0
+            && event.buttons === 1
+            && !this.firstPoint && !this.firstSegment && !this.firstFace) {
             // Rotation
             const factor = (600.0 / event.target.height) / 100.0;
             const dx = factor * (xCanvas - this.currentX);
