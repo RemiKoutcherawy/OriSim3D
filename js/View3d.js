@@ -262,6 +262,7 @@ export class View3d {
         const startTime = performance.now();
         const data = this.imgData.data;
         const len = data.length;
+        // Color #CCE4FF
         for (let i = 0; i < len; i += 4) {
             data[i] = 204;     // R
             data[i + 1] = 228; // G

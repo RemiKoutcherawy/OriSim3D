@@ -21,8 +21,8 @@ export class Model {
         // Helper
         this.labels = false;
         this.textures = false;
-        this.overlay = false;
-        this.lines = false;
+        this.overlay = false; // show points segments and face
+        this.lines = false; // render lines on 3d
     }
 
     // Initialize with 2d coordinates

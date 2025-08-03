@@ -8,7 +8,7 @@ export class Helper {
         this.canvas2d = canvas2d;
         this.view3d = view3d;
         this.overlay = canvas3d;
-        this.commandArea = commandArea;
+        this.commandArea = commandArea; // maybe null
         this.touchTime = 0;
         this.label = undefined;
         // To test with Deno
@@ -174,7 +174,7 @@ export class Helper {
                         }
                     });
                     let liste = points.map(p => this.model.indexOf(p) + '[' + Math.round(p.x * 10) / 10 + ',' + Math.round(p.y * 10) / 10 + ',' + Math.round(p.z * 10) / 10 + ']').join(' ');
-                    this.commandArea.addLine(`points ${liste}`);
+                    if (this.commandArea) this.commandArea.addLine(`points ${liste}`);
                 }
                 // To another point
                 else if (points.length > 0) {
@@ -230,7 +230,7 @@ export class Helper {
             if (segments.length !== 0 && segments[0] === this.firstSegment) {
                 segments.forEach((s) => s.select = (s.select + 1) % 3);
                 let liste = segments.map(s => (this.model.indexOf(s) + '[' + Math.round(Segment.length2d(s) * 10) / 10 + ',' + Math.round(Segment.length3d(s) * 10) / 10)+ ']').join(' ');
-                this.commandArea.addLine(`segments ${liste}`);
+                if (this.commandArea) this.commandArea.addLine(`segments ${liste}`);
                 console.log(Segment.length2d(segments[0]), Segment.length3d(segments[0]));
             }
             // To point crease perpendicular from segment to point
@@ -262,7 +262,7 @@ export class Helper {
                     // To the same face
                     this.model.click2d3d(points, segments, faces);
                     let liste = faces.map(f => this.model.indexOf(f) + ':' + f.offset).join(' ');
-                    this.commandArea.addLine(`offsets ${liste}`);
+                    if (this.commandArea) this.commandArea.addLine(`offsets ${liste}`);
                 } else {
                     // To another face
                 }
@@ -273,8 +273,8 @@ export class Helper {
                 this.model.faces.forEach(f => f.select = 0);
             }
         }
-            // From Nothing to Nothing
-        //  Handle swipe
+        // From Nothing to Nothing
+        // Handle swipe on canvas2D: undo or turn
         else if (((new Date().getTime()) - this.touchTime) < 1000 && this.currentCanvas === '2d') {
             if ((this.firstX - this.currentX) < -50) {
                 // Undo if swipe right
@@ -337,6 +337,7 @@ export class Helper {
 
     // Move on flat 2d
     move2d(event) {
+        this.currentCanvas = '2d';
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.move(points, segments, faces, xf, -yf);
@@ -402,11 +403,11 @@ export class Helper {
 
     // Move on 3d overlay
     move3d(event) {
+        this.currentCanvas = '3d';
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         // Handle 3d rotation
-        if (points.length === 0 && segments.length === 0 && faces.length === 0
-            && event.buttons === 1 && this.firstPoint === undefined && this.firstSegment === undefined && this.firstFace === undefined) {
+        if (event.buttons === 1 && !this.firstPoint && !this.firstSegment && !this.firstFace) {
             // Rotation
             const factor = (600.0 / event.target.height) / 100.0;
             const dx = factor * (xCanvas - this.currentX);
@@ -431,11 +432,13 @@ export class Helper {
 
     // Mouse wheel on 3d overlay
     wheel(event) {
-        if (Math.abs(event.deltaX) < Math.abs(event.deltaY)) {
+        // deltaY => up or down zoom view
+        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
             this.view3d.scale = event.scale !== undefined ? event.scale : this.view3d.scale + event.deltaY / 300.0;
-            this.view3d.scale = Math.max(this.view3d.scale, 0.0);
+            this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 5);
             this.view3d.initModelView(true);
         }
+        // deltaX left or right translate
         else if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
             this.view3d.translationX -= event.deltaX * 2;
             this.view3d.initModelView(true);
@@ -463,4 +466,4 @@ export class Helper {
 
 }
 
-// 403
+// 469
