@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carré 200x200 - Three.js</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #CCE4FF; }
+    #info { position: absolute; top: 10px; left: 10px; color: #CCE4FF; font-family: system-ui, Arial, sans-serif; background: rgba(255,255,255,0.5); padding: 8px 10px; border-radius: 6px; }
+  </style>
+  <!-- Import Three.js via CDN -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.159.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+<div id="info">Vue 3D d'un carré 200×200 — Glisser pour pivoter, molette pour zoomer, double‑clic pour réinitialiser, glisser d’un coin à l’autre pour couper</div>
+<script type="module">
+  import * as THREE from 'three';
+
+  // Scène
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xCCE4FF);
+
+  // Caméra
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+  camera.position.set(0, 0, 400);
+  camera.lookAt(0, 0, 0);
+  const initialCameraPos = camera.position.clone();
+
+  // Rendu
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  document.body.appendChild(renderer.domElement);
+
+  // Lumières (facultatives car on utilise MeshBasicMaterial pour le carré)
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambient);
+  const dir = new THREE.DirectionalLight(0xffffff, 0.4);
+  dir.position.set(1, 2, 3);
+  scene.add(dir);
+
+  // Carré 200x200 (un simple plan)
+  const size = 200; // exigences: 200 par 200
+  const planeGeo = new THREE.PlaneGeometry(size, size);
+  // Couleurs différentes avant/arrière sans ShaderMaterial: deux meshes avec FrontSide/BackSide
+  const frontColor = new THREE.Color(0xA5C6FA); // light blue (front)
+  const backColor = new THREE.Color(0xFFF36D);  // lemon yellow (back)
+  const frontMat = new THREE.MeshBasicMaterial({ color: frontColor, side: THREE.FrontSide });
+  const backMat  = new THREE.MeshBasicMaterial({ color: backColor,  side: THREE.BackSide  });
+  const planeFront = new THREE.Mesh(planeGeo, frontMat);
+  const planeBack  = new THREE.Mesh(planeGeo, backMat);
+  planeFront.userData.tag = 'paper';
+  planeBack.userData.tag  = 'paper';
+  const plane = new THREE.Group();
+  plane.add(planeFront);
+  plane.add(planeBack);
+  scene.add(plane);
+
+  // Points (coins) du carré pour interaction hover
+  const pointGeom = new THREE.SphereGeometry(4, 16, 16);
+  const defaultPointColor = 0x87CEEB; // skyblue
+  const hoverPointColor = 0x0000ff;   // blue
+  const makePointMaterial = () => new THREE.MeshBasicMaterial({ color: defaultPointColor, depthTest: false });
+  const cornerPositions = [
+    new THREE.Vector3(-size/2, -size/2, 0),
+    new THREE.Vector3( size/2, -size/2, 0),
+    new THREE.Vector3( size/2,  size/2, 0),
+    new THREE.Vector3(-size/2,  size/2, 0),
+  ];
+  const pointMeshes = cornerPositions.map(pos => {
+    const m = new THREE.Mesh(pointGeom, makePointMaterial());
+    m.position.copy(pos);
+    m.renderOrder = 2; // draw above
+    return m;
+  });
+  pointMeshes.forEach(m => plane.add(m)); // attach to plane so they follow its rotation
+
+  let hoveredPoint = null;
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+  function updatePointerNDC(e) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  }
+  function setHovered(mesh) {
+    if (hoveredPoint === mesh) return;
+    if (hoveredPoint) {
+      hoveredPoint.material.color.set(defaultPointColor);
+      hoveredPoint.scale.set(1, 1, 1);
+    }
+    hoveredPoint = mesh || null;
+    if (hoveredPoint) {
+      hoveredPoint.material.color.set(hoverPointColor);
+      hoveredPoint.scale.set(1.66, 1.66, 1.66); // approx 10/6 ratio
+    }
+    if (!isDragging) {
+      renderer.domElement.style.cursor = hoveredPoint ? 'pointer' : 'grab';
+    }
+  }
+  function detectHover() {
+    raycaster.setFromCamera(pointerNDC, camera);
+    const intersects = raycaster.intersectObjects(pointMeshes, true);
+    setHovered(intersects.length ? intersects[0].object : null);
+  }
+
+  // Contour du carré pour bien voir les bords (groupe pour pouvoir reconstruire après une découpe)
+  const edgesGroup = new THREE.Group();
+  scene.add(edgesGroup);
+  function rebuildEdges(geometries) {
+    // Clear existing edges
+    while (edgesGroup.children.length) edgesGroup.remove(edgesGroup.children[0]);
+    const mat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+    geometries.forEach((g) => {
+      const e = new THREE.EdgesGeometry(g);
+      const l = new THREE.LineSegments(e, mat);
+      edgesGroup.add(l);
+    });
+    // Synchronize rotation with plane
+    edgesGroup.rotation.copy(plane.rotation);
+  }
+  // Initial edges for the full square
+  rebuildEdges([planeGeo]);
+
+  // Aide visuelle: axes
+  const axes = new THREE.AxesHelper(120);
+  scene.add(axes);
+
+  // Interaction souris: drag pour pivoter, molette pour zoomer
+  let isDragging = false;
+  let prev = { x: 0, y: 0 };
+  const dragFactor = 0.005; // sensibilité du drag
+
+  // Découpe: on commence sur un point, on relâche sur un autre
+  let cutStart = null; // Mesh du point de départ
+  let hasCut = false;  // pour éviter multiples découpes (simple démo)
+
+  renderer.domElement.style.cursor = 'grab';
+
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    // Déterminer si on clique sur un point pour commencer une découpe
+    updatePointerNDC(e);
+    detectHover();
+    if (hoveredPoint && !hasCut) {
+      cutStart = hoveredPoint;
+      renderer.domElement.setPointerCapture(e.pointerId);
+      renderer.domElement.style.cursor = 'crosshair';
+      // ne pas activer la rotation
+      return;
+    }
+    // Sinon: rotation
+    isDragging = true;
+    prev.x = e.clientX;
+    prev.y = e.clientY;
+    renderer.domElement.setPointerCapture(e.pointerId);
+    renderer.domElement.style.cursor = 'grabbing';
+  });
+
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    // Always update hover state
+    updatePointerNDC(e);
+    detectHover();
+    if (cutStart) {
+      // En mode découpe on n'applique pas la rotation; pas de prévisualisation pour rester minimal
+      return;
+    }
+    if (!isDragging) return;
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    prev.x = e.clientX;
+    prev.y = e.clientY;
+    // Appliquer la rotation en fonction du déplacement
+    plane.rotation.y += dx * dragFactor; // yaw
+    plane.rotation.x += dy * dragFactor; // pitch
+    // Garder le contour synchronisé
+    edgesGroup.rotation.copy(plane.rotation);
+  });
+
+  function performCut(pStartMesh, pEndMesh) {
+    // Déterminer les indices des points (coins) dans pointMeshes
+    const iStart = pointMeshes.indexOf(pStartMesh);
+    const iEnd = pointMeshes.indexOf(pEndMesh);
+    if (iStart === -1 || iEnd === -1 || iStart === iEnd) return;
+    // Autoriser seulement les diagonales pour une vraie découpe
+    const diag1 = (iStart === 0 && iEnd === 2) || (iStart === 2 && iEnd === 0);
+    const diag2 = (iStart === 1 && iEnd === 3) || (iStart === 3 && iEnd === 1);
+    if (!diag1 && !diag2) {
+      console.log('Découpe ignorée: choisissez deux coins opposés pour couper en deux triangles.');
+      return;
+    }
+    // Construire deux triangles
+    const idx = [0,1,2,3];
+    const triIndices = diag1 ? [[0,1,2],[0,2,3]] : [[1,2,3],[1,3,0]];
+    const verts = cornerPositions; // Vector3
+    function makeTriGeom(a,b,c) {
+      const g = new THREE.BufferGeometry();
+      const pos = new Float32Array([
+        verts[a].x, verts[a].y, 0,
+        verts[b].x, verts[b].y, 0,
+        verts[c].x, verts[c].y, 0,
+      ]);
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.computeVertexNormals();
+      return g;
+    }
+    const g1 = makeTriGeom(...triIndices[0]);
+    const g2 = makeTriGeom(...triIndices[1]);
+
+    // Remplacer uniquement les parties 'paper' du plan par 2 faces (chaque face = front + back)
+    for (let i = plane.children.length - 1; i >= 0; i--) {
+      const child = plane.children[i];
+      if (child.userData && child.userData.tag === 'paper') {
+        plane.remove(child);
+      }
+    }
+    function addFace(geom) {
+      const front = new THREE.Mesh(geom, frontMat);
+      const back  = new THREE.Mesh(geom, backMat);
+      const grp = new THREE.Group();
+      grp.userData.tag = 'paper';
+      grp.add(front);
+      grp.add(back);
+      plane.add(grp);
+    }
+    addFace(g1);
+    addFace(g2);
+
+    // Reconstruire les arêtes pour refléter les deux triangles (inclut la diagonale)
+    rebuildEdges([g1, g2]);
+
+    hasCut = true;
+  }
+
+  function endDrag(e) {
+    const isLeave = e && e.type === 'pointerleave';
+    if (cutStart) {
+      // Fin d'une tentative de découpe
+      try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
+      if (!isLeave && hoveredPoint && hoveredPoint !== cutStart) {
+        performCut(cutStart, hoveredPoint);
+      }
+      cutStart = null;
+      // Mettre à jour le curseur selon le survol
+      renderer.domElement.style.cursor = hoveredPoint ? 'pointer' : 'grab';
+      return;
+    }
+    if (!isDragging) {
+      if (isLeave) {
+        // Clear hover when leaving canvas
+        setHovered(null);
+        renderer.domElement.style.cursor = 'grab';
+      } else if (e) {
+        // Update hover state on end events (e.g., pointerup without dragging)
+        updatePointerNDC(e);
+        detectHover();
+      }
+      return;
+    }
+    isDragging = false;
+    try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
+    if (isLeave) {
+      setHovered(null);
+      renderer.domElement.style.cursor = 'grab';
+    } else {
+      // After ending drag, recompute hover to set correct cursor if over a point
+      if (e) { updatePointerNDC(e); detectHover(); }
+      renderer.domElement.style.cursor = hoveredPoint ? 'pointer' : 'grab';
+    }
+  }
+
+  renderer.domElement.addEventListener('pointerup', endDrag);
+  renderer.domElement.addEventListener('pointerleave', endDrag);
+
+  // Zoom basique avec la molette
+  renderer.domElement.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = Math.sign(e.deltaY); // 1 = zoom out, -1 = zoom in
+    const dir = camera.position.clone().normalize();
+    let dist = camera.position.length();
+    dist = THREE.MathUtils.clamp(dist + delta * 15, 60, 2000);
+    camera.position.copy(dir.multiplyScalar(dist));
+    camera.lookAt(0, 0, 0);
+  }, { passive: false });
+
+  // Double-clic pour réinitialiser rotation et zoom
+  renderer.domElement.addEventListener('dblclick', () => {
+    // Réinitialiser la rotation du carré (et du contour)
+    plane.rotation.set(0, 0, 0);
+    edgesGroup.rotation.copy(plane.rotation);
+    // Réinitialiser la caméra (zoom et orientation)
+    camera.position.copy(initialCameraPos);
+    camera.lookAt(0, 0, 0);
+    // Arrêter un éventuel drag en cours
+    isDragging = false;
+  });
+
+  // Boucle de rendu (sans rotation continue)
+  function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // Ajuster au redimensionnement
+  window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+</body>
+</html>

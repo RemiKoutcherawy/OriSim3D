@@ -95,8 +95,8 @@ export class View3d {
             textureLoad(backImg, data => this.backTexture = data);
         } else {
             // Defaults
-            this.frontTexture = new Uint8ClampedArray([0xA5, 0xC6, 0xFA, 255]);  // lightblue for front
-            this.backTexture = new Uint8ClampedArray([0xFF, 0xF3, 0x6D, 255]);  // lemon yellow for back
+            this.frontTexture = new Uint8ClampedArray([0xA5, 0xC6, 0xFA, 255]);  // #A5C6FA  lightblue for front
+            this.backTexture = new Uint8ClampedArray([0xFF, 0xF3, 0x6D, 255]);  // #FFF36D lemon yellow for back
             this.texWidth = 1;
             this.texHeight = 1;
         }
@@ -262,7 +262,7 @@ export class View3d {
         const startTime = performance.now();
         const data = this.imgData.data;
         const len = data.length;
-        // Color #CCE4FF
+        // Background Color #CCE4FF
         for (let i = 0; i < len; i += 4) {
             data[i] = 204;     // R
             data[i + 1] = 228; // G

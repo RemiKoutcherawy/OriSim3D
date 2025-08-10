@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animateur d'Origami 3D</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            font-family: 'Arial', sans-serif;
+            color: white;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        canvas {
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            background: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .control-group {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+        }
+
+        .control-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #fff;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+            padding-bottom: 5px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .info-panel {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .status {
+            color: #4ade80;
+        }
+
+        .slider-group {
+            margin: 10px 0;
+        }
+
+        .slider-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .slider-group input {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🎌 Animateur d'Origami 3D</h1>
+
+    <div class="canvas-container">
+        <canvas id="origamiCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <div class="control-title">Animations de Base</div>
+            <button class="btn" onclick="animateSplit()">Split (Division)</button>
+            <button class="btn" onclick="animateRotate()">Rotate (Rotation)</button>
+            <button class="btn" onclick="animateAdjust()">Adjust (Ajustement)</button>
+            <button class="btn" onclick="animateSequence()">Séquence Complète</button>
+        </div>
+
+        <div class="control-group">
+            <div class="control-title">Formes Prédéfinies</div>
+            <button class="btn" onclick="createSquare()">Carré Simple</button>
+            <button class="btn" onclick="createCrane()">Grue (Base)</button>
+            <button class="btn" onclick="createRose()">Rose</button>
+            <button class="btn" onclick="reset()">Reset</button>
+        </div>
+
+        <div class="control-group">
+            <div class="control-title">Contrôles de Vue</div>
+            <div class="slider-group">
+                <label>Rotation X: <span id="rotXValue">0°</span></label>
+                <input type="range" id="rotX" min="-180" max="180" value="0" oninput="updateView()">
+            </div>
+            <div class="slider-group">
+                <label>Rotation Y: <span id="rotYValue">0°</span></label>
+                <input type="range" id="rotY" min="-180" max="180" value="0" oninput="updateView()">
+            </div>
+            <div class="slider-group">
+                <label>Zoom: <span id="zoomValue">1.0</span></label>
+                <input type="range" id="zoom" min="0.5" max="3" step="0.1" value="1" oninput="updateView()">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="control-title">État du Modèle</div>
+            <div class="info-panel">
+                <div>Points: <span id="pointCount" class="status">0</span></div>
+                <div>Faces: <span id="faceCount" class="status">0</span></div>
+                <div>Animation: <span id="animStatus" class="status">Inactive</span></div>
+            </div>
+            <button class="btn" onclick="logModel()">Afficher Modèle</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Polyfill Web Animations (version simplifiée)
+    (() => {
+        'use strict';
+
+        if (typeof Element.prototype.animate === 'function') {
+            return;
+        }
+
+        class Animation {
+            constructor(element, keyframes, options) {
+                this.element = element;
+                this.keyframes = this.normalizeKeyframes(keyframes);
+                this.options = this.normalizeOptions(options);
+
+                this.startTime = null;
+                this.currentTime = 0;
+                this.playState = 'idle';
+                this.animationId = null;
+                this.finished = false;
+
+                this.onfinish = null;
+                this.oncancel = null;
+                this.eventListeners = new Map();
+            }
+
+            normalizeKeyframes(keyframes) {
+                if (!Array.isArray(keyframes)) {
+                    throw new Error('Keyframes must be an array');
+                }
+
+                return keyframes.map((frame, index) => {
+                    const normalized = { ...frame };
+                    if (normalized.offset === undefined) {
+                        normalized.offset = keyframes.length === 1 ? 1 : index / (keyframes.length - 1);
+                    }
+                    return normalized;
+                });
+            }
+
+            normalizeOptions(options) {
+                if (typeof options === 'number') {
+                    options = { duration: options };
+                }
+                return {
+                    duration: 0,
+                    easing: 'linear',
+                    fill: 'auto',
+                    ...options
+                };
+            }
+
+            play() {
+                if (this.playState === 'running') return;
+
+                this.playState = 'running';
+                this.finished = false;
+                this.startTime = performance.now() - this.currentTime;
+                this.tick();
+            }
+
+            cancel() {
+                this.playState = 'idle';
+                this.finished = false;
+                this.currentTime = 0;
+
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                    this.animationId = null;
+                }
+
+                this.oncancel?.();
+            }
+
+            finish() {
+                if (this.playState === 'finished') return;
+
+                this.currentTime = this.options.duration;
+                this.playState = 'finished';
+                this.finished = true;
+
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                    this.animationId = null;
+                }
+
+                this.applyStyles(1);
+                this.onfinish?.();
+            }
+
+            tick() {
+                if (this.playState !== 'running') return;
+
+                const now = performance.now();
+                this.currentTime = now - this.startTime;
+
+                const progress = Math.min(1, this.currentTime / this.options.duration);
+
+                if (progress >= 1) {
+                    this.finish();
+                    return;
+                }
+
+                this.applyStyles(progress);
+                this.animationId = requestAnimationFrame(() => this.tick());
+            }
+
+            applyStyles(progress) {
+                // Pour les animations d'origami, on appelle directement les callbacks
+                this.keyframes.forEach((frame, index) => {
+                    if (frame.callback && typeof frame.callback === 'function') {
+                        const localProgress = this.calculateLocalProgress(progress, index);
+                        if (localProgress > 0 && localProgress <= 1) {
+                            frame.callback(localProgress, frame);
+                        }
+                    }
+                });
+            }
+
+            calculateLocalProgress(globalProgress, frameIndex) {
+                const frame = this.keyframes[frameIndex];
+                const nextFrame = this.keyframes[frameIndex + 1];
+
+                if (!nextFrame) return globalProgress >= frame.offset ? 1 : 0;
+
+                if (globalProgress < frame.offset) return 0;
+                if (globalProgress > nextFrame.offset) return 1;
+
+                return (globalProgress - frame.offset) / (nextFrame.offset - frame.offset);
+            }
+        }
+
+        // Polyfills
+        if (!window.performance?.now) {
+            window.performance = window.performance || {};
+            window.performance.now = () => Date.now();
+        }
+
+        if (!window.requestAnimationFrame) {
+            window.requestAnimationFrame = callback => setTimeout(callback, 1000 / 60);
+            window.cancelAnimationFrame = id => clearTimeout(id);
+        }
+
+        // Export
+        Element.prototype.animate = function(keyframes, options) {
+            const animation = new Animation(this, keyframes, options);
+            animation.play();
+            return animation;
+        };
+
+        window.Animation = Animation;
+    })();
+
+    // Classe Model pour l'origami 3D
+    class OriginamiModel {
+        constructor() {
+            this.points = [];
+            this.faces = [];
+            this.center = { x: 0, y: 0, z: 0 };
+            this.viewRotation = { x: 0, y: 0, z: 0 };
+            this.zoom = 1;
+            this.animationCallbacks = [];
+        }
+
+        // Diviser des points selon un plan
+        split(planeNormal, planePoint, angle = Math.PI / 4, progress = 1) {
+            const newPoints = [];
+
+            this.points.forEach(point => {
+                // Calculer la distance du point au plan
+                const toPoint = {
+                    x: point.x - planePoint.x,
+                    y: point.y - planePoint.y,
+                    z: point.z - planePoint.z
+                };
+
+                const distance = toPoint.x * planeNormal.x +
+                    toPoint.y * planeNormal.y +
+                    toPoint.z * planeNormal.z;
+
+                if (distance > 0) {
+                    // Point au-dessus du plan, appliquer la rotation
+                    const rotatedPoint = this.rotatePointAroundAxis(
+                        point,
+                        planePoint,
+                        planeNormal,
+                        angle * progress
+                    );
+                    newPoints.push(rotatedPoint);
+                } else {
+                    // Point en dessous du plan, ne pas bouger
+                    newPoints.push({ ...point });
+                }
+            });
+
+            this.points = newPoints;
+            this.updateCenter();
+            return this;
+        }
+
+        // Rotation globale du modèle
+        rotate(axis, angle, progress = 1) {
+            const actualAngle = angle * progress;
+
+            this.points = this.points.map(point => {
+                return this.rotatePointAroundAxis(point, this.center, axis, actualAngle);
+            });
+
+            return this;
+        }
+
+        // Ajustement des positions (translation, mise à l'échelle)
+        adjust(operation, params, progress = 1) {
+            switch (operation) {
+                case 'translate':
+                    const translation = {
+                        x: params.x * progress,
+                        y: params.y * progress,
+                        z: params.z * progress
+                    };
+                    this.points = this.points.map(point => ({
+                        x: point.x + translation.x,
+                        y: point.y + translation.y,
+                        z: point.z + translation.z
+                    }));
+                    break;
+
+                case 'scale':
+                    const scale = 1 + (params.factor - 1) * progress;
+                    this.points = this.points.map(point => ({
+                        x: this.center.x + (point.x - this.center.x) * scale,
+                        y: this.center.y + (point.y - this.center.y) * scale,
+                        z: this.center.z + (point.z - this.center.z) * scale
+                    }));
+                    break;
+
+                case 'bend':
+                    // Courber le modèle selon un axe
+                    const bendStrength = params.strength * progress;
+                    this.points = this.points.map(point => {
+                        const distance = point.y - this.center.y;
+                        const bendAngle = distance * bendStrength;
+                        return {
+                            x: point.x,
+                            y: point.y * Math.cos(bendAngle) - point.z * Math.sin(bendAngle),
+                            z: point.y * Math.sin(bendAngle) + point.z * Math.cos(bendAngle)
+                        };
+                    });
+                    break;
+            }
+
+            this.updateCenter();
+            return this;
+        }
+
+        // Utilitaire pour rotation autour d'un axe
+        rotatePointAroundAxis(point, center, axis, angle) {
+            // Normaliser l'axe
+            const length = Math.sqrt(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z);
+            const normalizedAxis = {
+                x: axis.x / length,
+                y: axis.y / length,
+                z: axis.z / length
+            };
+
+            // Translater le point vers l'origine
+            const translatedPoint = {
+                x: point.x - center.x,
+                y: point.y - center.y,
+                z: point.z - center.z
+            };
+
+            // Matrice de rotation (formule de Rodrigues simplifiée)
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const oneMinusCos = 1 - cos;
+
+            const { x: ux, y: uy, z: uz } = normalizedAxis;
+            const { x, y, z } = translatedPoint;
+
+            const rotatedX = (cos + ux * ux * oneMinusCos) * x +
+                (ux * uy * oneMinusCos - uz * sin) * y +
+                (ux * uz * oneMinusCos + uy * sin) * z;
+
+            const rotatedY = (uy * ux * oneMinusCos + uz * sin) * x +
+                (cos + uy * uy * oneMinusCos) * y +
+                (uy * uz * oneMinusCos - ux * sin) * z;
+
+            const rotatedZ = (uz * ux * oneMinusCos - uy * sin) * x +
+                (uz * uy * oneMinusCos + ux * sin) * y +
+                (cos + uz * uz * oneMinusCos) * z;
+
+            // Translater de retour
+            return {
+                x: rotatedX + center.x,
+                y: rotatedY + center.y,
+                z: rotatedZ + center.z
+            };
+        }
+
+        // Mettre à jour le centre du modèle
+        updateCenter() {
+            if (this.points.length === 0) return;
+
+            const sum = this.points.reduce((acc, point) => ({
+                x: acc.x + point.x,
+                y: acc.y + point.y,
+                z: acc.z + point.z
+            }), { x: 0, y: 0, z: 0 });
+
+            this.center = {
+                x: sum.x / this.points.length,
+                y: sum.y / this.points.length,
+                z: sum.z / this.points.length
+            };
+        }
+
+        // Créer un carré de base
+        createSquare(size = 100) {
+            this.points = [
+                { x: -size, y: -size, z: 0 },
+                { x: size, y: -size, z: 0 },
+                { x: size, y: size, z: 0 },
+                { x: -size, y: size, z: 0 }
+            ];
+
+            this.faces = [
+                [0, 1, 2, 3] // Face principale
+            ];
+
+            this.updateCenter();
+            return this;
+        }
+
+        // Créer une base de grue
+        createCrane(size = 80) {
+            this.points = [
+                // Base carrée
+                { x: -size, y: -size, z: 0 },
+                { x: size, y: -size, z: 0 },
+                { x: size, y: size, z: 0 },
+                { x: -size, y: size, z: 0 },
+                // Points centraux pour les plis
+                { x: 0, y: -size, z: 0 },
+                { x: size, y: 0, z: 0 },
+                { x: 0, y: size, z: 0 },
+                { x: -size, y: 0, z: 0 },
+                // Centre
+                { x: 0, y: 0, z: 0 }
+            ];
+
+            this.faces = [
+                [0, 4, 8], [4, 1, 8], [1, 5, 8], [5, 2, 8],
+                [2, 6, 8], [6, 3, 8], [3, 7, 8], [7, 0, 8]
+            ];
+
+            this.updateCenter();
+            return this;
+        }
+
+        // Créer une rose simple
+        createRose(size = 60) {
+            this.points = [];
+            this.faces = [];
+
+            // Centre
+            this.points.push({ x: 0, y: 0, z: 0 });
+
+            // Pétales en spirale
+            const petalCount = 8;
+            for (let i = 0; i < petalCount; i++) {
+                const angle = (i / petalCount) * Math.PI * 2;
+                const radius = size * (0.8 + 0.4 * Math.sin(i * 0.5));
+
+                this.points.push({
+                    x: Math.cos(angle) * radius,
+                    y: Math.sin(angle) * radius,
+                    z: Math.sin(i * 0.7) * 20
+                });
+
+                // Face triangulaire pour chaque pétale
+                if (i > 0) {
+                    this.faces.push([0, i, i + 1]);
+                }
+            }
+
+            // Fermer la rose
+            this.faces.push([0, petalCount, 1]);
+
+            this.updateCenter();
+            return this;
+        }
+    }
+
+    // Renderer 3D simple
+    class OriginamiRenderer {
+        constructor(canvas) {
+            this.canvas = canvas;
+            this.ctx = canvas.getContext('2d');
+            this.width = canvas.width;
+            this.height = canvas.height;
+            this.camera = { x: 0, y: 0, z: 500 };
+        }
+
+        clear() {
+            this.ctx.fillStyle = '#000';
+            this.ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        project3DTo2D(point3D, rotation, zoom) {
+            // Appliquer les rotations
+            let { x, y, z } = point3D;
+
+            // Rotation Y (gauche-droite)
+            const cosY = Math.cos(rotation.y);
+            const sinY = Math.sin(rotation.y);
+            const tempX = x * cosY - z * sinY;
+            z = x * sinY + z * cosY;
+            x = tempX;
+
+            // Rotation X (haut-bas)
+            const cosX = Math.cos(rotation.x);
+            const sinX = Math.sin(rotation.x);
+            const tempY = y * cosX - z * sinX;
+            z = y * sinX + z * cosX;
+            y = tempY;
+
+            // Projection perspective
+            const distance = this.camera.z + z;
+            const scale = (this.camera.z / distance) * zoom;
+
+            return {
+                x: (x * scale) + this.width / 2,
+                y: (y * scale) + this.height / 2,
+                z: distance
+            };
+        }
+
+        render(model) {
+            this.clear();
+
+            if (model.points.length === 0) return;
+
+            // Projeter tous les points
+            const projectedPoints = model.points.map(point =>
+                this.project3DTo2D(point, model.viewRotation, model.zoom)
+            );
+
+            // Dessiner les faces
+            this.ctx.strokeStyle = '#4ade80';
+            this.ctx.fillStyle = 'rgba(68, 222, 128, 0.2)';
+            this.ctx.lineWidth = 2;
+
+            model.faces.forEach(face => {
+                this.ctx.beginPath();
+
+                face.forEach((pointIndex, i) => {
+                    const point = projectedPoints[pointIndex];
+                    if (i === 0) {
+                        this.ctx.moveTo(point.x, point.y);
+                    } else {
+                        this.ctx.lineTo(point.x, point.y);
+                    }
+                });
+
+                this.ctx.closePath();
+                this.ctx.fill();
+                this.ctx.stroke();
+            });
+
+            // Dessiner les points
+            this.ctx.fillStyle = '#fbbf24';
+            projectedPoints.forEach(point => {
+                this.ctx.beginPath();
+                this.ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
+
+            // Dessiner les lignes de construction
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            this.ctx.lineWidth = 1;
+            this.ctx.setLineDash([5, 5]);
+
+            for (let i = 0; i < projectedPoints.length; i++) {
+                for (let j = i + 1; j < projectedPoints.length; j++) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(projectedPoints[i].x, projectedPoints[i].y);
+                    this.ctx.lineTo(projectedPoints[j].x, projectedPoints[j].y);
+                    this.ctx.stroke();
+                }
+            }
+
+            this.ctx.setLineDash([]);
+        }
+    }
+
+    // Application principale
+    let model = new OriginamiModel();
+    let renderer = new OriginamiRenderer(document.getElementById('origamiCanvas'));
+    let currentAnimation = null;
+
+    // Initialiser avec un carré
+    model.createSquare();
+    updateDisplay();
+
+    // Fonctions d'animation
+    function animateSplit() {
+        document.getElementById('animStatus').textContent = 'Split en cours...';
+
+        const originalModel = JSON.parse(JSON.stringify(model));
+
+        // Animation avec le polyfill
+        currentAnimation = document.body.animate([
+            {
+                offset: 0,
+                callback: (progress) => {
+                    // Restaurer le modèle original
+                    model.points = JSON.parse(JSON.stringify(originalModel.points));
+                    model.faces = JSON.parse(JSON.stringify(originalModel.faces));
+
+                    // Appliquer split avec progression
+                    model.split(
+                        { x: 0, y: 1, z: 0 }, // Plan horizontal
+                        { x: 0, y: 0, z: 0 }, // Centre
+                        Math.PI / 3,          // Angle de 60°
+                        progress
+                    );
+
+                    renderer.render(model);
+                    updateDisplay();
+                }
+            },
+            {
+                offset: 1,
+                callback: () => {
+                    document.getElementById('animStatus').textContent = 'Split terminé';
+                }
+            }
+        ], {
+            duration: 2000,
+            easing: 'ease-in-out'
+        });
+    }
+
+    function animateRotate() {
+        document.getElementById('animStatus').textContent = 'Rotation en cours...';
+
+        const originalModel = JSON.parse(JSON.stringify(model));
+
+        currentAnimation = document.body.animate([
+            {
+                offset: 0,
+                callback: (progress) => {
+                    model.points = JSON.parse(JSON.stringify(originalModel.points));
+                    model.faces = JSON.parse(JSON.stringify(originalModel.faces));
+
+                    model.rotate(
+                        { x: 1, y: 1, z: 0 }, // Axe diagonal
+                        Math.PI * 2,          // Tour complet
+                        progress
+                    );
+
+                    renderer.render(model);
+                    updateDisplay();
+                }
+            },
+            {
+                offset: 1,
+                callback: () => {
+                    document.getElementById('animStatus').textContent = 'Rotation terminée';
+                }
+            }
+        ], {
+            duration: 3000,
+            easing: 'linear'
+        });
+    }
+
+    function animateAdjust() {
+        document.getElementById('animStatus').textContent = 'Ajustement en cours...';
+
+        const originalModel = JSON.parse(JSON.stringify(model));
+
+        currentAnimation = document.body.animate([
+            {
+                offset: 0,
+                callback: (progress) => {
+                    model.points = JSON.parse(JSON.stringify(originalModel.points));
+                    model.faces = JSON.parse(JSON.stringify(originalModel.faces));
+
+                    // Effet de pulsation + déformation
+                    model.adjust('scale', { factor: 1.5 }, Math.sin(progress * Math.PI * 4) * 0.3 + 0.7)
+                        .adjust('bend', { strength: 0.01 }, progress);
+
+                    renderer.render(model);
+                    updateDisplay();
+                }
+            },
+            {
+                offset: 1,
+                callback: () => {
+                    document.getElementById('animStatus').textContent = 'Ajustement terminé';
+                }
+            }
+        ], {
+            duration: 4000,
+            easing: 'ease-in-out'
+        });
+    }
+
+    function animateSequence() {
+        document.getElementById('animStatus').textContent = 'Séquence complète...';
+
+        const originalModel = JSON.parse(JSON.stringify(model));
+
+        currentAnimation = document.body.animate([
+            {
+                offset: 0,
+                callback: (progress) => {
+                    model.points = JSON.parse(JSON.stringify(originalModel.points));
+                    model.faces = JSON.parse(JSON.stringify(originalModel.faces));
+                    renderer.render(model);
+                    updateDisplay();
+                }
+            },
+            {
+                offset: 0.25,
+                callback: (progress) => {
+                    model.points = JSON.parse(JSON.stringify(originalModel.points));
+                    model.faces = JSON.parse(JSON.stringify(originalModel.faces));
+
+                    const localProgress = (progress - 0) / 0.25;
+                    model.split({ x: 1, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, Math.PI / 4, localProgress);
+
+                    renderer.render(model);
+                    updateDisplay();
+                }
+            },
+            {
+                offset: 0.5,
+                callback: (progress) => {
+                    const localProgress = (progress - 0.25) / 0.25;
+                    model.rotate({ x: 0, y: 1, z: 0 }, Math.PI, localProgress);
+
+                    renderer.render(model);
+                    updateDisplay();
+                }
+            },
+            {
+                offset: 0.75,
+                callback: (progress) => {
+                    const localProgress = (progress - 0.5) / 0.25;
+                    model.split({ x: 0, y: 1, z: 0 }, { x: 0, y: 0, z: 0 }, Math.PI / 6, localProgress);
+
+                    renderer.render(model);
+                    updateDisplay();
+                }
+            },
+            {
+                offset: 1,
+                callback: (progress) => {
+                    const localProgress = (progress - 0.75) / 0.25;
+                    model.adjust('scale', { factor: 1.2 }, localProgress)
+                        .adjust('translate', { x: 0, y: 0, z: 50 }, localProgress);
+
+                    renderer.render(model);
+                    updateDisplay();
+
+                    if (progress >= 1) {
+                        document.getElementById('animStatus').textContent = 'Séquence terminée';
+                    }
+                }
+            }
+        ], {
+            duration: 6000,
+            easing: 'ease-in-out'
+        });
+    }
+
+    // Fonctions de création de formes
+    function createSquare() {
+        if (currentAnimation) currentAnimation.cancel();
+        model = new OriginamiModel();
+        model.createSquare();
+        renderer.render(model);
+        updateDisplay();
+        document.getElementById('animStatus').textContent = 'Carré créé';
+    }
+
+    function createCrane() {
+        if (currentAnimation) currentAnimation.cancel();
+        model = new OriginamiModel();
+        model.createCrane();
+        renderer.render(model);
+        updateDisplay();
+        document.getElementById('animStatus').textContent = 'Base de grue créée';
+    }
+
+    function createRose() {
+        if (currentAnimation) currentAnimation.cancel();
+        model = new OriginamiModel();
+        model.createRose();
+        renderer.render(model);
+        updateDisplay();
+        document.getElementById('animStatus').textContent = 'Rose créée';
+    }
+
+    function reset() {
+        if (currentAnimation) currentAnimation.cancel();
+        model = new OriginamiModel();
+        model.createSquare();
+
+        // Réinitialiser les contrôles de vue
+        document.getElementById('rotX').value = 0;
+        document.getElementById('rotY').value = 0;
+        document.getElementById('zoom').value = 1;
+        model.viewRotation = { x: 0, y: 0, z: 0 };
+        model.zoom = 1;
+
+        renderer.render(model);
+        updateDisplay();
+        document.getElementById('animStatus').textContent = 'Modèle réinitialisé';
+    }
+
+    // Contrôles de vue
+    function updateView() {
+        const rotX = parseFloat(document.getElementById('rotX').value) * Math.PI / 180;
+        const rotY = parseFloat(document.getElementById('rotY').value) * Math.PI / 180;
+        const zoom = parseFloat(document.getElementById('zoom').value);
+
+        document.getElementById('rotXValue').textContent = Math.round(rotX * 180 / Math.PI) + '°';
+        document.getElementById('rotYValue').textContent = Math.round(rotY * 180 / Math.PI) + '°';
+        document.getElementById('zoomValue').textContent = zoom.toFixed(1);
+
+        model.viewRotation = { x: rotX, y: rotY, z: 0 };
+        model.zoom = zoom;
+
+        renderer.render(model);
+    }
+
+    // Mise à jour de l'affichage des informations
+    function updateDisplay() {
+        document.getElementById('pointCount').textContent = model.points.length;
+        document.getElementById('faceCount').textContent = model.faces.length;
+    }
+
+    // Afficher le modèle dans la console
+    function logModel() {
+        console.log('=== MODÈLE ORIGAMI ===');
+        console.log('Points:', model.points);
+        console.log('Faces:', model.faces);
+        console.log('Centre:', model.center);
+        console.log('Rotation vue:', model.viewRotation);
+        console.log('Zoom:', model.zoom);
+
+        // Afficher aussi dans l'interface
+        const info = `
+Points: ${model.points.length}
+Faces: ${model.faces.length}
+Centre: (${model.center.x.toFixed(1)}, ${model.center.y.toFixed(1)}, ${model.center.z.toFixed(1)})
+            `;
+        alert('Modèle affiché dans la console\n' + info);
+    }
+
+    // Animation de démonstration au chargement
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            // Animation d'introduction subtile
+            model.viewRotation = { x: 0.2, y: 0.3, z: 0 };
+            renderer.render(model);
+
+            // Petite animation de rotation pour montrer la 3D
+            let rotationDemo = 0;
+            const rotateInterval = setInterval(() => {
+                rotationDemo += 0.02;
+                model.viewRotation.y = 0.3 + Math.sin(rotationDemo) * 0.2;
+                renderer.render(model);
+
+                if (rotationDemo > Math.PI * 2) {
+                    clearInterval(rotateInterval);
+                    model.viewRotation = { x: 0, y: 0, z: 0 };
+                    renderer.render(model);
+                    document.getElementById('animStatus').textContent = 'Prêt pour l\'animation';
+                }
+            }, 50);
+        }, 1000);
+    });
+
+    // Raccourcis clavier
+    document.addEventListener('keydown', (e) => {
+        switch(e.key) {
+            case '1': animateSplit(); break;
+            case '2': animateRotate(); break;
+            case '3': animateAdjust(); break;
+            case '4': animateSequence(); break;
+            case 'r': case 'R': reset(); break;
+            case 's': case 'S': createSquare(); break;
+            case 'c': case 'C': createCrane(); break;
+            case 'f': case 'F': createRose(); break;
+            case 'Escape':
+                if (currentAnimation) {
+                    currentAnimation.cancel();
+                    document.getElementById('animStatus').textContent = 'Animation annulée';
+                }
+                break;
+        }
+    });
+
+    // Gestion du redimensionnement
+    window.addEventListener('resize', () => {
+        const canvas = document.getElementById('origamiCanvas');
+        const container = canvas.parentElement;
+        const maxWidth = Math.min(container.clientWidth - 40, 800);
+        const maxHeight = Math.min(window.innerHeight * 0.6, 600);
+
+        canvas.width = maxWidth;
+        canvas.height = maxHeight;
+
+        renderer.width = maxWidth;
+        renderer.height = maxHeight;
+        renderer.render(model);
+    });
+
+    // Interaction souris pour rotation manuelle
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    document.getElementById('origamiCanvas').addEventListener('mousedown', (e) => {
+        isDragging = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const deltaX = e.clientX - lastMouseX;
+        const deltaY = e.clientY - lastMouseY;
+
+        model.viewRotation.y += deltaX * 0.01;
+        model.viewRotation.x += deltaY * 0.01;
+
+        // Mettre à jour les sliders
+        document.getElementById('rotX').value = model.viewRotation.x * 180 / Math.PI;
+        document.getElementById('rotY').value = model.viewRotation.y * 180 / Math.PI;
+        document.getElementById('rotXValue').textContent = Math.round(model.viewRotation.x * 180 / Math.PI) + '°';
+        document.getElementById('rotYValue').textContent = Math.round(model.viewRotation.y * 180 / Math.PI) + '°';
+
+        renderer.render(model);
+
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    // Zoom avec la molette
+    document.getElementById('origamiCanvas').addEventListener('wheel', (e) => {
+        e.preventDefault();
+
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        model.zoom = Math.max(0.5, Math.min(3, model.zoom * zoomFactor));
+
+        document.getElementById('zoom').value = model.zoom;
+        document.getElementById('zoomValue').textContent = model.zoom.toFixed(1);
+
+        renderer.render(model);
+    });
+
+    console.log('🎌 Animateur d\'Origami 3D chargé!');
+    console.log('Raccourcis clavier:');
+    console.log('1: Split | 2: Rotate | 3: Adjust | 4: Séquence');
+    console.log('S: Carré | C: Grue | F: Rose | R: Reset | Échap: Annuler');
+</script>
+</body>
+</html>
