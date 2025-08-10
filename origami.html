@@ -6,21 +6,21 @@
   <title>Origami - Three.js</title>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #CCE4FF; }
-    #info { position: absolute; top: 10px; left: 10px; color: #CCE4FF; font-family: system-ui, Arial, sans-serif; background: rgba(255,255,255,0.5); padding: 8px 10px; border-radius: 6px; }
+    #info { position: absolute; top: 10px; left: 10px; color: rgba(0, 128, 255, 0.8); font-family: system-ui, Arial, sans-serif; background: rgba(255,255,255,0.5); padding: 8px 10px; border-radius: 6px; }
   </style>
-  <!-- Import Three.js via CDN -->
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.159.0/build/three.module.js"
-      }
-    }
-  </script>
 </head>
 <body>
-<div id="info">Vue 3D d'un carré 200×200 — Glisser pour pivoter, molette pour zoomer, double‑clic pour réinitialiser, glisser d’un coin à l’autre pour couper</div>
+<div id="info">Origami Glisser pour pivoter, molette pour zoomer, double‑clic pour réinitialiser, glisser d’un coin à l’autre pour couper, ou d’un coin vers un segment pour un pli perpendiculaire</div>
+<div id="rec" style="position:absolute; top:10px; right:10px; background:rgba(255,255,255,0.6); padding:8px 10px; border-radius:6px; font-family:system-ui, Arial, sans-serif; color:#0060c0;">
+  <button id="btnStart">Enregistrer</button>
+  <button id="btnStop">Stop</button>
+  <button id="btnReplay">Rejouer</button>
+  <button id="btnExport">Exporter</button>
+  <button id="btnClear">Vider</button>
+  <span id="recStatus" style="margin-left:8px;">0 action</span>
+</div>
 <script type="module">
-  import * as THREE from 'three';
+  import * as THREE from './js/three.module.js';
 
   // Scène
   const scene = new THREE.Scene();
@@ -37,6 +37,108 @@
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   document.body.appendChild(renderer.domElement);
+
+    // Enregistreur d'actions (minimal)
+    const LS_KEY_LOG = 'origamiActionLog';
+    const LS_KEY_AUTO = 'origamiAutoReplay';
+    let isRecording = false;
+    let isReplaying = false;
+    let actionLog = [];
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const btnReplay = document.getElementById('btnReplay');
+    const btnExport = document.getElementById('btnExport');
+    const btnClear = document.getElementById('btnClear');
+    const recStatus = document.getElementById('recStatus');
+
+    function updateRecStatus() {
+      recStatus.textContent = `${actionLog.length} ${actionLog.length > 1 ? 'actions' : 'action'}${isRecording ? ' • REC' : ''}`;
+    }
+    function logAction(a) {
+      if (!isRecording || isReplaying) return;
+      actionLog.push({ ...a, ts: performance.now() });
+      updateRecStatus();
+    }
+    function startRecording() {
+      isRecording = true;
+      updateRecStatus();
+    }
+    function stopRecording() {
+      isRecording = false;
+      updateRecStatus();
+    }
+    function clearLog() {
+      actionLog = [];
+      updateRecStatus();
+    }
+    function exportLog() {
+      const data = JSON.stringify(actionLog, null, 2);
+      try { navigator.clipboard.writeText(data); } catch {}
+      console.log('Action log:', data);
+      alert('Journal copié dans le presse-papiers et loggé en console.');
+    }
+    btnStart.addEventListener('click', startRecording);
+    btnStop.addEventListener('click', stopRecording);
+    btnExport.addEventListener('click', exportLog);
+    btnClear.addEventListener('click', clearLog);
+    updateRecStatus();
+
+    async function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+    function findSegmentByEndpoints(ax, ay, bx, by, eps = 1e-3) {
+      const match = (obj) => {
+        const ua = obj && obj.userData && obj.userData.a;
+        const ub = obj && obj.userData && obj.userData.b;
+        if (!ua || !ub) return false;
+        const d1 = (ua.x-ax)**2 + (ua.y-ay)**2 + (ub.x-bx)**2 + (ub.y-by)**2;
+        const d2 = (ua.x-bx)**2 + (ua.y-by)**2 + (ub.x-ax)**2 + (ub.y-ay)**2;
+        return d1 < eps*eps || d2 < eps*eps;
+      }
+      const pools = [edgesGroup, creasesGroup, plane];
+      for (const pool of pools) {
+        const stack = [...(pool.children||[])];
+        while (stack.length){
+          const obj = stack.pop();
+          if (match(obj)) return obj;
+          if (obj.children && obj.children.length) stack.push(...obj.children);
+        }
+      }
+      // fallback: dummy seg object with a/b
+      return { userData: { a: new THREE.Vector3(ax, ay, 0), b: new THREE.Vector3(bx, by, 0) } };
+    }
+    async function runReplayFromLog(log){
+      isReplaying = true;
+      stopRecording();
+      updateRecStatus();
+      for (const a of log) {
+      if (a.t === 'cutDiagonal') {
+        const pA = pointMeshes[a.from];
+        const pB = pointMeshes[a.to];
+        if (pA && pB) performCut(pA, pB);
+        await sleep(foldDuration + 150);
+        continue;
+      } else if (a.t === 'perpendicularCrease') {
+        const pt = pointMeshes[a.point];
+        if (pt && a.seg && a.seg.length === 4) {
+          const segObj = findSegmentByEndpoints(a.seg[0], a.seg[1], a.seg[2], a.seg[3]);
+          addPerpendicularCreaseFromPointToSegment(pt, segObj);
+        }
+      } else if (a.t === 'reset') {
+        resetViewAndState();
+      }
+      await sleep(300);
+    }
+      isReplaying = false;
+      updateRecStatus();
+    }
+    function replayActions() {
+      // Sauver et recharger pour repartir d'un état propre (optionnel mais robuste)
+      try {
+        localStorage.setItem(LS_KEY_LOG, JSON.stringify(actionLog));
+        localStorage.setItem(LS_KEY_AUTO, '1');
+      } catch {}
+      window.location.reload();
+    }
+    btnReplay.addEventListener('click', replayActions);
 
   // Lumières (facultatives car on utilise MeshBasicMaterial pour le carré)
   const ambient = new THREE.AmbientLight(0xffffff, 0.6);
@@ -64,6 +166,10 @@
   plane.add(planeBack);
   scene.add(plane);
 
+  // Groupe des lignes de pli (creases) pour le survol
+  const creasesGroup = new THREE.Group();
+  plane.add(creasesGroup);
+
   // Points (coins) du carré pour interaction hover
   const pointGeom = new THREE.SphereGeometry(4, 16, 16);
   const defaultPointColor = 0x87CEEB; // skyblue
@@ -83,34 +189,219 @@
   });
   pointMeshes.forEach(m => plane.add(m)); // attach to plane so they follow its rotation
 
-  let hoveredPoint = null;
+  let hoveredPoints = [];
   const raycaster = new THREE.Raycaster();
+  // Améliore le picking sur les lignes
+  raycaster.params.Line.threshold = 4;
   const pointerNDC = new THREE.Vector2();
   function updatePointerNDC(e) {
-      // NDC signifie "Normalized Device Coordinates
+      // NDC signifie "Normalized Device Coordinates"
       const rect = renderer.domElement.getBoundingClientRect();
       pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   }
-  function setHovered(mesh) {
-    if (hoveredPoint === mesh) return;
-    if (hoveredPoint) {
-      hoveredPoint.material.color.set(defaultPointColor);
-      hoveredPoint.scale.set(1, 1, 1);
+  function setHoveredPoints(points) {
+    const newPoints = Array.isArray(points) ? points.filter(Boolean) : [];
+    // If same by identity and length, skip
+    if (hoveredPoints.length === newPoints.length && hoveredPoints.every((p, i) => p === newPoints[i])) {
+      return;
     }
-    hoveredPoint = mesh || null;
-    if (hoveredPoint) {
-      hoveredPoint.material.color.set(hoverPointColor);
-      hoveredPoint.scale.set(1.66, 1.66, 1.66); // approx 10/6 ratio
-    }
+    // Restore previous
+    hoveredPoints.forEach(p => {
+      if (p && p.material) {
+        p.material.color.set(defaultPointColor);
+        p.scale.set(1, 1, 1);
+      }
+    });
+    hoveredPoints = newPoints;
+    // Highlight new
+    hoveredPoints.forEach(p => {
+      if (p && p.material) {
+        p.material.color.set(hoverPointColor);
+        p.scale.set(1.66, 1.66, 1.66);
+      }
+    });
     if (!isDragging) {
-      renderer.domElement.style.cursor = hoveredPoint ? 'pointer' : 'grab';
+      renderer.domElement.style.cursor = hoveredPoints.length ? 'pointer' : 'grab';
     }
   }
+  // Gestion du survol d'une ligne (générique)
+  // Gestion du survol de toutes les lignes (contour, plis, arêtes de face)
+  let hoveredLines = [];
+  const lineHoverColor = 0xff0000;
+  const creaseDefaultColor = 0xffffff;
+  // Utilitaires: segments épais (Mesh) visibles sur tous navigateurs
+  const SEG_THICKNESS = 2.5; // épaisseur en unités monde (≈ visible comme 4px à distance par défaut)
+  function setSegmentTransform(mesh, a, b, thickness = SEG_THICKNESS) {
+    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+    const len = Math.sqrt(dx*dx + dy*dy + dz*dz) || 0.0001;
+    const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
+    mesh.position.set(mid.x, mid.y, mid.z);
+    // Orienter dans le plan XY (le papier est au départ sur Z=0 et on synchronise la rotation ailleurs)
+    const angleZ = Math.atan2(dy, dx);
+    mesh.rotation.set(0, 0, angleZ);
+    mesh.scale.set(len, thickness, 1);
+  }
+  function createThickSegment(a, b, color = 0xffffff, opts = {}) {
+    const thickness = opts.thickness !== undefined ? opts.thickness : SEG_THICKNESS;
+    const geom = new THREE.PlaneGeometry(1, 1);
+    const mat = new THREE.MeshBasicMaterial({ color, depthTest: opts.depthTest !== false, side: THREE.DoubleSide });
+    const m = new THREE.Mesh(geom, mat);
+    setSegmentTransform(m, a, b, thickness);
+    // Optionnel: décaler le segment vers l'intérieur de la face de moitié de l'épaisseur
+    if (opts.offsetDir && (opts.offsetDir.x !== 0 || opts.offsetDir.y !== 0)) {
+      const n = new THREE.Vector3(opts.offsetDir.x, opts.offsetDir.y, 0).normalize();
+      m.position.add(n.multiplyScalar(thickness * 0.5));
+    }
+    m.renderOrder = opts.renderOrder !== undefined ? opts.renderOrder : 2;
+    m.userData.hoverableLine = true;
+    m.userData.baseColor = color;
+    // Conserver les extrémités locales du segment pour calculs (perpendicular, intersections)
+    m.userData.a = a.clone();
+    m.userData.b = b.clone();
+    return m;
+  }
+  function setHoveredLines(lines) {
+    const newLines = Array.isArray(lines) ? lines.filter(Boolean) : [];
+    // If same set (by identity and size), no changes
+    if (hoveredLines.length === newLines.length && hoveredLines.every((o, i) => o === newLines[i])) {
+      return;
+    }
+    // Restore previous ones
+    hoveredLines.forEach(obj => {
+      if (obj && obj.material && obj.material.color) {
+        const base = obj.userData && obj.userData.baseColor !== undefined ? obj.userData.baseColor : 0xffffff;
+        obj.material.color.set(base);
+      }
+    });
+    hoveredLines = newLines;
+    // Highlight new ones
+    hoveredLines.forEach(obj => {
+      if (obj && obj.material && obj.material.color) {
+        if (obj.userData.baseColor === undefined) {
+          obj.userData.baseColor = obj.material.color.getHex();
+        }
+        obj.material.color.set(lineHoverColor);
+      }
+    });
+    if (!isDragging) {
+      if (!hoveredPoints.length) {
+        renderer.domElement.style.cursor = hoveredLines.length ? 'pointer' : 'grab';
+      }
+    }
+  }
+
+  // --- Helpers géométriques pour pli point->segment (perpendiculaire) ---
+  function v2(x, y) { return new THREE.Vector3(x, y, 0); }
+  function sub2(a, b) { return v2(a.x - b.x, a.y - b.y); }
+  function add2(a, b) { return v2(a.x + b.x, a.y + b.y); }
+  function mul2(a, s) { return v2(a.x * s, a.y * s); }
+  function cross2(a, b) { return a.x * b.y - a.y * b.x; }
+  function almostEqual(a, b, eps = 1e-6) { return Math.abs(a - b) < eps; }
+
+  // Intersection entre la droite infinie (P0 + t*v) et un segment [A,B]. Renvoie point ou null
+  function intersectInfiniteLineWithSegment(P0, v, A, B) {
+    const w = sub2(B, A);
+    const den = cross2(v, w);
+    if (almostEqual(den, 0)) return null; // parallèle
+    const AP0 = sub2(A, P0);
+    const t = cross2(AP0, w) / den; // paramètre sur la droite
+    const u = cross2(AP0, v) / den; // paramètre sur le segment [0,1]
+    if (u < -1e-6 || u > 1 + 1e-6) return null;
+    return add2(P0, mul2(v, t));
+  }
+
+  // Récupère tous les segments de frontière actuels (contour global + arêtes de faces)
+  function getBoundarySegments() {
+    const segs = [];
+    const collect = (obj) => {
+      obj.children.forEach(ch => {
+        if (ch.userData && ch.userData.a && ch.userData.b && ch.userData.isCrease !== true) {
+          segs.push({ a: ch.userData.a, b: ch.userData.b });
+        }
+      });
+    };
+    collect(edgesGroup);
+    // segments attachés aux faces (après découpe/pliage)
+    plane.children.forEach(ch => {
+      if (ch.userData && ch.userData.tag === 'paper') {
+        ch.children.forEach(grand => {
+          if (grand.userData && grand.userData.a && grand.userData.b && grand.userData.isCrease !== true) {
+            segs.push({ a: grand.userData.a, b: grand.userData.b });
+          }
+        });
+      }
+    });
+    return segs;
+  }
+
+  // Calcule les deux extrémités du pli perpendiculaire au segment cible, passant par le point P0
+  function computePerpendicularEndpointsThroughPoint(P0, targetSeg) {
+    const A = targetSeg.userData.a, B = targetSeg.userData.b;
+    if (!A || !B) return null;
+    const dir = sub2(B, A);
+    const len = Math.hypot(dir.x, dir.y);
+    if (len < 1e-6) return null;
+    // vecteur perpendiculaire (roté de +90°)
+    const v = v2(-dir.y / len, dir.x / len);
+
+    const segs = getBoundarySegments();
+    const hits = [];
+    for (const s of segs) {
+      const h = intersectInfiniteLineWithSegment(P0, v, s.a, s.b);
+      if (h) hits.push(h);
+    }
+    if (hits.length < 2) {
+      return null; // pas assez d'intersections pour tracer à travers le papier
+    }
+    // Trier par projection le long de v, choisir extrêmes
+    const toT = (pt) => (pt.x - P0.x) * v.x + (pt.y - P0.y) * v.y;
+    hits.sort((p, q) => toT(p) - toT(q));
+    const p1 = hits[0];
+    const p2 = hits[hits.length - 1];
+    return { p1, p2 };
+  }
+
+  function addPerpendicularCreaseFromPointToSegment(pointMesh, segObj) {
+    const P0 = pointMesh.position.clone();
+    const res = computePerpendicularEndpointsThroughPoint(P0, segObj);
+    if (!res) return null;
+    const l = createThickSegment(res.p1, res.p2, creaseDefaultColor, { thickness: SEG_THICKNESS, depthTest: false, renderOrder: 3 });
+    l.userData.isCrease = true;
+    creasesGroup.add(l);
+    return l;
+  }
+
   function detectHover() {
     raycaster.setFromCamera(pointerNDC, camera);
-    const intersects = raycaster.intersectObjects(pointMeshes, true);
-    setHovered(intersects.length ? intersects[0].object : null);
+    // 1) Survol des points (tous les points touchés)
+    const pointHits = raycaster.intersectObjects(pointMeshes, true);
+    const pointObjs = [];
+    const seenPts = new Set();
+    for (const h of pointHits) {
+      const obj = h.object;
+      if (!seenPts.has(obj)) { seenPts.add(obj); pointObjs.push(obj); }
+    }
+    setHoveredPoints(pointObjs);
+    // 2) Si aucun point survolé, tester toutes les lignes hoverables (contours, plis, arêtes de face)
+    if (!pointObjs.length) {
+      const potentials = [edgesGroup, creasesGroup, plane];
+      const lineHits = raycaster.intersectObjects(potentials, true)
+        .filter(h => h.object && h.object.userData && h.object.userData.hoverableLine);
+      // Récupérer tous les objets touchés (en conservant l'ordre de profondeur) et supprimer les doublons
+      const hitObjects = [];
+      const seen = new Set();
+      for (const h of lineHits) {
+        const obj = h.object;
+        if (!seen.has(obj)) {
+          seen.add(obj);
+          hitObjects.push(obj);
+        }
+      }
+      setHoveredLines(hitObjects);
+    } else {
+      setHoveredLines([]);
+    }
   }
 
   // Contour du carré pour bien voir les bords (groupe pour pouvoir reconstruire après une découpe)
@@ -119,17 +410,25 @@
   function rebuildEdges(geometries) {
     // Clear existing edges
     while (edgesGroup.children.length) edgesGroup.remove(edgesGroup.children[0]);
-    const mat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
     geometries.forEach((g) => {
       const e = new THREE.EdgesGeometry(g);
-      const l = new THREE.LineSegments(e, mat);
-      edgesGroup.add(l);
+      const pos = e.getAttribute('position');
+      const arr = pos.array;
+      // Create one Line per segment so hover only affects that segment
+      for (let i = 0; i < arr.length; i += 6) {
+        const a = new THREE.Vector3(arr[i],   arr[i+1], arr[i+2]);
+        const b = new THREE.Vector3(arr[i+3], arr[i+4], arr[i+5]);
+        const segMesh = createThickSegment(a, b, 0xffffff, { thickness: SEG_THICKNESS, depthTest: false, renderOrder: 2 });
+        edgesGroup.add(segMesh);
+      }
     });
     // Synchronize rotation with plane
     edgesGroup.rotation.copy(plane.rotation);
   }
   // Initial edges for the full square
   rebuildEdges([planeGeo]);
+  // Ajoute une ligne de pli diagonale initiale pour tests point→segment
+  addCreaseLine(0, 2);
 
   // Aide visuelle: axes
   const axes = new THREE.AxesHelper(120);
@@ -158,25 +457,24 @@
   renderer.domElement.style.cursor = 'grab';
 
   renderer.domElement.addEventListener('pointerdown', (e) => {
+      if (isReplaying) return;
     // Déterminer si on clique sur un point pour commencer une découpe
     updatePointerNDC(e);
     detectHover();
-    if (hoveredPoint && !hasCut) {
-      cutStart = hoveredPoint;
-      renderer.domElement.setPointerCapture(e.pointerId);
-      renderer.domElement.style.cursor = 'crosshair';
-      // Créer une ligne de prévisualisation
-      if (cutPreviewLine) { plane.remove(cutPreviewLine); cutPreviewLine.geometry.dispose(); cutPreviewLine.material.dispose(); cutPreviewLine = null; }
-      const geom = new THREE.BufferGeometry();
-      const p = cutStart.position;
-      const positions = new Float32Array([p.x, p.y, p.z, p.x, p.y, p.z]);
-      geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      const mat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2, depthTest: false });
-      cutPreviewLine = new THREE.Line(geom, mat);
-      cutPreviewLine.renderOrder = 3;
-      plane.add(cutPreviewLine);
-      // ne pas activer la rotation
-      return;
+    if (hoveredPoints.length && !foldActive) {
+      // prendre le point le plus proche (premier du tableau)
+      cutStart = hoveredPoints.find(p => p) || null;
+      if (cutStart) {
+        renderer.domElement.setPointerCapture(e.pointerId);
+        renderer.domElement.style.cursor = 'crosshair';
+        // Créer une ligne de prévisualisation (segment épais rouge)
+        if (cutPreviewLine) { plane.remove(cutPreviewLine); cutPreviewLine.geometry.dispose(); cutPreviewLine.material.dispose(); cutPreviewLine = null; }
+        const p = cutStart.position.clone();
+        cutPreviewLine = createThickSegment(p, p.clone(), 0xff0000, { thickness: SEG_THICKNESS, depthTest: false, renderOrder: 3 });
+        plane.add(cutPreviewLine);
+        // ne pas activer la rotation
+        return;
+      }
     }
     // Sinon: rotation
     isDragging = true;
@@ -191,27 +489,33 @@
     updatePointerNDC(e);
     detectHover();
     if (cutStart) {
-      // Mettre à jour la ligne de prévisualisation: vers le point survolé ou l'intersection sur le papier
+      // Mettre à jour la ligne de prévisualisation
       if (cutPreviewLine) {
-        const posAttr = cutPreviewLine.geometry.getAttribute('position');
-        let target;
-        if (hoveredPoint && hoveredPoint !== cutStart) {
-          target = hoveredPoint.position.clone();
-        } else {
-          raycaster.setFromCamera(pointerNDC, camera);
-          const intersects = raycaster.intersectObjects(paperMeshes, true);
-          if (intersects.length) {
-            // convertir en coords locales du plane
-            target = plane.worldToLocal(intersects[0].point.clone());
-          } else {
-            // fallback: projeter loin devant
-            target = cutStart.position.clone();
+        // Si on survole un segment, afficher la perpendiculaire de prévisualisation
+        const segObj = (hoveredLines || []).find(o => o && o.userData && o.userData.a && o.userData.b);
+        if (segObj) {
+          const P0 = cutStart.position.clone();
+          const res = computePerpendicularEndpointsThroughPoint(P0, segObj);
+          if (res) {
+            setSegmentTransform(cutPreviewLine, res.p1, res.p2, SEG_THICKNESS);
           }
+        } else {
+          // sinon, ligne du point vers la souris (intersection papier)
+          let target;
+          const hp = (hoveredPoints || []).find(p => p && p !== cutStart);
+          if (hp) {
+            target = hp.position.clone();
+          } else {
+            raycaster.setFromCamera(pointerNDC, camera);
+            const intersects = raycaster.intersectObjects(paperMeshes, true);
+            if (intersects.length) {
+              target = plane.worldToLocal(intersects[0].point.clone());
+            } else {
+              target = cutStart.position.clone();
+            }
+          }
+          setSegmentTransform(cutPreviewLine, cutStart.position, target, SEG_THICKNESS);
         }
-        posAttr.setXYZ(0, cutStart.position.x, cutStart.position.y, cutStart.position.z);
-        posAttr.setXYZ(1, target.x, target.y, target.z);
-        posAttr.needsUpdate = true;
-        cutPreviewLine.geometry.computeBoundingSphere();
       }
       return;
     }
@@ -283,8 +587,16 @@
     // Reconstruire les arêtes pour refléter les deux triangles (inclut la diagonale)
     rebuildEdges([g1, g2]);
 
+    // Ajouter la ligne de pli (diagonale) pour le survol
+    const iA = diag1 ? 0 : 1;
+    const iB = diag1 ? 2 : 3;
+    addCreaseLine(iA, iB);
+
+    // Enregistrer l'action
+    logAction({ t: 'cutDiagonal', from: iA, to: iB });
+
     // Préparer l'animation de pliage autour de la diagonale
-    startDiagonalFold(diag1 ? 0 : 1, diag1 ? 2 : 3, face2);
+    startDiagonalFold(iA, iB, face2);
 
     hasCut = true;
   }
@@ -292,10 +604,29 @@
   function endDrag(e) {
     const isLeave = e && e.type === 'pointerleave';
     if (cutStart) {
-      // Fin d'une tentative de découpe
+      // Fin d'une tentative de découpe / pli point->segment
       try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
-      if (!isLeave && hoveredPoint && hoveredPoint !== cutStart) {
-        performCut(cutStart, hoveredPoint);
+      if (!isLeave) {
+        const hpEnd = (hoveredPoints || []).find(p => p && p !== cutStart);
+        if (hpEnd) {
+          // découpe diagonale entre 2 coins opposés (seulement si aucune découpe diagonale n'a encore été faite)
+          if (!hasCut) {
+            performCut(cutStart, hpEnd);
+          }
+          // sinon, ignorer la deuxième découpe diagonale pour ne pas réinitialiser la géométrie
+        } else if ((hoveredLines || []).length) {
+          // pli perpendiculaire d'un point vers un segment
+          const segObj = hoveredLines.find(o => o && o.userData && o.userData.a && o.userData.b);
+          if (segObj) {
+            // Enregistrer l'action
+            const pi = pointMeshes.indexOf(cutStart);
+            if (pi !== -1 && segObj.userData && segObj.userData.a && segObj.userData.b) {
+              const a = segObj.userData.a, b = segObj.userData.b;
+              logAction({ t: 'perpendicularCrease', point: pi, seg: [a.x, a.y, b.x, b.y] });
+            }
+            addPerpendicularCreaseFromPointToSegment(cutStart, segObj);
+          }
+        }
       }
       // Retirer la ligne de prévisualisation
       if (cutPreviewLine) {
@@ -306,13 +637,14 @@
       }
       cutStart = null;
       // Mettre à jour le curseur selon le survol
-      renderer.domElement.style.cursor = hoveredPoint ? 'pointer' : 'grab';
+      renderer.domElement.style.cursor = hoveredPoints.length ? 'pointer' : 'grab';
       return;
     }
     if (!isDragging) {
       if (isLeave) {
         // Clear hover when leaving canvas
-        setHovered(null);
+        setHoveredPoints([]);
+        setHoveredLines([]);
         renderer.domElement.style.cursor = 'grab';
       } else if (e) {
         // Update hover state on end events (e.g., pointerup without dragging)
@@ -324,12 +656,12 @@
     isDragging = false;
     try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
     if (isLeave) {
-      setHovered(null);
+      setHoveredPoints([]);
       renderer.domElement.style.cursor = 'grab';
     } else {
       // After ending drag, recompute hover to set correct cursor if over a point
       if (e) { updatePointerNDC(e); detectHover(); }
-      renderer.domElement.style.cursor = hoveredPoint ? 'pointer' : 'grab';
+      renderer.domElement.style.cursor = hoveredPoints.length ? 'pointer' : 'grab';
     }
   }
 
@@ -338,6 +670,7 @@
 
   // Zoom basique avec la molette
   renderer.domElement.addEventListener('wheel', (e) => {
+    if (isReplaying) return;
     e.preventDefault();
     const delta = Math.sign(e.deltaY); // 1 = zoom out, -1 = zoom in
     const dir = camera.position.clone().normalize();
@@ -347,8 +680,7 @@
     camera.lookAt(0, 0, 0);
   }, { passive: false });
 
-  // Double-clic pour réinitialiser rotation et zoom
-  renderer.domElement.addEventListener('dblclick', () => {
+  function resetViewAndState() {
     // Réinitialiser la rotation du carré (et du contour)
     plane.rotation.set(0, 0, 0);
     edgesGroup.rotation.copy(plane.rotation);
@@ -362,8 +694,18 @@
       cutPreviewLine.material.dispose();
       cutPreviewLine = null;
     }
+    // Nettoyer le survol des points et des lignes
+    setHoveredPoints([]);
+    setHoveredLines([]);
     // Arrêter un éventuel drag en cours
     isDragging = false;
+  }
+
+  // Double-clic pour réinitialiser rotation et zoom
+  renderer.domElement.addEventListener('dblclick', () => {
+    if (isReplaying) return;
+    resetViewAndState();
+    logAction({ t: 'reset' });
   });
 
   // Fonction utilitaire: attacher des arêtes blanches à un groupe de face (utilise la géométrie du premier mesh enfant)
@@ -372,10 +714,39 @@
     const firstMesh = faceGroup.children.find(c => c.isMesh);
     if (!firstMesh) return;
     const e = new THREE.EdgesGeometry(firstMesh.geometry);
-    const mat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
-    const l = new THREE.LineSegments(e, mat);
-    l.renderOrder = 2;
-    faceGroup.add(l);
+    const pos = e.getAttribute('position');
+    const arr = pos.array;
+    for (let i = 0; i < arr.length; i += 6) {
+      const a = new THREE.Vector3(arr[i],   arr[i+1], arr[i+2]);
+      const b = new THREE.Vector3(arr[i+3], arr[i+4], arr[i+5]);
+      const segMesh = createThickSegment(a, b, 0xffffff, { thickness: SEG_THICKNESS, depthTest: false, renderOrder: 2 });
+      faceGroup.add(segMesh);
+    }
+  }
+
+  // Ajoute une ligne de pli (diagonale) entre deux coins iA et iB
+  function addCreaseLine(iA, iB) {
+    const pA = cornerPositions[iA].clone();
+    const pB = cornerPositions[iB].clone();
+    const l = createThickSegment(pA, pB, creaseDefaultColor, { thickness: SEG_THICKNESS, depthTest: false, renderOrder: 3 });
+    l.userData.isCrease = true;
+    creasesGroup.add(l);
+    return l;
+  }
+
+  // Calcule un vecteur perpendiculaire unitaire à AB pointant vers C (dans le plan XY)
+  function getInsetDir(A, B, C) {
+    const AB = new THREE.Vector3(B.x - A.x, B.y - A.y, 0);
+    const len = Math.hypot(AB.x, AB.y);
+    if (len < 1e-6) return new THREE.Vector3(0, 0, 0);
+    // deux perpendiculaires possibles
+    const n1 = new THREE.Vector3(-AB.y / len, AB.x / len, 0);
+    const n2 = new THREE.Vector3( AB.y / len,-AB.x / len, 0);
+    const AC = new THREE.Vector3(C.x - A.x, C.y - A.y, 0);
+    // Choisir celle qui pointe le plus vers C (produit scalaire max)
+    const d1 = n1.dot(AC);
+    const d2 = n2.dot(AC);
+    return d1 >= d2 ? n1 : n2;
   }
 
   // Démarre l'animation de pliage autour de la diagonale [iA-iB]. foldingFace est le groupe de face à plier
@@ -390,6 +761,38 @@
     // Construire un pivot (charnière) au point iA et aligner l'axe sur la diagonale
     const pA = cornerPositions[iA].clone();
     const pB = cornerPositions[iB].clone();
+
+    // Remplacer la ligne de pli diagonale globale par deux lignes attachées aux faces
+    const eps = 1e-6;
+    const isSameSeg = (obj, A, B) => {
+      const a = obj && obj.userData && obj.userData.a;
+      const b = obj && obj.userData && obj.userData.b;
+      if (!a || !b) return false;
+      return ((a.distanceTo(A) < eps && b.distanceTo(B) < eps) || (a.distanceTo(B) < eps && b.distanceTo(A) < eps));
+    };
+    const toRemove = [];
+    creasesGroup.children.forEach(ch => { if (isSameSeg(ch, pA, pB)) toRemove.push(ch); });
+    toRemove.forEach(ch => { creasesGroup.remove(ch); if (ch.geometry && ch.geometry.dispose) ch.geometry.dispose(); if (ch.material && ch.material.dispose) ch.material.dispose(); });
+    // Déterminer les indices des sommets de chaque triangle pour pouvoir décaler la diagonale vers l'intérieur
+    const isDiag02 = (iA === 0 && iB === 2) || (iA === 2 && iB === 0);
+    const tri1 = isDiag02 ? [0,1,2] : [1,2,3];
+    const tri2 = isDiag02 ? [0,2,3] : [1,3,0];
+    // foldingFace correspond à tri2 (par construction dans performCut/start)
+    const cFoldIdx = tri2.find(k => k !== iA && k !== iB);
+    const cOtherIdx = tri1.find(k => k !== iA && k !== iB);
+    const pCfold = cornerPositions[cFoldIdx].clone();
+    const pCother = cornerPositions[cOtherIdx].clone();
+    const insetFold = getInsetDir(pA, pB, pCfold);
+    const insetOther = getInsetDir(pA, pB, pCother);
+    // Ajouter une moitié sur chaque face pour que la diagonale suive le mouvement, en la décalant vers l'intérieur de la face
+    const creaseOnFolding = createThickSegment(pA, pB, creaseDefaultColor, { thickness: SEG_THICKNESS, depthTest: true, renderOrder: 3, offsetDir: insetFold });
+    creaseOnFolding.userData.isCrease = true;
+    foldingFace.add(creaseOnFolding);
+    const creaseOnOther = createThickSegment(pA, pB, creaseDefaultColor, { thickness: SEG_THICKNESS, depthTest: true, renderOrder: 3, offsetDir: insetOther });
+    creaseOnOther.userData.isCrease = true;
+    otherFace.add(creaseOnOther);
+
+    // Poursuivre la configuration de la charnière
     foldAxis.copy(pB).sub(pA).normalize();
     foldHinge = new THREE.Group();
     foldHinge.position.copy(pA);
@@ -398,10 +801,35 @@
     // Re-parent la face qui plie sous la charnière tout en conservant sa transformée monde
     foldHinge.attach(foldingFace);
 
+    // Re-parenter aussi les points (sphères) de la face qui plie pour qu'ils suivent la rotation
+    // Nous plions toujours la deuxième face (face2) créée lors de performCut.
+    // Si la diagonale est (0-2) => face qui plie = [0,2,3]. Si la diagonale est (1-3) => [1,3,0].
+    const foldingIndices = isDiag02 ? [0, 2, 3] : [1, 3, 0];
+    foldingIndices.forEach(idx => {
+      const pm = pointMeshes[idx];
+      if (pm && pm.parent) {
+        foldHinge.attach(pm); // conserve la transformée monde
+      }
+    });
+
     // Init animation
     foldActive = true;
     foldStartTime = performance.now();
     foldApplied = 0;
+  }
+
+  function finalizeFold() {
+    if (!foldHinge) return;
+    // Replacer toutes les entités sous le plan tout en conservant leur transformée monde
+    const children = [...foldHinge.children];
+    children.forEach(ch => {
+      plane.attach(ch);
+    });
+    // Retirer la charnière
+    plane.remove(foldHinge);
+    foldHinge = null;
+    foldApplied = 0;
+    // On laisse edgesGroup masqué; des arêtes sont déjà attachées aux faces
   }
 
   // Boucle de rendu (sans rotation continue)
@@ -421,12 +849,28 @@
       }
       if (t >= 1) {
         foldActive = false;
+        finalizeFold();
       }
     }
+
+    // Rafraîchir l'état de survol en continu pour que le hover fonctionne pendant et après l'animation
+    detectHover();
 
     renderer.render(scene, camera);
   }
   animate();
+
+  // Auto-replay après rechargement si demandé
+  try {
+    if (localStorage.getItem(LS_KEY_AUTO) === '1') {
+      const data = localStorage.getItem(LS_KEY_LOG);
+      localStorage.removeItem(LS_KEY_AUTO);
+      if (data) {
+        const log = JSON.parse(data);
+        setTimeout(() => runReplayFromLog(log), 600);
+      }
+    }
+  } catch {}
 
   // Ajuster au redimensionnement
   window.addEventListener('resize', () => {

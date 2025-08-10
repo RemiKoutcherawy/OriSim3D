@@ -137,5 +137,27 @@ Voici une trame typique que nous pouvons suivre ensemble. Je peux adapter/accél
 - Donnez les chemins de fichiers exacts pour que je fasse des modifications minimales et sûres.
 - Précisez si vous préférez du code prêt à coller ou que je modifie directement les fichiers du dépôt.
 
-Contexte : partir de origami.html Objectif retirer le Shader ShaderMaterial Conserver les couleurs différentes pour les faces avant et arrière. Fichier à modifier : origami.html uniquement
-Fichier à modifier : origami.html uniquement. objectif : ajouter la possibilité de découper les faces en deux en partant d'un point pour aller sur un autre avec la souris.
+Essai IA : Créer une page HTML d'animation d'origami 3D avec Three.js.
+Prompts:
+Contexte : partir de origami.html. Objectif ajouter des couleurs différentes pour les faces avant et arrière.
+Fichier à modifier : origami.html uniquement. Objectif : ajouter la possibilité de découper les faces en deux en partant d'un point pour aller sur un autre avec la souris.
+Ajoute le dessin d'une ligne partant du premier point sélectionné jusqu'au second point.
+Ajoute une animation pour plier suivant la diagonale.
+Corrige le bug de la rotation. La face doit être coupée suivant la diagonale. Le bug : elle est décalée.
+Corrige le bug de la rotation. Le point doit suivre la face qui est tournée.
+Ajoute un hover sur les lignes de pli pour les tracer en rouge lorsque la souris passe dessus.
+Ajoute un hover sur toutes les lignes, et les tracer avec une épaisseur de 4 pixels.
+Corrige  ReferenceError: creaseDefaultColor is not defined at addCreaseLine (origami.html:446:54)
+Corrige lorsqu'un segment est survolé, tous les segments s'affichent en rouge, seul le segment survolé devrait s'afficher en rouge.
+Le bug n'est pas corrigé : tous les segments s'affichent en rouge.
+Corrige le bug linewidth: 4 n'est pas visible.
+Corrige le bug : le survol doit être visible après le pliage.
+Corrige le bug : le survol des lignes doit être visible. Hint : setHoveredLine(lineHits.length ? lineHits[0].object : null); se limite au premier segment, alors qu'il peut y en avoir plusieurs superposés.
+Ajoute la possibilité de faire un pli allant d'un point à un segment. Le pli sera perpendiculaire au segment en passant par le point.
+Corrige le bug : le survol des points doit être visble. Hint : setHovered(pointHits.length ? pointHits[0].object : null); se limite au premier point, alors qu'il peut y en avoir plusieurs superposés.
+Corrige le bug : une fois le pli réalisé, d'autres plis doivent pouvoir être réalisés.
+Ajoute un pli diagonal au carré initial. Ceci doit permettre de tester le pli d'un point vers un segment.
+Corrige le bug : une fois le pli réalisé, la diagonale n'est pas coupée, le segment dépasse du triangle.
+Le bug n'est pas corrigé. La ligne dépasse du triangle.
+Le bug n'est pas corrigé. La diagonale dépasse du triangle, elle n'est pas coupée.
+Ajoute la possibilité d'enregistrer les actions pour les rejouer.
