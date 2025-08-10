@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Carré 200x200 - Three.js</title>
+  <title>Origami - Three.js</title>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #CCE4FF; }
     #info { position: absolute; top: 10px; left: 10px; color: #CCE4FF; font-family: system-ui, Arial, sans-serif; background: rgba(255,255,255,0.5); padding: 8px 10px; border-radius: 6px; }
@@ -57,6 +57,8 @@
   const planeBack  = new THREE.Mesh(planeGeo, backMat);
   planeFront.userData.tag = 'paper';
   planeBack.userData.tag  = 'paper';
+  // Suivi des maillages de papier pour le raycasting
+  let paperMeshes = [planeFront, planeBack];
   const plane = new THREE.Group();
   plane.add(planeFront);
   plane.add(planeBack);
@@ -85,9 +87,10 @@
   const raycaster = new THREE.Raycaster();
   const pointerNDC = new THREE.Vector2();
   function updatePointerNDC(e) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      // NDC signifie "Normalized Device Coordinates
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   }
   function setHovered(mesh) {
     if (hoveredPoint === mesh) return;
@@ -140,6 +143,17 @@
   // Découpe: on commence sur un point, on relâche sur un autre
   let cutStart = null; // Mesh du point de départ
   let hasCut = false;  // pour éviter multiples découpes (simple démo)
+  // Prévisualisation: ligne rouge du premier point au curseur / second point
+  let cutPreviewLine = null;
+
+  // Animation de pliage
+  let foldActive = false;
+  let foldAxis = new THREE.Vector3();
+  let foldHinge = null; // Group pivot au bout de la diagonale
+  let foldStartTime = 0;
+  let foldDuration = 1200; // ms
+  let foldTarget = Math.PI; // 180°
+  let foldApplied = 0; // angle déjà appliqué
 
   renderer.domElement.style.cursor = 'grab';
 
@@ -151,6 +165,16 @@
       cutStart = hoveredPoint;
       renderer.domElement.setPointerCapture(e.pointerId);
       renderer.domElement.style.cursor = 'crosshair';
+      // Créer une ligne de prévisualisation
+      if (cutPreviewLine) { plane.remove(cutPreviewLine); cutPreviewLine.geometry.dispose(); cutPreviewLine.material.dispose(); cutPreviewLine = null; }
+      const geom = new THREE.BufferGeometry();
+      const p = cutStart.position;
+      const positions = new Float32Array([p.x, p.y, p.z, p.x, p.y, p.z]);
+      geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2, depthTest: false });
+      cutPreviewLine = new THREE.Line(geom, mat);
+      cutPreviewLine.renderOrder = 3;
+      plane.add(cutPreviewLine);
       // ne pas activer la rotation
       return;
     }
@@ -167,7 +191,28 @@
     updatePointerNDC(e);
     detectHover();
     if (cutStart) {
-      // En mode découpe on n'applique pas la rotation; pas de prévisualisation pour rester minimal
+      // Mettre à jour la ligne de prévisualisation: vers le point survolé ou l'intersection sur le papier
+      if (cutPreviewLine) {
+        const posAttr = cutPreviewLine.geometry.getAttribute('position');
+        let target;
+        if (hoveredPoint && hoveredPoint !== cutStart) {
+          target = hoveredPoint.position.clone();
+        } else {
+          raycaster.setFromCamera(pointerNDC, camera);
+          const intersects = raycaster.intersectObjects(paperMeshes, true);
+          if (intersects.length) {
+            // convertir en coords locales du plane
+            target = plane.worldToLocal(intersects[0].point.clone());
+          } else {
+            // fallback: projeter loin devant
+            target = cutStart.position.clone();
+          }
+        }
+        posAttr.setXYZ(0, cutStart.position.x, cutStart.position.y, cutStart.position.z);
+        posAttr.setXYZ(1, target.x, target.y, target.z);
+        posAttr.needsUpdate = true;
+        cutPreviewLine.geometry.computeBoundingSphere();
+      }
       return;
     }
     if (!isDragging) return;
@@ -213,12 +258,14 @@
     const g2 = makeTriGeom(...triIndices[1]);
 
     // Remplacer uniquement les parties 'paper' du plan par 2 faces (chaque face = front + back)
+    // et reconstruire la liste des meshes de papier pour le raycasting
     for (let i = plane.children.length - 1; i >= 0; i--) {
       const child = plane.children[i];
       if (child.userData && child.userData.tag === 'paper') {
         plane.remove(child);
       }
     }
+    paperMeshes = [];
     function addFace(geom) {
       const front = new THREE.Mesh(geom, frontMat);
       const back  = new THREE.Mesh(geom, backMat);
@@ -227,12 +274,17 @@
       grp.add(front);
       grp.add(back);
       plane.add(grp);
+      paperMeshes.push(front, back);
+      return grp;
     }
-    addFace(g1);
-    addFace(g2);
+    const face1 = addFace(g1);
+    const face2 = addFace(g2);
 
     // Reconstruire les arêtes pour refléter les deux triangles (inclut la diagonale)
     rebuildEdges([g1, g2]);
+
+    // Préparer l'animation de pliage autour de la diagonale
+    startDiagonalFold(diag1 ? 0 : 1, diag1 ? 2 : 3, face2);
 
     hasCut = true;
   }
@@ -244,6 +296,13 @@
       try { renderer.domElement.releasePointerCapture(e.pointerId); } catch {}
       if (!isLeave && hoveredPoint && hoveredPoint !== cutStart) {
         performCut(cutStart, hoveredPoint);
+      }
+      // Retirer la ligne de prévisualisation
+      if (cutPreviewLine) {
+        plane.remove(cutPreviewLine);
+        cutPreviewLine.geometry.dispose();
+        cutPreviewLine.material.dispose();
+        cutPreviewLine = null;
       }
       cutStart = null;
       // Mettre à jour le curseur selon le survol
@@ -296,13 +355,75 @@
     // Réinitialiser la caméra (zoom et orientation)
     camera.position.copy(initialCameraPos);
     camera.lookAt(0, 0, 0);
+    // Nettoyer une éventuelle ligne de prévisualisation
+    if (cutPreviewLine) {
+      plane.remove(cutPreviewLine);
+      cutPreviewLine.geometry.dispose();
+      cutPreviewLine.material.dispose();
+      cutPreviewLine = null;
+    }
     // Arrêter un éventuel drag en cours
     isDragging = false;
   });
 
+  // Fonction utilitaire: attacher des arêtes blanches à un groupe de face (utilise la géométrie du premier mesh enfant)
+  function attachEdgesToFace(faceGroup) {
+    if (!faceGroup || !faceGroup.children || faceGroup.children.length === 0) return;
+    const firstMesh = faceGroup.children.find(c => c.isMesh);
+    if (!firstMesh) return;
+    const e = new THREE.EdgesGeometry(firstMesh.geometry);
+    const mat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+    const l = new THREE.LineSegments(e, mat);
+    l.renderOrder = 2;
+    faceGroup.add(l);
+  }
+
+  // Démarre l'animation de pliage autour de la diagonale [iA-iB]. foldingFace est le groupe de face à plier
+  function startDiagonalFold(iA, iB, foldingFace) {
+    // Masquer le groupe d'arêtes global et mettre des arêtes sur chaque face pour suivre le pli
+    edgesGroup.visible = false;
+    // Attacher des arêtes aux deux faces (celle qui plie et l'autre)
+    attachEdgesToFace(foldingFace);
+    const otherFace = plane.children.find(c => c.userData && c.userData.tag === 'paper' && c !== foldingFace);
+    attachEdgesToFace(otherFace);
+
+    // Construire un pivot (charnière) au point iA et aligner l'axe sur la diagonale
+    const pA = cornerPositions[iA].clone();
+    const pB = cornerPositions[iB].clone();
+    foldAxis.copy(pB).sub(pA).normalize();
+    foldHinge = new THREE.Group();
+    foldHinge.position.copy(pA);
+    plane.add(foldHinge);
+
+    // Re-parent la face qui plie sous la charnière tout en conservant sa transformée monde
+    foldHinge.attach(foldingFace);
+
+    // Init animation
+    foldActive = true;
+    foldStartTime = performance.now();
+    foldApplied = 0;
+  }
+
   // Boucle de rendu (sans rotation continue)
   function animate() {
     requestAnimationFrame(animate);
+
+    // Avancer l'animation de pliage si active
+    if (foldActive && foldHinge) {
+      const t = THREE.MathUtils.clamp((performance.now() - foldStartTime) / foldDuration, 0, 1);
+      // easing cosinus (in-out)
+      const eased = 0.5 - 0.5 * Math.cos(Math.PI * t);
+      const target = foldTarget * eased;
+      const delta = target - foldApplied;
+      if (Math.abs(delta) > 1e-6) {
+        foldHinge.rotateOnAxis(foldAxis, delta);
+        foldApplied = target;
+      }
+      if (t >= 1) {
+        foldActive = false;
+      }
+    }
+
     renderer.render(scene, camera);
   }
   animate();
