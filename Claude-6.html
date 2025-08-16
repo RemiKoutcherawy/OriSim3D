@@ -6,9 +6,9 @@
     <style>body{margin:0;overflow:hidden;background:#fff}</style>
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script type="module">
     import { Model } from './js/Model.js';
+    import * as THREE from './js/three.module.js';
 
     // Extension of Model.js for Three.js rendering
     class OrigamiRenderer {
@@ -43,14 +43,11 @@
 
     // Scene setup
     let scene, camera, renderer, mesh, time = 0;
-    let mouseDown = false, mouseX = 0, mouseY = 0;
-    let cameraRadius = 200, cameraTheta = 0, cameraPhi = Math.PI / 4;
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
 
     camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 1000);
-    updateCameraPosition();
 
     renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(innerWidth, innerHeight);
@@ -73,47 +70,6 @@
 
     mesh = new THREE.Mesh(OrigamiRenderer.createBufferGeometry(model), material);
     scene.add(mesh);
-
-    // Mouse controls
-    function updateCameraPosition() {
-        camera.position.x = cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta);
-        camera.position.y = cameraRadius * Math.cos(cameraPhi);
-        camera.position.z = cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta);
-        camera.lookAt(0, 0, 0);
-    }
-
-    renderer.domElement.addEventListener('mousedown', (e) => {
-        mouseDown = true;
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-    });
-
-    document.addEventListener('mouseup', () => {
-        mouseDown = false;
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!mouseDown) return;
-
-        const deltaX = e.clientX - mouseX;
-        const deltaY = e.clientY - mouseY;
-
-        cameraTheta -= deltaX * 0.01;
-        cameraPhi += deltaY * 0.01;
-        cameraPhi = Math.max(0.1, Math.min(Math.PI - 0.1, cameraPhi));
-
-        updateCameraPosition();
-
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-    });
-
-    renderer.domElement.addEventListener('wheel', (e) => {
-        cameraRadius += e.deltaY * 0.5;
-        cameraRadius = Math.max(50, Math.min(500, cameraRadius));
-        updateCameraPosition();
-        e.preventDefault();
-    });
 
     // Animation loop
     function animate() {
