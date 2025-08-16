@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Cocotte Model.js + Three.js</title>
+    <style>body{margin:0;overflow:hidden;background:#fff}</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+    import { Model } from './js/Model.js';
+
+    // Extension of Model.js for Three.js rendering
+    class OrigamiRenderer {
+        // Generate BufferGeometry from Model data
+        static createBufferGeometry(model) {
+            const vertices = [];
+            const indices = [];
+
+            // Convert faces to triangles
+            model.faces.forEach(face => {
+                // Todo: use face.points
+                const [a, b, c] = face.points;
+                const startIdx = vertices.length / 3;
+
+                // Add vertices
+                vertices.push(a.x, a.y, a.z);
+                vertices.push(b.x, b.y, b.z);
+                vertices.push(c.x, c.y, c.z);
+
+                // Add indices
+                indices.push(startIdx, startIdx + 1, startIdx + 2);
+            });
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+
+            return geometry;
+        }
+    }
+
+    // Scene setup
+    let scene, camera, renderer, mesh, time = 0;
+    let mouseDown = false, mouseX = 0, mouseY = 0;
+    let cameraRadius = 200, cameraTheta = 0, cameraPhi = Math.PI / 4;
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+
+    camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 1000);
+    updateCameraPosition();
+
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x404040, 0.4));
+    const light = new THREE.DirectionalLight(0xffffff, 0.6);
+    light.position.set(100, 100, 50);
+    scene.add(light);
+
+    // Create origami using Model.js
+    const model = new Model().init(100, 100);
+
+    // Create mesh with initial geometry
+    const material = new THREE.MeshLambertMaterial({
+        color: 0xff6b6b,
+        side: THREE.DoubleSide
+    });
+
+    mesh = new THREE.Mesh(OrigamiRenderer.createBufferGeometry(model), material);
+    scene.add(mesh);
+
+    // Mouse controls
+    function updateCameraPosition() {
+        camera.position.x = cameraRadius * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+        camera.position.y = cameraRadius * Math.cos(cameraPhi);
+        camera.position.z = cameraRadius * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+        camera.lookAt(0, 0, 0);
+    }
+
+    renderer.domElement.addEventListener('mousedown', (e) => {
+        mouseDown = true;
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    });
+
+    document.addEventListener('mouseup', () => {
+        mouseDown = false;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!mouseDown) return;
+
+        const deltaX = e.clientX - mouseX;
+        const deltaY = e.clientY - mouseY;
+
+        cameraTheta -= deltaX * 0.01;
+        cameraPhi += deltaY * 0.01;
+        cameraPhi = Math.max(0.1, Math.min(Math.PI - 0.1, cameraPhi));
+
+        updateCameraPosition();
+
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+    });
+
+    renderer.domElement.addEventListener('wheel', (e) => {
+        cameraRadius += e.deltaY * 0.5;
+        cameraRadius = Math.max(50, Math.min(500, cameraRadius));
+        updateCameraPosition();
+        e.preventDefault();
+    });
+
+    // Animation loop
+    function animate() {
+        // Update BufferGeometry
+        const newGeometry = OrigamiRenderer.createBufferGeometry(model);
+        mesh.geometry.dispose();
+        mesh.geometry = newGeometry;
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+
+    onresize = () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+    };
+
+    animate();
+</script>
+</body>
+</html>

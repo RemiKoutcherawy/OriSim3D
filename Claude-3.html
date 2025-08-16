@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Cocotte Origami 3D</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #222; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    let scene, camera, renderer, cocotte, time = 0;
+
+    // Init
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 6);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x404040, 0.4));
+    const light = new THREE.DirectionalLight(0xffffff, 0.8);
+    light.position.set(5, 5, 5);
+    scene.add(light);
+
+    // Create cocotte geometry
+    const geo = new THREE.PlaneGeometry(3, 3, 16, 16);
+    const pos = geo.attributes.position;
+    const vertices = [];
+
+    // Store original positions
+    for (let i = 0; i < pos.count; i++) {
+        vertices.push([pos.getX(i), pos.getY(i), 0]);
+    }
+
+    cocotte = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
+        color: 0xff6b6b,
+        side: THREE.DoubleSide
+    }));
+    scene.add(cocotte);
+
+    function updateCocotte() {
+        const fold = Math.sin(time * 0.8) * 0.5 + 0.5;
+        const open = Math.sin(time * 0.6) * 0.3 + 0.3;
+
+        for (let i = 0; i < pos.count; i++) {
+            const [x, y] = vertices[i];
+            let z = 0;
+
+            // Diagonal folds
+            if (Math.abs(x - y) < 0.2) z += fold * 0.8;
+            if (Math.abs(x + y) < 0.2) z -= fold * 0.8;
+
+            // Corner pockets
+            const r = Math.sqrt(x*x + y*y);
+            if (r > 1.2) z += open * Math.sign(x*y) * 0.6;
+
+            pos.setZ(i, z);
+        }
+        pos.needsUpdate = true;
+    }
+
+    function animate() {
+        time += 0.016;
+        updateCocotte();
+
+        cocotte.rotation.y = time * 0.3;
+        cocotte.rotation.x = Math.sin(time * 0.4) * 0.2;
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+</script>
+</body>
+</html>

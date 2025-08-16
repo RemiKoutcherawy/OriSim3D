@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Cocotte Model.js + Three.js</title>
+    <style>body{margin:0;overflow:hidden;background:#111}</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // Simplified Point class from Model.js
+    class Point {
+        constructor(xf, yf, x, y, z) {
+            this.xf = xf; // flat 2d
+            this.yf = yf;
+            this.x = x;   // 3d folded
+            this.y = y;
+            this.z = z;
+        }
+    }
+
+    // Simplified Face class from Model.js
+    class Face {
+        constructor(points) {
+            this.points = points;
+        }
+    }
+
+    // Model structure like Model.js
+    class OrigamiModel {
+        constructor() {
+            this.points = [];
+            this.faces = [];
+            this.scale = 1.0;
+        }
+
+        init(size = 100) {
+            this.points = [];
+            this.faces = [];
+
+            // Create grid like initBuffers - 4x4 grid for cocotte
+            const segs = 4, step = size / segs;
+            for (let i = 0; i <= segs; i++) {
+                for (let j = 0; j <= segs; j++) {
+                    const xf = (j - segs/2) * step;
+                    const yf = (i - segs/2) * step;
+                    this.points.push(new Point(xf, yf, xf, yf, 0));
+                }
+            }
+
+            // Create faces (triangles)
+            for (let i = 0; i < segs; i++) {
+                for (let j = 0; j < segs; j++) {
+                    const idx = i * (segs + 1) + j;
+                    const a = this.points[idx];
+                    const b = this.points[idx + 1];
+                    const c = this.points[idx + segs + 1];
+                    const d = this.points[idx + segs + 2];
+
+                    this.faces.push(new Face([a, b, c]));
+                    this.faces.push(new Face([b, d, c]));
+                }
+            }
+            return this;
+        }
+
+        // Fold animation like Model.js rotate/adjust
+        fold(time) {
+            const foldAngle = Math.sin(time * 0.6) * 0.8;
+            const twist = Math.sin(time * 0.8) * 0.4;
+
+            this.points.forEach(p => {
+                const x = p.xf, y = p.yf;
+                let z = 0;
+
+                // Diagonal fold lines (cocotte characteristic)
+                if (Math.abs(x - y) < 15) z += foldAngle * 30;
+                if (Math.abs(x + y) < 15) z -= foldAngle * 25;
+
+                // Corner pockets lift
+                const r = Math.sqrt(x*x + y*y);
+                if (r > 40) z += twist * Math.sign(x*y) * 20;
+
+                p.z = z;
+            });
+        }
+
+        // Generate BufferGeometry from Model data
+        createBufferGeometry() {
+            const vertices = [];
+            const indices = [];
+
+            // Convert faces to triangles
+            this.faces.forEach(face => {
+                const [a, b, c] = face.points;
+                const startIdx = vertices.length / 3;
+
+                // Add vertices
+                vertices.push(a.x, a.y, a.z);
+                vertices.push(b.x, b.y, b.z);
+                vertices.push(c.x, c.y, c.z);
+
+                // Add indices
+                indices.push(startIdx, startIdx + 1, startIdx + 2);
+            });
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+
+            return geometry;
+        }
+    }
+
+    // Scene setup
+    let scene, camera, renderer, mesh, model, time = 0;
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 1000);
+    camera.position.set(0, 100, 200);
+
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x404040, 0.4));
+    const light = new THREE.DirectionalLight(0xffffff, 0.6);
+    light.position.set(100, 100, 50);
+    scene.add(light);
+
+    // Create model
+    model = new OrigamiModel().init();
+
+    // Create mesh with initial geometry
+    const material = new THREE.MeshLambertMaterial({
+        color: 0xff6b6b,
+        side: THREE.DoubleSide
+    });
+
+    mesh = new THREE.Mesh(model.createBufferGeometry(), material);
+    scene.add(mesh);
+
+    // Animation loop
+    function animate() {
+        time += 0.016;
+
+        // Update model folding
+        model.fold(time);
+
+        // Update BufferGeometry
+        const newGeometry = model.createBufferGeometry();
+        mesh.geometry.dispose();
+        mesh.geometry = newGeometry;
+
+        // Rotate view
+        mesh.rotation.y = time * 0.3;
+        mesh.rotation.x = Math.sin(time * 0.4) * 0.2;
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+
+    onresize = () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+    };
+
+    animate();
+</script>
+</body>
+</html>
