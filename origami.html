@@ -5,24 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Origami - Three.js</title>
     <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            background: #CCE4FF;
-        }
-
-        #info {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: rgba(0, 128, 255, 0.8);
-            font-family: system-ui, Arial, sans-serif;
-            background: rgba(255, 255, 255, 0.5);
-            padding: 8px 10px;
-            border-radius: 6px;
-        }
+        html, body {margin: 0;padding: 0;height: 100%;overflow: hidden;}
+        #info {position: absolute;top: 10px;left: 10px;color: #0080ffcc;font-family: system-ui, Arial, sans-serif;background: #ffffff80;padding: 8px 10px;border-radius: 6px;}
     </style>
 </head>
 <body>
@@ -35,51 +19,51 @@
     }
 </script>
 <script type="module">
-    import * as THREE from './js/three.module.js';
+    import * as three from './js/three.module.js';
     import {OrbitControls} from './js/OrbitControls.js';
 
     // Scène
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xCCE4FF);
+    const scene = new three.Scene();
+    scene.background = new three.Color(0xCCE4FF);
 
     // Caméra
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+    const camera = new three.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
     camera.position.set(0, 0, 400);
     camera.lookAt(0, 0, 0);
 
     // Rendu
-    const renderer = new THREE.WebGLRenderer({antialias: true});
+    const renderer = new three.WebGLRenderer({antialias: true});
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
     // Lumières
-    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambient = new three.AmbientLight(0xffffff, 0.4);
     scene.add(ambient);
-    const dir = new THREE.DirectionalLight(0xffffff, 3);
+    const dir = new three.DirectionalLight(0xffffff, 3);
     dir.position.set(0, 0, 1);
     scene.add(dir);
 
     // Carré 200x200
-    const planeGeoFront = new THREE.PlaneGeometry(200, 200);
-    const planeGeoBack = new THREE.PlaneGeometry(200, 200);
+    const planeGeoFront = new three.PlaneGeometry(200, 200);
+    const planeGeoBack = new three.PlaneGeometry(200, 200);
     // Inverser les normales de la face arrière
     planeGeoBack.scale(-1, 1, 1);
 
-    const frontMat = new THREE.MeshPhongMaterial({
+    const frontMat = new three.MeshPhongMaterial({
         color: 0x70ACF3,
-        side: THREE.FrontSide,
+        side: three.FrontSide,
         shininess: 30
     });
-    const backMat = new THREE.MeshPhongMaterial({
+    const backMat = new three.MeshPhongMaterial({
         color: 0xFFF36D,
-        side: THREE.FrontSide,
+        side: three.FrontSide,
         shininess: 30
     });
 
-    const planeFront = new THREE.Mesh(planeGeoFront, frontMat);
-    const planeBack = new THREE.Mesh(planeGeoBack, backMat);
-    const plane = new THREE.Group();
+    const planeFront = new three.Mesh(planeGeoFront, frontMat);
+    const planeBack = new three.Mesh(planeGeoBack, backMat);
+    const plane = new three.Group();
     plane.add(planeFront);
     plane.add(planeBack);
     scene.add(plane);
@@ -87,8 +71,8 @@
     planeFront.position.z = 0.1;  // Léger décalage pour éviter le z-fighting
     planeBack.position.z = 0;
     // Wireframe
-    const wireMaterial = new THREE.MeshBasicMaterial({color: 0x000000, wireframe: true})
-    const wireMesh = new THREE.Mesh(planeGeoFront, wireMaterial)
+    const wireMaterial = new three.MeshLambertMaterial({color: 0x000000, wireframe: true})
+    const wireMesh = new three.Mesh(planeGeoFront, wireMaterial)
     scene.add(wireMesh)
     // Controls
     const orbit = new OrbitControls(camera, renderer.domElement);
@@ -100,7 +84,7 @@
     });
 
     // Aide visuelle: axes
-    const axes = new THREE.AxesHelper(20);
+    const axes = new three.AxesHelper(20);
     scene.add(axes);
 
     // Boucle de rendu
