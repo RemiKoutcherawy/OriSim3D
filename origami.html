@@ -1,13 +1,29 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Origami - Three.js</title>
-  <style>
-    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #CCE4FF; }
-    #info { position: absolute; top: 10px; left: 10px; color: rgba(0, 128, 255, 0.8); font-family: system-ui, Arial, sans-serif; background: rgba(255,255,255,0.5); padding: 8px 10px; border-radius: 6px; }
-  </style>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Origami - Three.js</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background: #CCE4FF;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: rgba(0, 128, 255, 0.8);
+            font-family: system-ui, Arial, sans-serif;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 8px 10px;
+            border-radius: 6px;
+        }
+    </style>
 </head>
 <body>
 <div id="info">Origami Glisser pour pivoter, molette pour zoomer, double‑clic pour réinitialiser</div>
@@ -19,90 +35,88 @@
     }
 </script>
 <script type="module">
-  import * as THREE from './js/three.module.js';
-  import {OrbitControls} from './js/OrbitControls.js';
+    import * as THREE from './js/three.module.js';
+    import {OrbitControls} from './js/OrbitControls.js';
 
-  // Scène
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xCCE4FF);
+    // Scène
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xCCE4FF);
 
-  // Caméra
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-  camera.position.set(0, 0, 400);
-  camera.lookAt(0, 0, 0);
+    // Caméra
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 0, 400);
+    camera.lookAt(0, 0, 0);
 
-  // Rendu
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  document.body.appendChild(renderer.domElement);
+    // Rendu
+    const renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
 
-  // Lumières
-  // const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-  // scene.add(ambient);
-  const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-  dir.position.set(200, 200, 200);
-  scene.add(dir);
+    // Lumières
+    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambient);
+    const dir = new THREE.DirectionalLight(0xffffff, 3);
+    dir.position.set(0, 0, 1);
+    scene.add(dir);
 
-  // Carré 200x200
-  const planeGeoFront = new THREE.PlaneGeometry(200, 200);
-  const planeGeoBack = new THREE.PlaneGeometry(200, 200);
-  // Inverser les normales de la face arrière
-  planeGeoBack.scale(-1, 1, 1);
+    // Carré 200x200
+    const planeGeoFront = new THREE.PlaneGeometry(200, 200);
+    const planeGeoBack = new THREE.PlaneGeometry(200, 200);
+    // Inverser les normales de la face arrière
+    planeGeoBack.scale(-1, 1, 1);
 
-  const frontColor = new THREE.Color(0x70ACF3);
-  const backColor = new THREE.Color(0xFFF36D);
-  const frontMat = new THREE.MeshPhongMaterial({
-      color: 0x70ACF3,
-      side: THREE.FrontSide,
-      shininess: 30
-  });
-  const backMat = new THREE.MeshPhongMaterial({
-      color: backColor,
-      side: THREE.FrontSide, // Utiliser FrontSide aussi pour l'arrière
-      shininess: 30
-  });
+    const frontMat = new THREE.MeshPhongMaterial({
+        color: 0x70ACF3,
+        side: THREE.FrontSide,
+        shininess: 30
+    });
+    const backMat = new THREE.MeshPhongMaterial({
+        color: 0xFFF36D,
+        side: THREE.FrontSide,
+        shininess: 30
+    });
 
-  const planeFront = new THREE.Mesh(planeGeoFront, frontMat);
-  const planeBack = new THREE.Mesh(planeGeoBack, backMat);
-  const plane = new THREE.Group();
-  plane.add(planeFront);
-  plane.add(planeBack);
-  scene.add(plane);
-  // Positions relatives des deux faces
-  planeFront.position.z = 0.1;  // Léger décalage pour éviter le z-fighting
-  planeBack.position.z = 0;
-  // Add wireframe
-  const wireMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: true })
-  const wireMesh = new THREE.Mesh(planeGeoFront, wireMaterial)
-  scene.add(wireMesh)
-  // Controls
-  const controls = new OrbitControls( camera, renderer.domElement );
-  controls.minDistance = 100;
-  controls.maxDistance = 500;
-  controls.maxPolarAngle = Math.PI / 2;
-  controls.domElement.addEventListener('dblclick', () => {
-      controls.reset();
-  });
+    const planeFront = new THREE.Mesh(planeGeoFront, frontMat);
+    const planeBack = new THREE.Mesh(planeGeoBack, backMat);
+    const plane = new THREE.Group();
+    plane.add(planeFront);
+    plane.add(planeBack);
+    scene.add(plane);
+    // Positions relatives des deux faces
+    planeFront.position.z = 0.1;  // Léger décalage pour éviter le z-fighting
+    planeBack.position.z = 0;
+    // Wireframe
+    const wireMaterial = new THREE.MeshBasicMaterial({color: 0x000000, wireframe: true})
+    const wireMesh = new THREE.Mesh(planeGeoFront, wireMaterial)
+    scene.add(wireMesh)
+    // Controls
+    const orbit = new OrbitControls(camera, renderer.domElement);
+    orbit.update();
+    orbit.saveState();
+    orbit.addEventListener('change', animate);
+    window.addEventListener('dblclick', () => {
+        orbit.reset();
+    });
 
-  // Aide visuelle: axes
-  const axes = new THREE.AxesHelper(120);
-  scene.add(axes);
+    // Aide visuelle: axes
+    const axes = new THREE.AxesHelper(20);
+    scene.add(axes);
 
-  // Boucle de rendu
-  function animate() {
-    requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-  }
-  animate();
+    // Boucle de rendu
+    function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
 
-  // Ajuster au redimensionnement
-  window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+    animate();
+
+    // Ajuster au redimensionnement
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 </script>
 </body>
 </html>
