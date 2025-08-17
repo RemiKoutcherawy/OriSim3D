@@ -41,13 +41,17 @@
     scene.add(dir);
 
     // Textures
-    const textureFront = new three.TextureLoader().load('textures/front.jpg', (texture) => {texture.needsUpdate = true;}, undefined, () => {});
-    textureFront.image = new Image(400, 400); // Default
-    const textureBack = new three.TextureLoader().load('textures/back.jpg', (texture) => {texture.needsUpdate = true;}, undefined, () => {});
-    textureBack.image = new Image(400, 400);
+    const frontTexture = new three.TextureLoader().load('textures/front.jpg', (texture) => {texture.needsUpdate = true;}, undefined, () => {});
+    frontTexture.image = new Image(400, 400); // Default
+    const backTexture = new three.TextureLoader().load('textures/back.jpg', (texture) => {texture.needsUpdate = true;}, undefined, () => {});
+    backTexture.image = new Image(400, 400);
 
     // Origami
     const model = new Model().init();
+    model.splitBy3d(model.points[3], model.points[1]);
+    model.rotate(model.segments[4], 60, [model.points[2]]);
+    model.splitCross3d(model.points[3], model.points[1]);
+    model.scaleModel(0.8);
 
     function createGeometry(model) {
 
@@ -55,12 +59,12 @@
 
         // Faces
         const vtx = []; // vertex
-        const ftx = []; // front texture coords
+        const ftx = []; // front texture coords Not used for now
         const btx = []; // back texture coords
         const fnr = []; // front normals coords
         const bnr = []; // back normals coords Not used for now
         const fin = []; // front indices
-        const bin = []; // back indices
+        const bin = []; // back indices Not used for now
         let index = 0;
 
         for (let iFace = 0; iFace < model.faces.length; iFace++) {
@@ -85,10 +89,10 @@
                 bnr.push(-n[1]);
                 bnr.push(-n[2]);
                 // textures
-                ftx.push((200 + c.xf) / textureFront.image.width);
-                ftx.push((200 + c.yf) / textureFront.image.height);
-                btx.push((200 + c.xf) / textureBack.image.width);
-                btx.push((200 + c.yf) / textureBack.image.height);
+                ftx.push((200 + c.xf) / frontTexture.image.width);
+                ftx.push((200 + c.yf) / frontTexture.image.height);
+                btx.push((200 + c.xf) / backTexture.image.width);
+                btx.push((200 + c.yf) / backTexture.image.height);
                 // index
                 fin.push(index);
                 bin.push(index);
@@ -103,10 +107,10 @@
                 bnr.push(-n[1]);
                 bnr.push(-n[2]);
                 // textures
-                ftx.push((200 + p.xf) / textureFront.image.width);
-                ftx.push((200 + p.yf) / textureFront.image.height);
-                btx.push((200 + p.xf) / textureBack.image.width);
-                btx.push((200 + p.yf) / textureBack.image.height);
+                ftx.push((200 + p.xf) / frontTexture.image.width);
+                ftx.push((200 + p.yf) / frontTexture.image.height);
+                btx.push((200 + p.xf) / backTexture.image.width);
+                btx.push((200 + p.yf) / backTexture.image.height);
                 // index Note +1 for back face index
                 fin.push(index);
                 bin.push(index + 1);
@@ -121,10 +125,10 @@
                 bnr.push(-n[1]);
                 bnr.push(-n[2]);
                 // // textures
-                ftx.push((200 + s.xf) / textureFront.image.width);
-                ftx.push((200 + s.yf) / textureFront.image.height);
-                btx.push((200 + s.xf) / textureBack.image.width);
-                btx.push((200 + s.yf) / textureBack.image.height);
+                ftx.push((200 + s.xf) / frontTexture.image.width);
+                ftx.push((200 + s.yf) / frontTexture.image.height);
+                btx.push((200 + s.xf) / backTexture.image.width);
+                btx.push((200 + s.yf) / backTexture.image.height);
                 // index Note -1 for back face index
                 fin.push(index);
                 bin.push(index - 1);
@@ -154,34 +158,30 @@
         // Make into arrays
         const vertices = new Float32Array(vtx);
         const normals = new Float32Array(fnr);
-        const texCoordsFront = new Float32Array(ftx);
-        const texCoordsBack = new Float32Array(btx);
+        const textureCoords = new Float32Array(ftx);
 
         geometry.setAttribute('position', new three.BufferAttribute(new Float32Array(vertices), 3));
         geometry.setAttribute('normal', new three.BufferAttribute(new Float32Array(normals), 3));
-        geometry.setAttribute('uv', new three.BufferAttribute(new Float32Array(texCoordsFront), 2));
+        geometry.setAttribute('uv', new three.BufferAttribute(new Float32Array(textureCoords), 2));
         geometry.setIndex( fin );
 
         return geometry;
     }
 
     const geometry = createGeometry(model);
-    const material = new three.MeshPhongMaterial({
-        side: three.DoubleSide, // DoubleSide, FrontSide, BackSide
-        map: textureFront,
-        normalMap: textureFront,
-        normalScale: new three.Vector2(0.5, 0.5),
-    });
 
-    const frontMat = new three.MeshPhongMaterial({color: 0x70ACF3, side: three.FrontSide, shininess: 30});
-    const backMat = new three.MeshPhongMaterial({color: 0xFFF36D, side: three.BackSide, shininess: 30});
+    const frontMat = new three.MeshPhongMaterial({color: 0x70ACF3, side: three.FrontSide, map: frontTexture, normalMap: frontTexture,});
+    const backMat = new three.MeshPhongMaterial({color: 0xFFF36D, side: three.BackSide, map: backTexture, normalMap: backTexture,});
+    const front = new three.Mesh(geometry, frontMat);
+    const back = new three.Mesh(geometry, backMat);
+    scene.add(front);
+    scene.add(back);
 
-    const plane = new three.Mesh(geometry, material);
-    scene.add(plane);
     // Wireframe
     const wireMaterial = new three.MeshLambertMaterial({color: 0x000000, wireframe: true})
     const wireMesh = new three.Mesh(geometry, wireMaterial)
     scene.add(wireMesh)
+
     // Controls
     const orbit = new OrbitControls(camera, renderer.domElement);
     orbit.update();
