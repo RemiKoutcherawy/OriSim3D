@@ -17,6 +17,7 @@
     import * as three from './js/three.module.js';
     import {OrbitControls} from './js/OrbitControls.js';
     import {Model} from './js/Model.js';
+    import {Command} from './js/Command.js';
 
     // Scène
     const scene = new three.Scene();
@@ -34,24 +35,23 @@
     document.body.appendChild(renderer.domElement);
 
     // Lumières
-    const ambient = new three.AmbientLight(0xffffff, 0.4);
+    const ambient = new three.AmbientLight(0xffffff, 1);
     scene.add(ambient);
-    const dir = new three.DirectionalLight(0xffffff, 3);
+    // Lumière directionnelle principale venant de face
+    const dir = new three.DirectionalLight(0xffffff, 2);
     dir.position.set(0, 0, 1);
     scene.add(dir);
 
-    // Textures
-    const frontTexture = new three.TextureLoader().load('textures/front.jpg', (texture) => {texture.needsUpdate = true;}, undefined, () => {});
-    frontTexture.image = new Image(400, 400); // Default
-    const backTexture = new three.TextureLoader().load('textures/back.jpg', (texture) => {texture.needsUpdate = true;}, undefined, () => {});
-    backTexture.image = new Image(400, 400);
+    // Textures (UVs normalized using constants to avoid relying on image size before load)
+    const frontTexture = new three.TextureLoader().load('textures/front.jpg');
+    frontTexture.colorSpace = three.SRGBColorSpace;  // Ajout de cette ligne
+    const backTexture = new three.TextureLoader().load('textures/back.jpg');
+    backTexture.colorSpace = three.SRGBColorSpace;   // Ajout de cette ligne
+    const TEX_W = 400, TEX_H = 400;
 
     // Origami
     const model = new Model().init();
-    model.splitBy3d(model.points[3], model.points[1]);
-    model.rotate(model.segments[4], 60, [model.points[2]]);
-    model.splitCross3d(model.points[3], model.points[1]);
-    model.scaleModel(0.8);
+    const command = new Command(model);
 
     function createGeometry(model) {
 
@@ -59,12 +59,9 @@
 
         // Faces
         const vtx = []; // vertex
-        const ftx = []; // front texture coords Not used for now
-        const btx = []; // back texture coords
+        const ftx = []; // front texture coords
         const fnr = []; // front normals coords
-        const bnr = []; // back normals coords Not used for now
         const fin = []; // front indices
-        const bin = []; // back indices Not used for now
         let index = 0;
 
         for (let iFace = 0; iFace < model.faces.length; iFace++) {
@@ -85,17 +82,11 @@
                 fnr.push(n[0]);
                 fnr.push(n[1]);
                 fnr.push(n[2]);
-                bnr.push(-n[0]);
-                bnr.push(-n[1]);
-                bnr.push(-n[2]);
                 // textures
-                ftx.push((200 + c.xf) / frontTexture.image.width);
-                ftx.push((200 + c.yf) / frontTexture.image.height);
-                btx.push((200 + c.xf) / backTexture.image.width);
-                btx.push((200 + c.yf) / backTexture.image.height);
+                ftx.push((200 + c.xf) / TEX_W);
+                ftx.push((200 + c.yf) / TEX_H);
                 // index
                 fin.push(index);
-                bin.push(index);
                 index++;
                 vtx.push(p.x + f.offset * n[0]);
                 vtx.push(p.y + f.offset * n[1]);
@@ -103,17 +94,11 @@
                 fnr.push(n[0]);
                 fnr.push(n[1]);
                 fnr.push(n[2]);
-                bnr.push(-n[0]);
-                bnr.push(-n[1]);
-                bnr.push(-n[2]);
                 // textures
-                ftx.push((200 + p.xf) / frontTexture.image.width);
-                ftx.push((200 + p.yf) / frontTexture.image.height);
-                btx.push((200 + p.xf) / backTexture.image.width);
-                btx.push((200 + p.yf) / backTexture.image.height);
-                // index Note +1 for back face index
+                ftx.push((200 + p.xf) / TEX_W);
+                ftx.push((200 + p.yf) / TEX_H);
+                // index
                 fin.push(index);
-                bin.push(index + 1);
                 index++;
                 vtx.push(s.x + f.offset * n[0]);
                 vtx.push(s.y + f.offset * n[1]);
@@ -121,17 +106,11 @@
                 fnr.push(n[0]);
                 fnr.push(n[1]);
                 fnr.push(n[2]);
-                bnr.push(-n[0]);
-                bnr.push(-n[1]);
-                bnr.push(-n[2]);
                 // // textures
-                ftx.push((200 + s.xf) / frontTexture.image.width);
-                ftx.push((200 + s.yf) / frontTexture.image.height);
-                btx.push((200 + s.xf) / backTexture.image.width);
-                btx.push((200 + s.yf) / backTexture.image.height);
-                // index Note -1 for back face index
+                ftx.push((200 + s.xf) / TEX_W);
+                ftx.push((200 + s.yf) / TEX_H);
+                // index
                 fin.push(index);
-                bin.push(index - 1);
                 index++;
                 // next triangle
                 p = s;
@@ -155,23 +134,32 @@
             }
         }
 
-        // Make into arrays
-        const vertices = new Float32Array(vtx);
-        const normals = new Float32Array(fnr);
-        const textureCoords = new Float32Array(ftx);
-
-        geometry.setAttribute('position', new three.BufferAttribute(new Float32Array(vertices), 3));
-        geometry.setAttribute('normal', new three.BufferAttribute(new Float32Array(normals), 3));
-        geometry.setAttribute('uv', new three.BufferAttribute(new Float32Array(textureCoords), 2));
-        geometry.setIndex( fin );
-
+        // Attributes
+        geometry.setAttribute('position', new three.BufferAttribute(new Float32Array(vtx), 3));
+        geometry.setAttribute('normal', new three.BufferAttribute(new Float32Array(fnr), 3));
+        geometry.setAttribute('uv', new three.BufferAttribute(new Float32Array(ftx), 2));
+        geometry.setIndex(fin);
         return geometry;
     }
 
-    const geometry = createGeometry(model);
+    let geometry = createGeometry(model);
 
-    const frontMat = new three.MeshPhongMaterial({color: 0x70ACF3, side: three.FrontSide, map: frontTexture, normalMap: frontTexture,});
-    const backMat = new three.MeshPhongMaterial({color: 0xFFF36D, side: three.BackSide, map: backTexture, normalMap: backTexture,});
+    const frontMat = new three.MeshPhongMaterial
+    ({
+        color: 0xFFFFFF, // 0x70ACF3, Blue
+        side: three.FrontSide,
+        map: frontTexture,
+        specular: 0x444444,
+        shininess: 100,
+    });
+    const backMat = new three.MeshPhongMaterial
+    ({
+        color: 0xFFFFFF, // 0xFFF36D, Yellow
+        side: three.BackSide,
+        map: backTexture,
+        specular: 0x444444,
+        shininess: 100,
+    });
     const front = new three.Mesh(geometry, frontMat);
     const back = new three.Mesh(geometry, backMat);
     scene.add(front);
@@ -191,13 +179,25 @@
         orbit.reset();
     });
 
-    // Aide visuelle: axes
-    const axes = new three.AxesHelper(20);
-    scene.add(axes);
+    // Update geometry when the model changed
+    function updateGeometry() {
+        const oldGeometry = geometry;
+        geometry = createGeometry(model);
+        front.geometry = geometry;
+        back.geometry = geometry;
+        wireMesh.geometry = geometry;
+        geometry.computeBoundingSphere();
+        geometry.computeBoundingBox();
+        if (oldGeometry && oldGeometry !== geometry) oldGeometry.dispose();
+    }
 
     // Boucle de rendu
     function animate() {
         requestAnimationFrame(animate);
+        const changed = command.anim();
+        if (changed) {
+            updateGeometry();
+        }
         renderer.render(scene, camera);
     }
 
@@ -209,6 +209,77 @@
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
+
+    // Origami
+    const script = document.getElementById('cocotte.txt');
+    command.command(script.textContent);
+
 </script>
+
+<!-- Cocotte script -->
+<div id="cocotte.txt" hidden="hidden">define 200 200
+    // Define crease pattern
+    c3d 0 1 c3d 0 3 c3d 0 2 c3d 1 3 c3d 0 8 c3d 8 3
+    c3d 0 4 c3d 4 1 c3d 6 0 c3d 6 1 c3d 6 2 c3d 6 3
+
+    // Movements with Accelerate Decelerate Interpolator (iad)
+    iad
+    t 100 ty 180;
+
+    // Fold one corner
+    offset 1 13 14 30 31
+    t 100 r 54 -180 3 17 19;
+    t 100 ty 180;
+
+    // Fold from top
+    t 100 rotate 27 165 5 22 2
+
+    // Lift up top right corner
+    t 100 r 53 -90 22 a 2 18
+    // Fold from right
+    t 100 r 45 165 7 12 1 a 2 18
+    // Flatten leg
+    t 100 r 53 60 22 a 2 18
+    // Lay leg flat
+    t 100 r 53 30 22 2 18
+
+    // Lift up bottom right corner
+    t 100 r 50 -90 12 a 1 24
+    // Fold from bottom
+    t 100 r 23 165 0 21 4 a 1 24
+    // Flatten leg
+    t 100 r 51 -60 12 a 1 24
+    // Lay leg flat
+    t 100 r 51 130 12 1 24;
+
+    // Lift bottom left corner
+    t 100 r 48 -90 21 a 0 9
+    // Fold from left
+    t 100 r 37 -165 8 a 0 9
+    // Flatten leg
+    t 100 r 48 -60 9 a 0 9
+    // Lay leg flat
+    t 100 r 48 -80 21 9 0
+
+    // Fold along median
+    t 100 r 28 -90 19 5 22 2 14 15 18 23 7 r 38 -90 3;
+    t 100 r 28 -80 19 5 22 2 14 15 18 23 7 a 3;
+    // Open front leg
+    t 100 r 28 0 9 10 21 20 8;
+
+    // Pretty
+    r 50 -5 12
+    offset // Remove offset for all faces
+    r 55 5 17 a 3 r 55 -5 19 a 3 // Beak
+    a 12
+
+    // Show
+    t 100 tz -45
+    iao
+    t 1000 z 0.5
+    t 1000 zf
+    iao
+    t 1000 ty 360
+</div>
 </body>
 </html>
