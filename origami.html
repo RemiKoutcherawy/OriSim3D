@@ -4,13 +4,8 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Origami - Three.js</title>
-    <style>
-        html, body {margin: 0;padding: 0;height: 100%;overflow: hidden;}
-        #info {position: absolute;top: 10px;left: 10px;color: #0080ffcc;font-family: system-ui, Arial, sans-serif;background: #ffffff80;padding: 8px 10px;border-radius: 6px;}
-    </style>
 </head>
 <body>
-<div id="info">Origami Glisser pour pivoter, molette pour zoomer, double‑clic pour réinitialiser</div>
 <script type="importmap">
     {
         "imports": {
@@ -21,6 +16,7 @@
 <script type="module">
     import * as three from './js/three.module.js';
     import {OrbitControls} from './js/OrbitControls.js';
+    import {Model} from './js/Model.js';
 
     // Scène
     const scene = new three.Scene();
@@ -44,35 +40,147 @@
     dir.position.set(0, 0, 1);
     scene.add(dir);
 
-    // Carré 200x200
-    const planeGeoFront = new three.PlaneGeometry(200, 200);
-    const planeGeoBack = new three.PlaneGeometry(200, 200);
-    // Inverser les normales de la face arrière
-    planeGeoBack.scale(-1, 1, 1);
+    // Textures
+    const textureFront = new three.TextureLoader().load('textures/front.jpg', (texture) => {texture.needsUpdate = true;}, undefined, () => {});
+    textureFront.image = new Image(400, 400); // Default
+    const textureBack = new three.TextureLoader().load('textures/back.jpg', (texture) => {texture.needsUpdate = true;}, undefined, () => {});
+    textureBack.image = new Image(400, 400);
 
-    const frontMat = new three.MeshPhongMaterial({
-        color: 0x70ACF3,
-        side: three.FrontSide,
-        shininess: 30
-    });
-    const backMat = new three.MeshPhongMaterial({
-        color: 0xFFF36D,
-        side: three.FrontSide,
-        shininess: 30
+    // Origami
+    const model = new Model().init();
+
+    function createGeometry(model) {
+
+        const geometry = new three.BufferGeometry();
+
+        // Faces
+        const vtx = []; // vertex
+        const ftx = []; // front texture coords
+        const btx = []; // back texture coords
+        const fnr = []; // front normals coords
+        const bnr = []; // back normals coords Not used for now
+        const fin = []; // front indices
+        const bin = []; // back indices
+        let index = 0;
+
+        for (let iFace = 0; iFace < model.faces.length; iFace++) {
+            const f = model.faces[iFace];
+            const pts = f.points;
+            // Normal needed for Offset and used for lightning
+            f.normal = faceNormal(pts);
+            const n = f.normal;
+            // Triangle FAN can be used only because of convex CCW face
+            const c = pts[0]; // center
+            let p = pts[1]; // previous
+            let s; // current point
+            for (let i = 2; i < pts.length; i++) {
+                s = pts[i];
+                vtx.push(c.x + f.offset * n[0]);
+                vtx.push(c.y + f.offset * n[1]);
+                vtx.push(c.z + f.offset * n[2]);
+                fnr.push(n[0]);
+                fnr.push(n[1]);
+                fnr.push(n[2]);
+                bnr.push(-n[0]);
+                bnr.push(-n[1]);
+                bnr.push(-n[2]);
+                // textures
+                ftx.push((200 + c.xf) / textureFront.image.width);
+                ftx.push((200 + c.yf) / textureFront.image.height);
+                btx.push((200 + c.xf) / textureBack.image.width);
+                btx.push((200 + c.yf) / textureBack.image.height);
+                // index
+                fin.push(index);
+                bin.push(index);
+                index++;
+                vtx.push(p.x + f.offset * n[0]);
+                vtx.push(p.y + f.offset * n[1]);
+                vtx.push(p.z + f.offset * n[2]);
+                fnr.push(n[0]);
+                fnr.push(n[1]);
+                fnr.push(n[2]);
+                bnr.push(-n[0]);
+                bnr.push(-n[1]);
+                bnr.push(-n[2]);
+                // textures
+                ftx.push((200 + p.xf) / textureFront.image.width);
+                ftx.push((200 + p.yf) / textureFront.image.height);
+                btx.push((200 + p.xf) / textureBack.image.width);
+                btx.push((200 + p.yf) / textureBack.image.height);
+                // index Note +1 for back face index
+                fin.push(index);
+                bin.push(index + 1);
+                index++;
+                vtx.push(s.x + f.offset * n[0]);
+                vtx.push(s.y + f.offset * n[1]);
+                vtx.push(s.z + f.offset * n[2]);
+                fnr.push(n[0]);
+                fnr.push(n[1]);
+                fnr.push(n[2]);
+                bnr.push(-n[0]);
+                bnr.push(-n[1]);
+                bnr.push(-n[2]);
+                // // textures
+                ftx.push((200 + s.xf) / textureFront.image.width);
+                ftx.push((200 + s.yf) / textureFront.image.height);
+                btx.push((200 + s.xf) / textureBack.image.width);
+                btx.push((200 + s.yf) / textureBack.image.height);
+                // index Note -1 for back face index
+                fin.push(index);
+                bin.push(index - 1);
+                index++;
+                // next triangle
+                p = s;
+            }
+
+            function faceNormal(pts) {
+                const n = [3];
+                for (let i = 0; i < pts.length - 2; i++) {
+                    // Take triangles until p2p1 x p1p3 > 0.1
+                    const p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
+                    const u = [p2.x - p1.x, p2.y - p1.y, p2.z - p1.z];
+                    const v = [p3.x - p1.x, p3.y - p1.y, p3.z - p1.z];
+                    n[0] = u[1] * v[2] - u[2] * v[1];
+                    n[1] = u[2] * v[0] - u[0] * v[2];
+                    n[2] = u[0] * v[1] - u[1] * v[0];
+                    if (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) > 0.1) {
+                        break;
+                    }
+                }
+                return n;
+            }
+        }
+
+        // Make into arrays
+        const vertices = new Float32Array(vtx);
+        const normals = new Float32Array(fnr);
+        const texCoordsFront = new Float32Array(ftx);
+        const texCoordsBack = new Float32Array(btx);
+
+        geometry.setAttribute('position', new three.BufferAttribute(new Float32Array(vertices), 3));
+        geometry.setAttribute('normal', new three.BufferAttribute(new Float32Array(normals), 3));
+        geometry.setAttribute('uv', new three.BufferAttribute(new Float32Array(texCoordsFront), 2));
+        geometry.setIndex( fin );
+
+        return geometry;
+    }
+
+    const geometry = createGeometry(model);
+    const material = new three.MeshPhongMaterial({
+        side: three.DoubleSide, // DoubleSide, FrontSide, BackSide
+        map: textureFront,
+        normalMap: textureFront,
+        normalScale: new three.Vector2(0.5, 0.5),
     });
 
-    const planeFront = new three.Mesh(planeGeoFront, frontMat);
-    const planeBack = new three.Mesh(planeGeoBack, backMat);
-    const plane = new three.Group();
-    plane.add(planeFront);
-    plane.add(planeBack);
+    const frontMat = new three.MeshPhongMaterial({color: 0x70ACF3, side: three.FrontSide, shininess: 30});
+    const backMat = new three.MeshPhongMaterial({color: 0xFFF36D, side: three.BackSide, shininess: 30});
+
+    const plane = new three.Mesh(geometry, material);
     scene.add(plane);
-    // Positions relatives des deux faces
-    planeFront.position.z = 0.1;  // Léger décalage pour éviter le z-fighting
-    planeBack.position.z = 0;
     // Wireframe
     const wireMaterial = new three.MeshLambertMaterial({color: 0x000000, wireframe: true})
-    const wireMesh = new three.Mesh(planeGeoFront, wireMaterial)
+    const wireMesh = new three.Mesh(geometry, wireMaterial)
     scene.add(wireMesh)
     // Controls
     const orbit = new OrbitControls(camera, renderer.domElement);
