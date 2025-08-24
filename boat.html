@@ -52,15 +52,16 @@
 
     //Test
     setTimeout( () => {
-      command.command(`define 210 300
-lines
-fit
+      command.command(`
+
 // Boat
+define 210 300
+textures
 // Fold top on bottom
 across2d 1 2;
 offset -1 0
 t 200 r 6 -180 2 3;
-t 200 fit;
+// t 200 fit;
 // Crease edges at 45°
 across3d 4 5
 bisector3d 7 9
@@ -97,7 +98,7 @@ by3d 15 16
 
 // Open
 t 200 r 15 -180 4 5 8 14 21 25 26  r 9 180 1 2 11 12 16 18 19 22;
-t 200 fit
+// t 200 fit
 
 // Turn on left
 t 200 tz 45
@@ -114,7 +115,7 @@ t 400 r 53 -180 9 10 0 3;
 
 t 200 ty -45
 
-t 200 fit
+// t 200 fit
 
 // Turn on right
 t 200 tz -45
@@ -122,17 +123,19 @@ t 200 tz -45
 // Close Fixme
 t 200 r 15 -180 4 5 14 8 21 25 26 32 33 27 28 30 29  r 9 -180 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
 
-t 200 fit
+// t 200 fit
 
 // Open rotate around 36
 t 1000 r 36 135 32 14 33 27 28 4 5 30 29  r 36 -135 31 13 34  a 9 12 0 1 2 3 mop 12 11 mop 9 10 mos 60 3 mos 25 0 mos 23 1 mos 64 2
 
-t 200 fit
+// t 200 fit
 
 // Show
 iao
 t 1000 z 0.5;
 t 1000 fit;
+iao
+t 1000 ty 360
 `);
     }, 500);
   }
