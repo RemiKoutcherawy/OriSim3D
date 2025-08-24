@@ -587,9 +587,9 @@ export class Model {
     adjust(point) {
         // Take all segments containing point p
         const segments = this.searchSegmentsOnePoint(point);
-        let max = 0.1;
+        let max = 0.1, i;
         // Iterate while the length difference between 2d and 3d is > 1e-3
-        for (let i = 0; max > 0.01 && i < 200; i++) {
+        for (i = 0; max > 0.001 && i < 200; i++) {
             max = 0;
             // Iterate over all segments
             // Pm is the medium point
@@ -704,11 +704,13 @@ export class Model {
     moveOnSegment(s, p) {
         // Project point and get vector from point to segment
         const closest = Vector3.closestPoint(p, s.p1, s.p2);
+        // Vector from point to the closest point
         const v = Vector3.sub(closest, p);
         // Move point p along vector v
         p.x += v.x ;
         p.y += v.y ;
         p.z += v.z ;
+        this.adjust(p);
     }
 
     // Move given or all points to z = 0

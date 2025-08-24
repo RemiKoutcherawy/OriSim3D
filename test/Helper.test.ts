@@ -8,6 +8,7 @@ import { assertEquals } from "jsr:@std/assert";
 class MockView3d {
   indexMap = new Map();
   projected: number[][] = [];
+  scale = 10;
   constructor(model: Model) {
     model.points.forEach((point, index) => {
       this.indexMap.set(point, index);
@@ -85,9 +86,9 @@ Deno.test("Helper Tests", async (t) => {
 
   await t.step(
     "search3d() points, segments, faces near x,y in 3d canvas", () => {
-      const result = helper.search3d(0, 0);
-      assertEquals(result.points.length, 4);
-      assertEquals(result.segments.length, 4);
+      const result = helper.search3d(3, 3);
+      assertEquals(result.points.length, 1);
+      assertEquals(result.segments.length, 2);
       assertEquals(result.faces.length, 1);
     },
   );
