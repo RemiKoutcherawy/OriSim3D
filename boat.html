@@ -54,60 +54,85 @@
     setTimeout( () => {
       command.command(`define 210 300
 lines
+fit
 // Boat
 // Fold top on bottom
 across2d 1 2;
 offset -1 0
-t 500 r 6 -180 2 3;
-t 500 fit;
+t 200 r 6 -180 2 3;
+t 200 fit;
 // Crease edges at 45°
 across3d 4 5
 bisector3d 7 9
 bisector3d 6 9
+
 // Fold corners
 offset -1 3 0
-t 500 rotate 13 -180 4
-t 500 rotate 17 180 5
+t 200 rotate 13 -180 4
+t 200 rotate 17 180 5
+
 // Crease bottom and top
 by3d 9 12
 by3d 10 11
-// Fold front
+
+// Fold back
 offset -2 5 6;
-t 500 rotate 24 180 3 8 2;
-offset 2 8 9;
-t 500 rotate 25 -180 0 1 7;
-// Crease corners on 2D
+t 200 rotate 24 180 3 8 2;
+// Crease on 2D
 bisector2d 3 24 bisector2d 23 16
+// Fold corners
+t 200 rotate 27 -180 3 rotate 29 180 2;
+
+// Fold front
+offset 2 8 9;
+t 200 rotate 25 180 0 1 7;
+// Crease on 2D
 bisector2d 25 12 bisector2d 1 21
-// Fold left
-t 500 rotate 31 -180 0 3;
-// Fold right
-t 500 rotate 29 180 1 2;
+// Fold corners
+t 200 rotate 31 180 0
+t 200 rotate 33 -180 1
+
 // Crease top
 by3d 15 16
-// Open.
-t 500 r 15 -180 4 5 8 14 21 25 26  r 9 180 1 2 11 12 16 18 19 22;
-// t 500 fit
+
+// Open
+t 200 r 15 -180 4 5 8 14 21 25 26  r 9 180 1 2 11 12 16 18 19 22;
+t 200 fit
+
 // Turn on left
-// t 1000 tz 45
+t 200 tz 45
+
 // Crease diagonal
 perpendicular3d 13 15
-// Rotate in front and in back
-t 500 r 53 180 11 12 1 2;
-t 500 r 53 -180 9 10 0 3;
+
+t 200 ty 45
+
+// Rotate triangle in front
+t 400 r 53 180 11 12 1 2;
+// Rotate triangle in back
+t 400 r 53 -180 9 10 0 3;
+
+t 200 ty -45
+
+t 200 fit
+
+// Turn on right
+t 200 tz -45
 
 // Close Fixme
-t 1000 r 15 -90 4 5 14 8 21 25 26 32 33 27 28 30 29 r 9 -135 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
-t 1000 r 13 -90 4 5 14 8 21 25 26 32 33 27 28 30 29 r 9 -60 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
-// Open Fixme simplify
-flat
-t 1000 r 36 135 32 14 33 mop 32 27 28 mop 14 4 5 mop 33 30 29 r 36 -135 31 13 34 a 9 mop 9 10 a 12 mop 12 11 mos 3 60 mos 0 25 a 0 3 mos 2 64 mos 1 23 a 2 1;
-mos 3 60 mos 0 25 mos 2 64 mos 1 23 // Fixme
+t 200 r 15 -180 4 5 14 8 21 25 26 32 33 27 28 30 29  r 9 -180 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
+
+t 200 fit
+
+// Open rotate around 36
+t 1000 r 36 135 32 14 33 27 28 4 5 30 29  r 36 -135 31 13 34  a 9 12 0 1 2 3 mop 12 11 mop 9 10 mos 60 3 mos 25 0 mos 23 1 mos 64 2
+
+t 200 fit
 
 // Show
 iao
 t 1000 z 0.5;
-t 1000 zf;
+t 1000 fit;
 `);
     }, 500);
   }

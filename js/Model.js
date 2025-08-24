@@ -629,8 +629,8 @@ export class Model {
 
     // Adjust list of points 3d
     adjustList(list) {
-        let max = 100;
-        for (let i = 0; max > 0.0001 && i < 200; i++) {
+        let max = 0.1;
+        for (let i = 0; max > 0.001 && i < 200; i++) {
             max = 0;
             for (let j = 0; j < list.length; j++) {
                 const point = list[j];
@@ -646,18 +646,13 @@ export class Model {
     // Checks segments and selects segments with anormal length
     checkSegments() {
         const max = 1.0;
-        for (let j = 0; j < this.points.length; j++) {
-            const p = this.points[j];
-            const segments = this.searchSegmentsOnePoint(p);
-            for (let i = 0; i < segments.length; i++) {
-                const s = segments[i];
-                const lg3d = Segment.length3d(s) / this.scale;
-                const lg2d = Segment.length2d(s); // Should not change
-                const d = lg2d - lg3d;
-                if (Math.abs(d) > max) {
-                    s.select = 1;
-                    p.select = 1;
-                }
+        for (let i = 0; i < this.segments.length; i++) {
+            const s = this.segments[i];
+            const lg3d = Segment.length3d(s) / this.scale;
+            const lg2d = Segment.length2d(s); // Should not change
+            const d = lg2d - lg3d;
+            if (Math.abs(d) > max) {
+                s.select = 1;
             }
         }
     }
@@ -704,12 +699,9 @@ export class Model {
     moveOnSegment(s, p) {
         // Project point and get vector from point to segment
         const closest = Vector3.closestPoint(p, s.p1, s.p2);
-        // Vector from point to the closest point
-        const v = Vector3.sub(closest, p);
-        // Move point p along vector v
-        p.x += v.x ;
-        p.y += v.y ;
-        p.z += v.z ;
+        p.x = closest.x ;
+        p.y = closest.y ;
+        p.z = closest.z ;
         this.adjust(p);
     }
 
@@ -809,4 +801,4 @@ export class Model {
     }
 }
 
-// 799
+// 804

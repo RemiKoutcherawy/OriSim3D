@@ -230,8 +230,7 @@ export class Helper {
             if (segments.length !== 0 && segments[0] === this.firstSegment) {
                 segments.forEach((s) => s.select = (s.select + 1) % 3);
                 let liste = segments.map(s => (this.model.indexOf(s) + '[' + Math.round(Segment.length2d(s) * 10) / 10 + ',' + Math.round(Segment.length3d(s) * 10) / 10)+ ']').join(' ');
-                if (this.commandArea) this.commandArea.addLine(`segments ${liste}`);
-                console.log(Segment.length2d(segments[0]), Segment.length3d(segments[0]));
+                if (this.commandArea) this.commandArea.addLine(`segments n[l2d,l3d] ${liste}`);
             }
             // To point crease perpendicular from segment to point
             else if (points.length !== 0) {
@@ -289,6 +288,10 @@ export class Helper {
                 // Handle turn if swipe down
                 this.command.command('t 1000 tx -180;');
             }
+            // Deselect
+            this.model.points.forEach(p => p.select = 0);
+            this.model.segments.forEach(s => s.select = 0);
+            this.model.faces.forEach(f => f.select = 0);
         }
         // Deselect
         else {
@@ -455,7 +458,7 @@ export class Helper {
         } else {
             // Double click?
             if (((new Date().getTime()) - this.touchTime) < 400) {
-                this.command.command('fit');
+                // this.command.command('fit');
                 this.view3d.angleX = 0.0;
                 this.view3d.angleY = 0.0;
                 this.view3d.scale = 1.0;

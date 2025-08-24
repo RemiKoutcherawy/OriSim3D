@@ -478,7 +478,7 @@ export class View3d {
     drawSegments() {
         for (let i = 0; i < this.model.segments.length; i++) {
             const s = this.model.segments[i];
-            const width = s.hover ? 6 : 3;
+            const width = (s.hover || s.select === 1 ) ? 6 : 3;
             const color = s.select === 1 ? [255, 0, 0] : s.select === 2 ? [255, 165, 0] : s.hover ? [0, 0, 255] : [135, 206, 235];
             for (let w = -Math.floor(width / 2); w <= Math.floor(width / 2); w++) {
                 const p1 = this.projected[this.indexMap.get(s.p1)];

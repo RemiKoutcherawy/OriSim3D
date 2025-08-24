@@ -260,8 +260,8 @@ export class Command {
         } else if (tokenList[idx] === 'mos' || tokenList[idx] === 'moveOnSegment') {
             // Move point on the segment
             idx++;
-            const p = this.model.points[tokenList[idx++]];
             const s = this.model.segments[tokenList[idx++]];
+            const p = this.model.points[tokenList[idx++]];
             this.model.moveOnSegment(s, p);
         } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
             // Move 1 point by dx,dy,dz in 3D with animation : move dx dy dz p1 p2 p3...
@@ -293,7 +293,7 @@ export class Command {
         } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
             // Offset by dz a list of faces: o dz f1 f2...
             idx++;
-            const dz = Number(tokenList[idx++]);
+            const dz = Number(tokenList[idx++]) / 10.0;
             list = this.listFaces(tokenList, idx);
             idx += list.length;
             this.model.offset(dz, list);
@@ -464,4 +464,4 @@ export class Command {
         Object.assign(this.model, this.model.deserialize(this.done.pop()));
     }
 }
-// 447 lines
+// 467 lines
