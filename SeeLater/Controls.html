@@ -25,34 +25,34 @@
     }
 </script>
 <script type="module">
-    import * as THREE from '../js/three.module.js';
-    import {OrbitControls} from '../js/OrbitControls.js';
-    import {TransformControls} from '../js/TransformControls.js';
+    import * as three from 'https://unpkg.com/three@0.159.0/build/three.module.js?module';
+    import { OrbitControls } from 'https://unpkg.com/three@0.159.0/examples/jsm/controls/OrbitControls.js?module';
+    import { TransformControls } from 'https://unpkg.com/three@0.159.0/examples/jsm/controls/TransformControls.js?module';
 
     let camera, transform, orbit, scene, renderer;
     init();
 
     function init() {
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xcccccc);
-        renderer = new THREE.WebGLRenderer({antialias: true});
+        scene = new three.Scene();
+        scene.background = new three.Color(0xcccccc);
+        renderer = new three.WebGLRenderer({antialias: true});
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setAnimationLoop(animate);
         document.body.appendChild(renderer.domElement);
         // Camera
-        camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight);
+        camera = new three.PerspectiveCamera(30, window.innerWidth / window.innerHeight);
         camera.position.set(0, 0, 600);
         camera.lookAt(scene.position);
 
         // World
-        const geometry = new THREE.PlaneGeometry(200, 200);
-        const material = new THREE.MeshPhongMaterial({color: 0x70ACF3, flatShading: false});
-        const mesh = new THREE.Mesh(geometry, material);
+        const geometry = new three.PlaneGeometry(200, 200);
+        const material = new three.MeshPhongMaterial({color: 0x70ACF3, flatShading: false});
+        const mesh = new three.Mesh(geometry, material);
         scene.add(mesh);
 
         // Lights
-        const dirLight1 = new THREE.DirectionalLight(0xffffff, 3);
+        const dirLight1 = new three.DirectionalLight(0xffffff, 3);
         dirLight1.position.set(0, 0, 1);
         scene.add(dirLight1);
         window.addEventListener('resize', onWindowResize);
