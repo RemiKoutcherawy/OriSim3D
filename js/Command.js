@@ -24,8 +24,9 @@ export class Command {
     // Eventual CommandArea
     commandArea;
 
-    constructor(model) {
+    constructor(model, view3d) {
         this.model = model;
+        this.view3d = view3d;
     }
 
     // The main entry point executes a string of commands
@@ -163,7 +164,6 @@ export class Command {
             const width = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
             const height = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
             this.model.init(width, height);
-            // this.command('fit'); // Fits 3D but breaks tests!
         }
 
         // Origami splits
@@ -322,7 +322,7 @@ export class Command {
             idx++;
             const axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 0, 1));
             this.model.turn(axis, Number(tokenList[idx++]) * k);
-        } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') {
+        } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
             // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
             idx++;
             let scale = Number(tokenList[idx++]);
@@ -331,9 +331,10 @@ export class Command {
             // Animation
             const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
             const b = scale * (this.tni / a - this.tpi);
-            this.model.movePoints(x * b, y * b, 0, this.model.points);
-            this.model.scaleModel(a);
-        } else if (tokenList[idx] === 'zf' || tokenList[idx] === 'fit') {
+            this.view3d.translationX = x * b;
+            this.view3d.translationY = y * b;
+            this.view3d.scale = a;
+        } else if (tokenList[idx] === 'fit') { // Not OK
             // Zoom fit 3d: fit3d
             idx++;
             if (this.tpi === 0) {
@@ -345,8 +346,10 @@ export class Command {
             }
             const a = ((1 + this.tni * ((this.za)[0] - 1)) / (1 + this.tpi * ((this.za)[0] - 1)));
             const b = (this.za)[0] * (this.tni / a - this.tpi);
-            this.model.movePoints((this.za)[1] * b, (this.za)[2] * b, 0, this.model.points);
-            this.model.scaleModel(a);
+            this.view3d.translationX = (this.za)[1] * b;
+            this.view3d.translationY = (this.za)[2] * b;
+            this.view3d.scale = a;
+            this.view3d.initModelView(true); // Should not be necessary
         }
 
         // Interpolator

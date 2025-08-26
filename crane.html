@@ -35,7 +35,7 @@
     view3d.initBuffers();
 
     // Command
-    const command = new Command(model);
+    const command = new Command(model, view3d);
     // Helper to handle mouse rotation and zoom
     new Helper(model, command, null, view3d, canvas3d);
 
@@ -98,7 +98,7 @@ t 2000 rotate 63 -180 9 rotate 63 180 10;
 // Show
 iao
 t 1000 z 0.5;
-t 1000 zf;
+t 1000 fit;
 `);
     }, 500);
   }

@@ -35,7 +35,7 @@
     view3d.initBuffers();
 
     // Command
-    const command = new Command(model);
+    const command = new Command(model, view3d);
     // Helper to handle mouse rotation and zoom
     new Helper(model, command, null, view3d, canvas3d);
 
