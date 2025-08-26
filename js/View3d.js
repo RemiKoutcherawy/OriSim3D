@@ -23,6 +23,7 @@ export class View3d {
     // Current rotation angle (x-axis, y-axis degrees)
     angleX = 0.0;
     angleY = 0.0;
+    angleZ = 0.0;
     scale = 1.0;
     translationX = 0;
     translationY = 0;
@@ -219,8 +220,12 @@ export class View3d {
         }
         // Handle Model rotation
         let modelMatrix = View3d.multiplyMat4(
+            View3d.rotateZMat4(this.angleZ),
+            View3d.rotateXMat4(this.angleX),
+        );
+        modelMatrix = View3d.multiplyMat4(
+            modelMatrix,
             View3d.rotateYMat4(this.angleY),
-            View3d.rotateXMat4(this.angleX)
         );
         // Handle Model translation on X only
         modelMatrix = View3d.multiplyMat4(
@@ -614,6 +619,10 @@ export class View3d {
     static rotateXMat4(angle) {
         const c = Math.cos(angle), s = Math.sin(angle);
         return [[1,0,0,0], [0,c,-s,0], [0,s,c,0], [0,0,0,1]];
+    }
+    static rotateZMat4(angle) {
+        const c = Math.cos(angle), s = Math.sin(angle);
+        return [[c,-s,0,0],[s,c,0,0],[0,0,1,0],[0,0,0,1]];
     }
     static scaleMat4(sx, sy, sz) {
         return [[sx,0,0,0], [0,sy,0,0], [0,0,sz,0], [0,0,0,1]];

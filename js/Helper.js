@@ -461,6 +461,7 @@ export class Helper {
                 // this.command.command('fit');
                 this.view3d.angleX = 0.0;
                 this.view3d.angleY = 0.0;
+                this.view3d.angleZ = 0.0;
                 this.view3d.scale = 1.0;
                 this.view3d.translationX = 0.0;
                 this.view3d.translationY = 0.0;

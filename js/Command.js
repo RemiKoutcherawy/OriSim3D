@@ -155,7 +155,6 @@ export class Command {
     execute(idx) {
         let list = [];
         const tokenList = this.tokenTodo;
-        const k = this.tni - this.tpi; // For animation
 
         // Define sheet
         if (tokenList[idx] === 'd' || tokenList[idx] === 'define') {
@@ -246,7 +245,7 @@ export class Command {
             // Rotate around 'Seg' with 'Angle' all 'Points' with animation: r s1 angle p1 p2 p3...
             idx++;
             const s = this.model.segments[tokenList[idx++]];
-            const angle = tokenList[idx++] * k;
+            const angle = tokenList[idx++] * (this.tni - this.tpi);
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.rotate(s, angle, list);
@@ -264,11 +263,11 @@ export class Command {
             const p = this.model.points[tokenList[idx++]];
             this.model.moveOnSegment(s, p);
         } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
-            // Move 1 point by dx,dy,dz in 3D with animation : move dx dy dz p1 p2 p3...
+            // Move n points by dx,dy,dz in 3D with animation: move dx dy dz p1 p2 p3...
             idx++;
-            const dx = tokenList[idx++] * k;
-            const dy = tokenList[idx++] * k;
-            const dz = tokenList[idx++] * k;
+            const dx = tokenList[idx++] * (this.tni - this.tpi);
+            const dy = tokenList[idx++] * (this.tni - this.tpi);
+            const dz = tokenList[idx++] * (this.tni - this.tpi);
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.movePoints(dx, dy, dz, list);
@@ -299,29 +298,19 @@ export class Command {
             this.model.offset(dz, list);
         }
 
-        // Model turn, zoom and move
-        else if (tokenList[idx] === 'turn') {
-            // Turn the model around axis x,y,z by angle: turn 0 1 0 180
-            idx++;
-            const axis = new Segment(new Point(0, 0), new Point(0, 0, tokenList[idx++], tokenList[idx++], tokenList[idx++]));
-            this.model.turn(axis, Number(tokenList[idx++]) * k);
-        }
-        // Turns
+        // View3D turn, zoom and move
         else if (tokenList[idx] === 'tx') {
-            // "tx: TurnX"
+            // "tx: TurnX angle"
             idx++;
-            const axis = new Segment(new Point(0, 0), new Point(0, 0, 1, 0, 0));
-            this.model.turn(axis, Number(tokenList[idx++]) * k);
+            this.view3d.angleX = Number(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180.0;
         } else if (tokenList[idx] === 'ty') {
-            // "ty: TurnY"
+            // "ty: TurnY angle"
             idx++;
-            const axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 1, 0));
-            this.model.turn(axis, Number(tokenList[idx++]) * k);
+            this.view3d.angleY = Number(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180.0;
         } else if (tokenList[idx] === 'tz') {
-            // "tz: TurnZ"
+            // "tz: TurnZ angle"
             idx++;
-            const axis = new Segment(new Point(0, 0), new Point(0, 0, 0, 0, 1));
-            this.model.turn(axis, Number(tokenList[idx++]) * k);
+            this.view3d.angleZ = Number(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180.0;
         } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
             // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
             idx++;
