@@ -27,7 +27,8 @@ export class View3d {
     scale = 1.0;
     translationX = 0;
     translationY = 0;
-    mvp = View3d.createMat4();
+    viewProjectMat = View3d.createMat4();
+    modelViewProjectMat = View3d.createMat4();
 
     constructor(model, canvas3d) {
         this.model = model;
@@ -43,7 +44,7 @@ export class View3d {
         // Handle window resize
         window.addEventListener('resize', () => {
             this.width = this.canvas3d.width = canvas3d.clientWidth;
-            this.height = this.canvas3d.height= canvas3d.clientHeight;
+            this.height = this.canvas3d.height = canvas3d.clientHeight;
             this.imgData = this.context2d.createImageData(this.width, this.height);
             this.initModelView(true);
             this.createDepthBuffer();
@@ -69,6 +70,7 @@ export class View3d {
             this.depthBuffer[pos] = z;
         }
     }
+
     // Textures
     initTextures() {
         const textureLoad = (img, data) => {
@@ -168,9 +170,9 @@ export class View3d {
 
                 // Add triangle to the list
                 const triangleIndex = Math.floor(index / 3);
-                this.triangles[triangleIndex] = {v: [index,index+1,index+2], uv: [index,index+1,index+2]};
+                this.triangles[triangleIndex] = {v: [index, index + 1, index + 2], uv: [index, index + 1, index + 2]};
 
-                index+=3;
+                index += 3;
             }
         }
         // Segments
@@ -202,21 +204,21 @@ export class View3d {
     }
 
     // Calculate model-view-projection matrix and project vertices
-    initModelView(resize=false) {
+    initModelView(resize = false) {
         if (resize) {
             const aspect = this.width / this.height;
             const bounds = this.model.get3DBounds();
             const modelWidth = bounds.xMax - bounds.xMin;
             const modelHeight = bounds.yMax - bounds.yMin;
-            const fov = Math.PI/4.2;
-            const viewDistance = Math.max(modelWidth / aspect, modelHeight) / Math.tan(fov/2) *0.7; //* 1.2;
+            const fov = Math.PI / 4.2;
+            const viewDistance = Math.max(modelWidth / aspect, modelHeight) / Math.tan(fov / 2) * 0.8; //* 1.2;
             const projMatrix = View3d.perspectiveMat4(fov, aspect, 0.1, viewDistance * 2);
             const viewMatrix = View3d.translateMat4(
                 -(bounds.xMin + bounds.xMax) / 2,
                 -(bounds.yMin + bounds.yMax) / 2,
                 -viewDistance // Position camera
             );
-            this.mvp = View3d.multiplyMat4(projMatrix, viewMatrix);
+            this.viewProjectMat = View3d.multiplyMat4(projMatrix, viewMatrix);
         }
         // Handle Model rotation
         let modelMatrix = View3d.multiplyMat4(
@@ -230,14 +232,14 @@ export class View3d {
         // Handle Model translation on X only
         modelMatrix = View3d.multiplyMat4(
             modelMatrix,
-            View3d.translateMat4(this.translationX, 0, 0)
+            View3d.translateMat4(this.translationX, this.translationY, 0)
         );
         // Handle model scale
         modelMatrix = View3d.multiplyMat4(
             modelMatrix,
             View3d.scaleMat4(this.scale, this.scale, this.scale)
         );
-        this.mvp = View3d.multiplyMat4(this.mvp, modelMatrix);
+        this.modelViewProjectMat = View3d.multiplyMat4(this.viewProjectMat, modelMatrix);
         // Used for normals
         this.invTransModel = View3d.inverseTransposeMat4(modelMatrix);
 
@@ -248,7 +250,7 @@ export class View3d {
         const projected = new Array(vertices.length);
         for (let i = 0; i < vertices.length; i++) {
             const v = vertices[i];
-            const tv = View3d.transformVec4(this.mvp, v);
+            const tv = View3d.transformVec4(this.modelViewProjectMat, v);
             const w = tv[3] || 1;
             const invW = 1 / w;
             projected[i] = [
@@ -307,9 +309,9 @@ export class View3d {
         }
         // Calculate bounding box of the triangle (with clipping)
         const minX = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
-        const maxX = Math.min(this.width-1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
+        const maxX = Math.min(this.width - 1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
         const minY = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1])));
-        const maxY = Math.min(this.height-1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
+        const maxY = Math.min(this.height - 1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
 
         // Barycentric coordinates
         const p1y_p2y = p1[1] - p2[1];
@@ -334,10 +336,10 @@ export class View3d {
                 w0 = Math.abs(w0) < 0.001 ? 0.001 : w0;
                 w1 = Math.abs(w1) < 0.001 ? 0.001 : w1;
                 w2 = Math.abs(w2) < 0.001 ? 0.001 : w2;
-                let invW = b0/w0 + b1/w1 + b2/w2;
+                let invW = b0 / w0 + b1 / w1 + b2 / w2;
                 invW = Math.abs(invW) < 0.001 ? 0.001 : invW;
-                const u = (b0*uv0[0]/w0 + b1*uv1[0]/w1 + b2*uv2[0]/w2) / invW;
-                const v = (b0*uv0[1]/w0 + b1*uv1[1]/w1 + b2*uv2[1]/w2) / invW;
+                const u = (b0 * uv0[0] / w0 + b1 * uv1[0] / w1 + b2 * uv2[0] / w2) / invW;
+                const v = (b0 * uv0[1] / w0 + b1 * uv1[1] / w1 + b2 * uv2[1] / w2) / invW;
                 // Ensure texture coordinates are valid
                 const tx = Math.floor(u * this.texWidth) % this.texWidth;
                 const ty = Math.floor(v * this.texHeight) % this.texHeight;
@@ -417,10 +419,16 @@ export class View3d {
         const zStep = totalSteps > 0 ? (z2 - z1) / totalSteps : 0;
         this.putPixel(Math.round(x), Math.round(y), lineColor, z);
         while ((sx > 0 && x < x2) || (sx < 0 && x > x2) ||
-               (sy > 0 && y < y2) || (sy < 0 && y > y2)) {
+        (sy > 0 && y < y2) || (sy < 0 && y > y2)) {
             const e2 = 2 * err;
-            if (e2 > -dy) { err -= dy; x += sx; }
-            if (e2 < dx) { err += dx; y += sy; }
+            if (e2 > -dy) {
+                err -= dy;
+                x += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y += sy;
+            }
             z += zStep;
             this.putPixel(Math.round(x), Math.round(y), lineColor, z);
         }
@@ -456,6 +464,7 @@ export class View3d {
             plot(x, y);
         }
     }
+
     // Draw Points. Called from render()
     drawPoints() {
         for (let p of this.model.points) {
@@ -479,11 +488,12 @@ export class View3d {
             this.drawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
         }
     }
+
     // Draw hovered segments
     drawSegments() {
         for (let i = 0; i < this.model.segments.length; i++) {
             const s = this.model.segments[i];
-            const width = (s.hover || s.select === 1 ) ? 6 : 3;
+            const width = (s.hover || s.select === 1) ? 6 : 3;
             const color = s.select === 1 ? [255, 0, 0] : s.select === 2 ? [255, 165, 0] : s.hover ? [0, 0, 255] : [135, 206, 235];
             for (let w = -Math.floor(width / 2); w <= Math.floor(width / 2); w++) {
                 const p1 = this.projected[this.indexMap.get(s.p1)];
@@ -505,6 +515,7 @@ export class View3d {
             }
         }
     }
+
     // Draw hovered faces
     drawFaces() {
         for (let f of this.model.faces) {
@@ -542,7 +553,7 @@ export class View3d {
                         const z2 = intersections[i + 1].z;
                         for (let x = x1; x <= x2; x++) {
                             const t = (x - x1) / (x2 - x1);
-                            const z = z1 + t * (z2 - z1) -1; // -1 to draw above to see the face
+                            const z = z1 + t * (z2 - z1) - 1; // -1 to draw above to see the face
                             this.putPixel(x, y, [255, 192, 203], z); // Pink color
                         }
                     }
@@ -550,10 +561,12 @@ export class View3d {
             }
         }
     }
+
     /**
      * Draw labels for Points, Segments, Faces
      */
     labels = [];
+
     drawLabels(context2d) {
         this.labels = [];
         // Points
@@ -591,51 +604,67 @@ export class View3d {
             context2d.fillText(txt, oneLabel.getX() - 4 * (txt.length), oneLabel.getY() + 5);
         }
     }
-    static createMat4() {return [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]];}
+
+    static createMat4() {
+        return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
+    }
+
     static multiplyMat4(a, b) {
         const r = View3d.createMat4();
         for (let i = 0; i < 4; i++)
             for (let j = 0; j < 4; j++)
-                r[i][j] = a[i][0]*b[0][j] + a[i][1]*b[1][j] + a[i][2]*b[2][j] + a[i][3]*b[3][j];
+                r[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j] + a[i][3] * b[3][j];
         return r;
     }
+
     static transformVec4(mat, vec) {
         const r = [0, 0, 0, 0];
         for (let i = 0; i < 4; i++)
-            r[i] = mat[i][0]*vec[0] + mat[i][1]*vec[1] + mat[i][2]*vec[2] + mat[i][3]*(vec[3] || 1);
+            r[i] = mat[i][0] * vec[0] + mat[i][1] * vec[1] + mat[i][2] * vec[2] + mat[i][3] * (vec[3] || 1);
         return r;
     }
+
     static perspectiveMat4(fov, aspect, near, far) {
-        const f = 1/Math.tan(fov/2), nf = 1/(near-far);
-        return [[f/aspect,0,0,0], [0,f,0,0], [0,0,(far+near)*nf,2*far*near*nf], [0,0,-1,0]];
+        const f = 1 / Math.tan(fov / 2), nf = 1 / (near - far);
+        return [[f / aspect, 0, 0, 0], [0, f, 0, 0], [0, 0, (far + near) * nf, 2 * far * near * nf], [0, 0, -1, 0]];
     }
+
     static translateMat4(tx, ty, tz) {
-        return [[1,0,0,tx], [0,1,0,ty], [0,0,1,tz], [0,0,0,1]];
+        return [[1, 0, 0, tx], [0, 1, 0, ty], [0, 0, 1, tz], [0, 0, 0, 1]];
     }
+
     static rotateYMat4(angle) {
         const c = Math.cos(angle), s = Math.sin(angle);
-        return [[c,0,s,0], [0,1,0,0], [-s,0,c,0], [0,0,0,1]];
+        return [[c, 0, s, 0], [0, 1, 0, 0], [-s, 0, c, 0], [0, 0, 0, 1]];
     }
+
     static rotateXMat4(angle) {
         const c = Math.cos(angle), s = Math.sin(angle);
-        return [[1,0,0,0], [0,c,-s,0], [0,s,c,0], [0,0,0,1]];
+        return [[1, 0, 0, 0], [0, c, -s, 0], [0, s, c, 0], [0, 0, 0, 1]];
     }
+
     static rotateZMat4(angle) {
         const c = Math.cos(angle), s = Math.sin(angle);
-        return [[c,-s,0,0],[s,c,0,0],[0,0,1,0],[0,0,0,1]];
+        return [[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
     }
+
     static scaleMat4(sx, sy, sz) {
-        return [[sx,0,0,0], [0,sy,0,0], [0,0,sz,0], [0,0,0,1]];
+        return [[sx, 0, 0, 0], [0, sy, 0, 0], [0, 0, sz, 0], [0, 0, 0, 1]];
     }
+
     // Cross product: v1 × v2, optionally store in result arg
     static cross(v1, v2, result = null) {
         if (!result) result = [0, 0, 0];
-        result[0] = v1[1]*v2[2] - v1[2]*v2[1];
-        result[1] = v1[2]*v2[0] - v1[0]*v2[2];
-        result[2] = v1[0]*v2[1] - v1[1]*v2[0];
+        result[0] = v1[1] * v2[2] - v1[2] * v2[1];
+        result[1] = v1[2] * v2[0] - v1[0] * v2[2];
+        result[2] = v1[0] * v2[1] - v1[1] * v2[0];
         return result;
     }
-    static dot(v1, v2) {return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];}
+
+    static dot(v1, v2) {
+        return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+    }
+
     // Normalize vector, optionally store in result arg
     static normalize(v, result = null) {
         if (!result) result = [0, 0, 0];
@@ -653,37 +682,55 @@ export class View3d {
         }
         return result;
     }
+
     // Transform normal by matrix, optionally store in the result arg
     static transformNormal(mat, normal, result = null) {
         if (!result) result = [0, 0, 0];
-        result[0] = mat[0][0]*normal[0] + mat[0][1]*normal[1] + mat[0][2]*normal[2];
-        result[1] = mat[1][0]*normal[0] + mat[1][1]*normal[1] + mat[1][2]*normal[2];
-        result[2] = mat[2][0]*normal[0] + mat[2][1]*normal[1] + mat[2][2]*normal[2];
+        result[0] = mat[0][0] * normal[0] + mat[0][1] * normal[1] + mat[0][2] * normal[2];
+        result[1] = mat[1][0] * normal[0] + mat[1][1] * normal[1] + mat[1][2] * normal[2];
+        result[2] = mat[2][0] * normal[0] + mat[2][1] * normal[1] + mat[2][2] * normal[2];
         return this.normalize(result, result);
     }
+
     static inverseTransposeMat4(mat) {
         const r = View3d.createMat4();
         const c = mat[0][0], s = mat[2][0]; // For rotation Y matrix
-        r[0][0] = c; r[0][2] = -s;
+        r[0][0] = c;
+        r[0][2] = -s;
         r[1][1] = 1;
-        r[2][0] = s; r[2][2] = c;
+        r[2][0] = s;
+        r[2][2] = c;
         return r;
     }
 }
+
 class Label {
     static size = 20;
+
     constructor(x, y) {
         this.x = x;
         this.y = y;
         this.n = 0;
     }
-    getX() {return Math.floor(this.x + Label.size * 2 * Math.cos((this.n - 1) * Math.PI / 4));}
-    getY() {return Math.floor(this.y + Label.size * 2 * Math.sin((this.n - 1) * Math.PI / 4));}
-    moveLabel() {this.n++; return this.n > 8;}
+
+    getX() {
+        return Math.floor(this.x + Label.size * 2 * Math.cos((this.n - 1) * Math.PI / 4));
+    }
+
+    getY() {
+        return Math.floor(this.y + Label.size * 2 * Math.sin((this.n - 1) * Math.PI / 4));
+    }
+
+    moveLabel() {
+        this.n++;
+        return this.n > 8;
+    }
+
     over(other) {
         const dx = this.getX() - other.getX();
         const dy = this.getY() - other.getY();
         return !(Math.abs(dy) > 20 || Math.abs(dx) > 20);
     }
 }
+
 // 650 lines

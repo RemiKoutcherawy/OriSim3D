@@ -14,8 +14,8 @@ export class Command {
     // Time interpolated at an instant 'p' preceding and at instant 'n' now
     tpi = 0;
     tni = 1;
-    // scale, cx, cy, cz used in ZoomFit
-    za = [0, 0, 0, 0];
+    // Goal for fit
+    scale = 1.0; deltaX = 0.0; deltaY = 0.0;
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
@@ -322,23 +322,22 @@ export class Command {
             const b = scale * (this.tni / a - this.tpi);
             this.view3d.translationX = x * b;
             this.view3d.translationY = y * b;
-            this.view3d.scale = a;
+            this.view3d.scale *= a;
         } else if (tokenList[idx] === 'fit') { // Not OK
             // Zoom fit 3d: fit3d
             idx++;
             if (this.tpi === 0) {
                 let bounds = this.model.get3DBounds();
                 const w = 400;
-                (this.za)[0] = w / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
-                (this.za)[1] = -(bounds.xMin + bounds.xMax) / 2;
-                (this.za)[2] = -(bounds.yMin + bounds.yMax) / 2;
+                this.scale = w / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
+                this.deltaX = -(bounds.xMin + bounds.xMax) / 2;
+                this.deltaY = -(bounds.yMin + bounds.yMax) / 2;
             }
-            const a = ((1 + this.tni * ((this.za)[0] - 1)) / (1 + this.tpi * ((this.za)[0] - 1)));
-            const b = (this.za)[0] * (this.tni / a - this.tpi);
-            this.view3d.translationX = (this.za)[1] * b;
-            this.view3d.translationY = (this.za)[2] * b;
+            const a = ((1 + this.tni * (this.scale - 1)) / (1 + this.tpi * (this.scale - 1)));
+            const b = this.scale * (this.tni / a - this.tpi);
+            this.view3d.translationX += this.deltaX * b;
+            this.view3d.translationY += this.deltaY * b;
             this.view3d.scale = a;
-            this.view3d.initModelView(true); // Should not be necessary
         }
 
         // Interpolator

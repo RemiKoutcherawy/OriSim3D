@@ -680,6 +680,7 @@ export class Model {
 
     // Move a list of points by dx,dy,dz
     movePoints(dx, dy, dz, points) {
+        if (points.length === 0) points = this.points;
         points.forEach((p) => {
             p.x += dx;
             p.y += dy;

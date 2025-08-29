@@ -421,7 +421,7 @@ export class Helper {
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
             this.view3d.angleY += dx;
-            this.view3d.initModelView(true);
+            this.view3d.initModelView();
         }
         this.move(points, segments, faces, xCanvas, yCanvas);
     }
@@ -441,14 +441,14 @@ export class Helper {
     wheel(event) {
         // deltaY => up or down zoom view
         if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-            this.view3d.scale = event.scale !== undefined ? event.scale : this.view3d.scale + event.deltaY / 300.0;
-            this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 5);
-            this.view3d.initModelView(true);
+            this.view3d.scale = event.scale !== undefined ? event.scale / 10.0 : this.view3d.scale + event.deltaY / 3000.0;
+            this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 3); // 0.2 < scale < 3
+            this.view3d.initModelView();
         }
         // deltaX left or right translate
         else if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
             this.view3d.translationX -= event.deltaX * 2;
-            this.view3d.initModelView(true);
+            this.view3d.initModelView();
         }
     }
 
@@ -458,14 +458,14 @@ export class Helper {
         } else {
             // Double click?
             if (((new Date().getTime()) - this.touchTime) < 400) {
-                // this.command.command('fit');
+                this.command.command('fit');
                 this.view3d.angleX = 0.0;
                 this.view3d.angleY = 0.0;
                 this.view3d.angleZ = 0.0;
                 this.view3d.scale = 1.0;
                 this.view3d.translationX = 0.0;
                 this.view3d.translationY = 0.0;
-                this.view3d.initModelView(true);
+                this.view3d.initModelView();
             } else {
                 this.touchTime = new Date().getTime();
             }
