@@ -27,8 +27,12 @@ export class View3d {
     scale = 1.0;
     translationX = 0;
     translationY = 0;
-    viewProjectMat = View3d.createMat4();
-    modelViewProjectMat = View3d.createMat4();
+    // Perspective
+    near = 0.1;
+    far = 1000;
+    fov = Math.PI / 4.2;
+    aspect = 1.0;
+    projectionMatrix = View3d.createMat4();
 
     constructor(model, canvas3d) {
         this.model = model;
@@ -47,6 +51,7 @@ export class View3d {
             this.height = this.canvas3d.height = canvas3d.clientHeight;
             this.imgData = this.context2d.createImageData(this.width, this.height);
             this.initModelView(true);
+            this.updateProjectionMatrix();
             this.createDepthBuffer();
             this.render();
         });
@@ -204,32 +209,17 @@ export class View3d {
     }
 
     // Calculate model-view-projection matrix and project vertices
-    initModelView(resize = false) {
-        if (resize) {
-            const aspect = this.width / this.height;
-            const bounds = this.model.get3DBounds();
-            const modelWidth = bounds.xMax - bounds.xMin;
-            const modelHeight = bounds.yMax - bounds.yMin;
-            const fov = Math.PI / 4.2;
-            const viewDistance = Math.max(modelWidth / aspect, modelHeight) / Math.tan(fov / 2) * 0.8; //* 1.2;
-            const projMatrix = View3d.perspectiveMat4(fov, aspect, 0.1, viewDistance * 2);
-            const viewMatrix = View3d.translateMat4(
-                -(bounds.xMin + bounds.xMax) / 2,
-                -(bounds.yMin + bounds.yMax) / 2,
-                -viewDistance // Position camera
-            );
-            this.viewProjectMat = View3d.multiplyMat4(projMatrix, viewMatrix);
-        }
-        // Handle Model rotation
+    initModelView() {
+        // Handle model rotation
         let modelMatrix = View3d.multiplyMat4(
             View3d.rotateZMat4(this.angleZ),
-            View3d.rotateXMat4(this.angleX),
+            View3d.rotateXMat4(this.angleX)
         );
         modelMatrix = View3d.multiplyMat4(
             modelMatrix,
-            View3d.rotateYMat4(this.angleY),
+            View3d.rotateYMat4(this.angleY)
         );
-        // Handle Model translation on X only
+        // Handle model translation
         modelMatrix = View3d.multiplyMat4(
             modelMatrix,
             View3d.translateMat4(this.translationX, this.translationY, 0)
@@ -239,7 +229,7 @@ export class View3d {
             modelMatrix,
             View3d.scaleMat4(this.scale, this.scale, this.scale)
         );
-        this.modelViewProjectMat = View3d.multiplyMat4(this.viewProjectMat, modelMatrix);
+        this.projectionMatrix = View3d.multiplyMat4(this.projectionMatrix, modelMatrix);
         // Used for normals
         this.invTransModel = View3d.inverseTransposeMat4(modelMatrix);
 
@@ -250,7 +240,7 @@ export class View3d {
         const projected = new Array(vertices.length);
         for (let i = 0; i < vertices.length; i++) {
             const v = vertices[i];
-            const tv = View3d.transformVec4(this.modelViewProjectMat, v);
+            const tv = View3d.transformVec4(this.projectionMatrix, v);
             const w = tv[3] || 1;
             const invW = 1 / w;
             projected[i] = [
@@ -261,6 +251,21 @@ export class View3d {
             ];
         }
         this.projected = projected;
+    }
+
+    updateProjectionMatrix() {
+        this.aspect = this.width / this.height;
+        const bounds = this.model.get3DBounds();
+        const modelWidth = bounds.xMax - bounds.xMin;
+        const modelHeight = bounds.yMax - bounds.yMin;
+        this.far = Math.max(modelWidth / this.aspect, modelHeight) / Math.tan(this.fov / 2) * 0.8;
+        const projection = View3d.perspectiveMat4(this.fov, this.aspect, this.near, this.far * 2);
+        const view = View3d.translateMat4(
+            -(bounds.xMin + bounds.xMax) / 2,
+            -(bounds.yMin + bounds.yMax) / 2,
+            -this.far
+        );
+        this.projectionMatrix = View3d.multiplyMat4(projection, view);
     }
 
     // Render

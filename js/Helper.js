@@ -19,6 +19,7 @@ export class Helper {
             canvas3d.addEventListener('mouseup', (event) => this.up3d(event));
             canvas3d.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             canvas3d.addEventListener('mouseout', (event) => this.out(event));
+            canvas3d.addEventListener('contextmenu', (event) => {event.preventDefault();});
         }
         if (canvas2d) {
             // 2d
@@ -400,6 +401,9 @@ export class Helper {
 
     // Down on 3d overlay
     down3d(event) {
+        if (event.button === 2) {
+            event.preventDefault();
+        }
         this.currentCanvas = '3d';
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
@@ -421,8 +425,15 @@ export class Helper {
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
             this.view3d.angleY += dx;
-            this.view3d.initModelView();
+        } else if (event.buttons & 2) {
+            // Translation
+            const dx = (xCanvas - this.currentX);
+            const dy = (yCanvas - this.currentY);
+            this.view3d.translationY -= dy;
+            this.view3d.translationX += dx;
         }
+        this.view3d.initModelView();
+        this.view3d.updateProjectionMatrix();
         this.move(points, segments, faces, xCanvas, yCanvas);
     }
 
@@ -440,16 +451,10 @@ export class Helper {
     // Mouse wheel on 3d overlay
     wheel(event) {
         // deltaY => up or down zoom view
-        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
-            this.view3d.scale = event.scale !== undefined ? event.scale / 10.0 : this.view3d.scale + event.deltaY / 3000.0;
-            this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 3); // 0.2 < scale < 3
-            this.view3d.initModelView();
-        }
-        // deltaX left or right translate
-        else if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-            this.view3d.translationX -= event.deltaX * 2;
-            this.view3d.initModelView();
-        }
+        this.view3d.scale = event.scale !== undefined ? event.scale / 10.0 : this.view3d.scale + event.deltaY / 3000.0;
+        this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 3); // 0.2 < scale < 3
+        this.view3d.initModelView();
+        this.view3d.updateProjectionMatrix();
     }
 
     doubleClick() {

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <title>OriSim3D</title>
+  <title>Conception</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta charset="utf-8">
   <meta content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" name="viewport">
@@ -40,8 +40,9 @@
     const canvas3d = window.document.getElementById("canvas3d");
     const view3d = new View3d(model, canvas3d);
     view3d.initBuffers(); // Needed only if the number of points changed
+    view3d.updateProjectionMatrix();
 
-    // View 2d
+      // View 2d
     const canvas2d = window.document.getElementById("canvas2d");
     const view2d = new View2d(model, canvas2d);
 
@@ -55,7 +56,8 @@
     // Animation loop
     function loop() {
       if (command.anim()) {
-        view3d.initBuffers(); // Needed only if the number of points changed
+        view3d.initBuffers();
+        view3d.updateProjectionMatrix();
         view3d.initModelView();
       }
       view2d.drawModel();
@@ -67,11 +69,23 @@
 
     //Test
     setTimeout( () => {
-      command.command(`define 210 300
-lines overlay
-t 1000 z 0.5;
-t 100 m 0 400 0
-t 1000 fit
+      command.command(`
+    define 210 300
+    lines
+    // Fold top on bottom
+    across2d 1 2;
+    offset -1 0
+    t 200 r 6 -180 2 3;
+    t 200 fit;
+    // Crease edges at 45°
+    across3d 4 5
+    bisector3d 7 9
+    bisector3d 6 9
+
+    // Fold corners
+    offset -1 3 0
+    t 200 rotate 13 -180 4
+    t 200 rotate 17 180 5
 
 `);
     }, 500);
