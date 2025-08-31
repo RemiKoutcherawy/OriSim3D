@@ -35,38 +35,42 @@
     // View 3d with 2D overlay
     const canvas3d = window.document.getElementById("canvas3d");
     const view3d = new View3d(model, canvas3d);
-    view3d.initBuffers(); // Needed only if the number of points changed
+    view3d.initBuffers();
+    view3d.updateProjectionMatrix();
 
     // View 2d
     const canvas2d = window.document.getElementById("canvas2d");
     const view2d = new View2d(model, canvas2d);
 
     // Command
-    const command = new Command(model,view3d);
+    const command = new Command(model, view3d);
 
     // Helper
     const helper = new Helper(model, command, canvas2d, view3d, canvas3d);
 
     // Animation loop
     function loop() {
-      if (command.anim()) {
-        view3d.initBuffers(); // Needed only if the number of points changed
-        view3d.initModelView();
+      requestAnimationFrame(loop);
+      const changed = command.anim();
+      if (changed) {
+          view3d.initBuffers();
       }
+      view3d.initModelView();
+      view3d.updateProjectionMatrix();
       view2d.drawModel();
       view3d.render();
       helper.draw();
-      requestAnimationFrame(loop);
     }
     loop();
 
     setTimeout( () => {
       command.command(`
+d 200 200
+lines overlay
 c3d 0 1 c3d 1 2 offset -1 1 2
 t 1000 r 6 -180 1 2 7
 offset -1 2 3
 t 1000 r 11 180 2 3 5
-overlay
       `);
     }, 500);
   }

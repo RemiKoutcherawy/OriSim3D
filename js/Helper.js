@@ -432,9 +432,9 @@ export class Helper {
             this.view3d.translationY -= dy;
             this.view3d.translationX += dx;
         }
+        this.move(points, segments, faces, xCanvas, yCanvas);
         this.view3d.initModelView();
         this.view3d.updateProjectionMatrix();
-        this.move(points, segments, faces, xCanvas, yCanvas);
     }
 
     // Up on 3d overlay
@@ -463,13 +463,55 @@ export class Helper {
         } else {
             // Double click?
             if (((new Date().getTime()) - this.touchTime) < 400) {
-                this.command.command('fit');
+                // Fit by measuring projected bbox with scale=1 and zero rotations/translations
                 this.view3d.angleX = 0.0;
                 this.view3d.angleY = 0.0;
                 this.view3d.angleZ = 0.0;
-                this.view3d.scale = 1.0;
                 this.view3d.translationX = 0.0;
                 this.view3d.translationY = 0.0;
+                this.view3d.scale = 1.0;
+                this.view3d.updateProjectionMatrix();
+                this.view3d.initModelView();
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                const projected = this.view3d.projected;
+                if (!projected || projected.length === 0) {
+                    return;
+                }
+                for (let i = 0; i < projected.length; i++) {
+                    const p = projected[i];
+                    if (!p) continue;
+                    if (p[0] < minX) minX = p[0];
+                    if (p[0] > maxX) maxX = p[0];
+                    if (p[1] < minY) minY = p[1];
+                    if (p[1] > maxY) maxY = p[1];
+                }
+                const bboxW = Math.max(1, maxX - minX);
+                const bboxH = Math.max(1, maxY - minY);
+                const w = this.view3d.width;
+                const h = this.view3d.height;
+                const padding = 0.9;
+                const factorX = (w * padding) / bboxW;
+                const factorY = (h * padding) / bboxH;
+                this.view3d.scale = Math.min(factorX, factorY);
+                this.view3d.initModelView();
+                // Recenter inside the canvas
+                let cMinX = Infinity, cMinY = Infinity, cMaxX = -Infinity, cMaxY = -Infinity;
+                for (let i = 0; i < projected.length; i++) {
+                    const p = this.view3d.projected[i];
+                    if (!p) continue;
+                    if (p[0] < cMinX) cMinX = p[0];
+                    if (p[0] > cMaxX) cMaxX = p[0];
+                    if (p[1] < cMinY) cMinY = p[1];
+                    if (p[1] > cMaxY) cMaxY = p[1];
+                }
+                const bboxCX = (cMinX + cMaxX) * 0.5;
+                const bboxCY = (cMinY + cMaxY) * 0.5;
+                const canvasCX = w * 0.5;
+                const canvasCY = h * 0.5;
+                const dxScreen = canvasCX - bboxCX;
+                const dyScreen = canvasCY - bboxCY;
+                this.view3d.translationX += dxScreen / this.view3d.scale;
+                this.view3d.translationY -= dyScreen / this.view3d.scale;
                 this.view3d.initModelView();
             } else {
                 this.touchTime = new Date().getTime();
