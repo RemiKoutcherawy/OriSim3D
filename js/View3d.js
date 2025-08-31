@@ -33,6 +33,7 @@ export class View3d {
     fov = Math.PI / 4.2;
     aspect = 1.0;
     projectionMatrix = View3d.createMat4();
+    baseProjectionMatrix= View3d.createMat4();
 
     constructor(model, canvas3d) {
         this.model = model;
@@ -41,6 +42,8 @@ export class View3d {
         this.width = canvas3d.width = canvas3d.clientWidth;
         this.height = canvas3d.height = canvas3d.clientHeight;
         this.imgData = this.context2d.createImageData(this.width, this.height);
+        this.projectionMatrix = View3d.createMat4();
+        this.baseProjectionMatrix = View3d.createMat4(); // Ajouter cette ligne
         this.createDepthBuffer();
         this.initBuffers();
         this.initModelView(true);
@@ -229,7 +232,7 @@ export class View3d {
             modelMatrix,
             View3d.scaleMat4(this.scale, this.scale, this.scale)
         );
-        this.projectionMatrix = View3d.multiplyMat4(this.projectionMatrix, modelMatrix);
+        this.projectionMatrix = View3d.multiplyMat4(this.baseProjectionMatrix.slice(), modelMatrix); // Utiliser la matrice de base
         // Used for normals
         this.invTransModel = View3d.inverseTransposeMat4(modelMatrix);
 
@@ -265,7 +268,8 @@ export class View3d {
             -(bounds.yMin + bounds.yMax) / 2,
             -this.far
         );
-        this.projectionMatrix = View3d.multiplyMat4(projection, view);
+        this.baseProjectionMatrix = View3d.multiplyMat4(projection, view); // Sauvegarder la matrice de base
+        this.projectionMatrix = this.baseProjectionMatrix.slice(); // Copier la matrice de base
     }
 
     // Render
@@ -295,10 +299,10 @@ export class View3d {
             this.drawPoints();
         }
         this.context2d.putImageData(this.imgData, 0, 0);
-
         if (this.model.labels) {
             this.drawLabels(this.context2d);
         }
+
         // 30 ms is ok
         const endTime = performance.now();
         if ((endTime - startTime) > 200) {

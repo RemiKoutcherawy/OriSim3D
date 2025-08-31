@@ -39,10 +39,10 @@
     // View 3d
     const canvas3d = window.document.getElementById("canvas3d");
     const view3d = new View3d(model, canvas3d);
-    view3d.initBuffers(); // Needed only if the number of points changed
+    view3d.initBuffers();
     view3d.updateProjectionMatrix();
 
-      // View 2d
+    // View 2d
     const canvas2d = window.document.getElementById("canvas2d");
     const view2d = new View2d(model, canvas2d);
 
@@ -55,38 +55,54 @@
 
     // Animation loop
     function loop() {
-      if (command.anim()) {
-        view3d.initBuffers();
-        view3d.updateProjectionMatrix();
-        view3d.initModelView();
+      requestAnimationFrame(loop);
+      const changed = command.anim();
+      if (changed) {
+          view3d.initBuffers();
+          view3d.initModelView();
       }
       view2d.drawModel();
       view3d.render();
       helper.draw();
-      requestAnimationFrame(loop);
     }
     loop();
 
     //Test
     setTimeout( () => {
       command.command(`
-    define 210 300
-    lines
-    // Fold top on bottom
-    across2d 1 2;
-    offset -1 0
-    t 200 r 6 -180 2 3;
-    t 200 fit;
-    // Crease edges at 45°
-    across3d 4 5
-    bisector3d 7 9
-    bisector3d 6 9
-
-    // Fold corners
-    offset -1 3 0
-    t 200 rotate 13 -180 4
-    t 200 rotate 17 180 5
-
+lines overlay
+define 210 300
+across2d 1 2;
+offset -1 0
+t 200 r 6 -180 2 3;
+across3d 4 5
+bisector3d 7 9
+bisector3d 6 9
+offset -1 3 0
+t 200 r 13 -180 4
+t 200 r 17 180 5
+by3d 9 12
+offset -2 5 6;
+t 200 r 24 180 3 8 2;
+bisector2d 3 24 bisector2d 23 16
+t 200 r 27 -180 3 r 29 180 2;
+offset 2 8 9;
+t 200 r 25 180 0 1 7;
+bisector2d 25 12 bisector2d 1 21
+t 200 r 31 180 0
+t 200 r 33 -180 1
+by3d 15 16
+t 200 r 15 -180 4 5 8 14 21 25 26  r 9 180 1 2 11 12 16 18 19 22;
+perpendicular3d 13 15
+t 400 r 53 180 11 12 1 2;
+t 400 r 53 -180 9 10 0 3;
+t 200 r 15 -180 4 5 14 8 21 25 26 32 33 27 28 30 29  r 9 -180 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
+t 1000 r 36 135 32 14 33 27 28 4 5 30 29  r 36 -135 31 13 34  a 9 12 0 1 2 3 mop 12 11 mop 9 10 mos 60 3 mos 25 0 mos 23 1 mos 64 2
+iao
+t 1000 z 0.5;
+t 1000 z 2.0; // Bug
+iao
+t 1000 ty 360
 `);
     }, 500);
   }
