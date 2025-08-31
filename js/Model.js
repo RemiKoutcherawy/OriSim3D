@@ -722,7 +722,7 @@ export class Model {
         if (dz === 0 || faces.length === 0) {
             this.faces.forEach(function (face) {face.offset = 0;});
         } else {
-            faces.forEach(function (face) {face.offset += dz;});
+            faces.forEach(function (face) {face.offset += dz / 10000.0;});
         }
     }
 
