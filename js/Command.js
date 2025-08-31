@@ -84,6 +84,19 @@ export class Command {
                     this.duration = Number(this.tokenTodo[this.iToken++]);
                     this.tStart = performance.now();
                     this.tpi = 0.0;
+                    // Ensure there's an 'eoc' token after the current 't' block, before the next 't' block
+                    const nextT = this.tokenTodo.indexOf('t', this.iToken);
+                    const nextEoc = this.tokenTodo.indexOf('eoc', this.iToken);
+                    if (nextT !== -1) {
+                        // If there's a 't' and no 'eoc' before it, insert 'eoc' before 't'
+                        if (nextEoc === -1 || nextEoc > nextT) {
+                            this.tokenTodo.splice(nextT, 0, 'eoc');
+                        }
+                    } else if (nextEoc === -1) {
+                        // If there's no 't' and no 'eoc', append 'eoc'
+                        this.tokenTodo.push('eoc');
+                    }
+
                     // State anim for the next call
                     this.model.state = State.anim;
                     return true;
@@ -302,6 +315,7 @@ export class Command {
         else if (tokenList[idx] === 'tx') {
             // "tx: TurnX angle"
             idx++;
+            console.log('tx', this.view3d.angleX);
             this.view3d.angleX = Number(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180.0;
         } else if (tokenList[idx] === 'ty') {
             // "ty: TurnY angle"
@@ -408,7 +422,14 @@ export class Command {
         else {
             console.log('Syntax error', tokenList[idx-2], tokenList[idx-1], tokenList[idx], tokenList[idx+1], tokenList[idx+2])
             idx = tokenList.length + 1;
-            throw new Error("Syntax error!", idx);
+            // Ignore until the next command after 'eoc'
+            while (tokenList[idx] !== 'eoc' && idx < tokenList.length) {
+                idx++;
+            }
+            if (idx < tokenList.length) {
+                idx++;
+            }
+            // throw new Error("Syntax error!", idx);
         }
 
         // Keep state after executing

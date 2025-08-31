@@ -6,7 +6,8 @@ import { assertEquals } from "jsr:@std/assert";
 
 Deno.test('Command', async (t) => {
     const model = new Model().init(200, 200);
-    const cde = new Command(model);
+    const view = {angleX:0, angleY:0, angleZ:0};
+    const cde = new Command(model, view);
 
     await t.step('tokenize', () => {
         const text = `
@@ -247,9 +248,14 @@ Deno.test('Command', async (t) => {
 
     await t.step('command turn 180', () => {
         cde.command('d 200 200').anim();
-        cde.command('turn 0 1 0 180').anim();
-        assertEquals(Math.round(model.points[0].x), 200);
-        assertEquals(Math.round(model.points[1].x), -200);
+        cde.command('tx 180').anim();
+        // Model is not modified only view is rotated
+        assertEquals(Math.round(model.points[0].x), -200);
+        assertEquals(Math.round(model.points[1].x), 200);
+        // View is turned
+        assertEquals(view.angleX, 180 * (Math.PI / 180));
+        cde.command('ty 180').anim();
+        assertEquals(view.angleY, 180 * (Math.PI / 180));
     });
 
     await t.step('end', () => {
@@ -285,6 +291,6 @@ Deno.test('Command', async (t) => {
         cde.command('c3d 0 2').anim();
         cde.command('o 42  1').anim();
         assertEquals(model.faces[0].offset, 0);
-        assertEquals(model.faces[1].offset, 42);
+        assertEquals(model.faces[1].offset, 4.2);
     });
 });
