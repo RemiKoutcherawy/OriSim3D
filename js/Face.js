@@ -8,6 +8,7 @@ export class Face {
         this.offset = 0;
         this.hover = false;
         this.select = 0;
+        this.halfEdge = null; // Reference to one of the half-edges of this face
     }
 
     // Area 2d for an array of points
@@ -63,18 +64,52 @@ export class Face {
         // ray-casting algorithm based on
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
 
+        // If the face doesn't have a half-edge, fall back to the old method
+        if (!face.halfEdge) {
+            let inside = false;
+            const vs = face.points;
+            for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+                const xi = vs[i].xf, yi = vs[i].yf;
+                const xj = vs[j].xf, yj = vs[j].yf;
+                // Special case where the point is part of the face.
+                if (xi === xf && yi === yf) {
+                    return true;
+                }
+                const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // Use half-edge structure to traverse the face
         let inside = false;
-        const vs = face.points;
-        for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-            const xi = vs[i].xf, yi = vs[i].yf;
-            const xj = vs[j].xf, yj = vs[j].yf;
+        let current = face.halfEdge;
+        let prev = null;
+
+        do {
+            // Find the previous half-edge to get the 'from' vertex
+            prev = current;
+            while (prev.next !== current) {
+                prev = prev.next;
+            }
+
+            const fromVertex = prev.vertex;
+            const toVertex = current.vertex;
+
+            const xi = fromVertex.xf, yi = fromVertex.yf;
+            const xj = toVertex.xf, yj = toVertex.yf;
+
             // Special case where the point is part of the face.
             if (xi === xf && yi === yf) {
                 return true;
             }
+
             const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
             if (intersect) inside = !inside;
-        }
+
+            current = current.next;
+        } while (current !== face.halfEdge);
+
         return inside;
     }
 
@@ -84,17 +119,65 @@ export class Face {
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
 
         const x = xCanvas, y = yCanvas;
+
+        // If the face doesn't have a half-edge, fall back to the old method
+        if (!face.halfEdge) {
+            let inside = false;
+            const pts = face.points;
+            for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+                const idxI = view3d.indexMap.get(pts[i]);
+                const idxJ = view3d.indexMap.get(pts[j]);
+                if (idxI === undefined || idxJ === undefined) continue;
+                const projI = view3d.projected[idxI];
+                const projJ = view3d.projected[idxJ];
+                if (!projI || !projJ) continue;
+                const xi = projI[0], yi = projI[1];
+                const xj = projJ[0], yj = projJ[1];
+                // Special case where the point is part of the face.
+                if (xi === xCanvas && yi === yCanvas) {
+                    return true;
+                }
+
+                const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // Use half-edge structure to traverse the face
         let inside = false;
-        const pts = face.points;
-        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-            const idxI = view3d.indexMap.get(pts[i]);
-            const idxJ = view3d.indexMap.get(pts[j]);
-            if (idxI === undefined || idxJ === undefined) continue;
+        let current = face.halfEdge;
+        let prev = null;
+
+        do {
+            // Find the previous half-edge to get the 'from' vertex
+            prev = current;
+            while (prev.next !== current) {
+                prev = prev.next;
+            }
+
+            const fromVertex = prev.vertex;
+            const toVertex = current.vertex;
+
+            const idxI = view3d.indexMap.get(fromVertex);
+            const idxJ = view3d.indexMap.get(toVertex);
+
+            if (idxI === undefined || idxJ === undefined) {
+                current = current.next;
+                continue;
+            }
+
             const projI = view3d.projected[idxI];
             const projJ = view3d.projected[idxJ];
-            if (!projI || !projJ) continue;
+
+            if (!projI || !projJ) {
+                current = current.next;
+                continue;
+            }
+
             const xi = projI[0], yi = projI[1];
             const xj = projJ[0], yj = projJ[1];
+
             // Special case where the point is part of the face.
             if (xi === xCanvas && yi === yCanvas) {
                 return true;
@@ -102,7 +185,10 @@ export class Face {
 
             const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
             if (intersect) inside = !inside;
-        }
+
+            current = current.next;
+        } while (current !== face.halfEdge);
+
         return inside;
     }
 }
