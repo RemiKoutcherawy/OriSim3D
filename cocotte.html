@@ -39,7 +39,8 @@
     // Command
     const command = new Command(model, view3d);
     // Helper to handle mouse rotation and zoom
-    new Helper(model, command, null, view3d, canvas3d);
+    const helper = new Helper(model, command, null, view3d, canvas3d);
+    helper.out();
 
     // Animation loop
     function loop() {
