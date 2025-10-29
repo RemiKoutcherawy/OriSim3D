@@ -3,7 +3,6 @@ import {Segment} from './Segment.js';
 import {Face} from './Face.js';
 import {Vector3} from './Vector3.js';
 import {Plane} from './Plane.js';
-import {HalfEdge} from './HalfEdge.js';
 
 export const State = {run: 0, anim: 1, undo: 2, pause: 3,};
 
@@ -14,7 +13,6 @@ export class Model {
         this.points = [];
         this.segments = [];
         this.faces = [];
-        this.halfEdges = [];  // New array to store half-edges
 
         // State of the model
         this.state = State.run;
@@ -32,7 +30,6 @@ export class Model {
         this.points = [];
         this.segments = [];
         this.faces = [];
-        this.halfEdges = [];
         // 4 points
         const p0 = new Point(-width, -height, -width, -height, 0);
         const p1 = new Point(width, -height, width, -height, 0);
@@ -47,12 +44,7 @@ export class Model {
             new Segment(p3, p0),
         );
         // 1 face
-        const face = new Face([p0, p1, p2, p3]);
-        this.faces.push(face);
-
-        // Create half-edges for the face
-        this.createHalfEdgesForFace(face, this.segments);
-
+        this.faces.push(new Face([p0, p1, p2, p3]));
         // State run
         this.state = State.run;
         return this;
@@ -159,18 +151,11 @@ export class Model {
         // None found, create one
         if (!face) {
             // Add segments for the face
-            const segments = [];
             points.forEach((p, i, a) => {
-                segments.push(this.addSegment(p, a[(i + 1) % a.length]));
+                this.addSegment(p, a[(i + 1) % a.length]);
             });
             face = new Face(points);
             this.faces.push(face);
-
-            // Create half-edges for the face
-            this.createHalfEdgesForFace(face, segments);
-
-            // Connect twin half-edges
-            this.connectTwinHalfEdges();
         }
         return face;
     }
@@ -178,25 +163,6 @@ export class Model {
     // Origami
     // Split face by plane 3d
     splitFaceByPlane3d(face, plane) {
-        // If the face doesn't have a half-edge, collect points from face.points
-        let facePoints = [];
-        if (!face.halfEdge) {
-            facePoints = [...face.points];
-        } else {
-            // Collect points by traversing the half-edge structure
-            let current = face.halfEdge;
-            let prev = null;
-            do {
-                // Find the previous half-edge to get the 'from' vertex
-                prev = current;
-                while (prev.next !== current) {
-                    prev = prev.next;
-                }
-                facePoints.push(prev.vertex);
-                current = current.next;
-            } while (current !== face.halfEdge);
-        }
-
         // Split face
         let left = [];
         let right = [];
@@ -213,11 +179,11 @@ export class Model {
         const epsilon = 10;
 
         // Begin with the last point
-        let last = facePoints[facePoints.length - 1];
+        let last = face.points[face.points.length - 1];
         let dLast = Face.planeToPointSignedDistance(plane, last);
-        for (let n = 0; n < facePoints.length; n++) {
+        for (let n = 0; n < face.points.length; n++) {
             // Segment from previous to current
-            const current = facePoints[n];
+            const current = face.points[n];
             const dCurrent = Face.planeToPointSignedDistance(plane, current);
             // last and current on the same side // 1, 2
             if (dLast * dCurrent > epsilon) {
@@ -250,52 +216,10 @@ export class Model {
         left = Face.area3d(left) !== 0 ? left : undefined;
         right = Face.area3d(right) !== 0 ? right : undefined;
         if (left && right) {
-            // Store the old half-edge for cleanup
-            const oldHalfEdge = face.halfEdge;
-
-            // Update the face with new points
             face.points = left;
-            face.halfEdge = null; // Clear the half-edge reference
-
-            // Create a new face with the right points
             const newFace = this.addFace(right);
             // Keep offset for added face
             newFace.offset = face.offset;
-
-            // Remove old half-edges for this face
-            if (oldHalfEdge) {
-                // Find all half-edges for this face
-                const oldHalfEdges = [];
-                let current = oldHalfEdge;
-                do {
-                    oldHalfEdges.push(current);
-                    current = current.next;
-                } while (current !== oldHalfEdge);
-
-                // Remove them from the halfEdges array
-                this.halfEdges = this.halfEdges.filter(he => !oldHalfEdges.includes(he));
-
-                // Update twins for any half-edges that were twins with the removed ones
-                for (const he of this.halfEdges) {
-                    if (oldHalfEdges.includes(he.twin)) {
-                        he.twin = null;
-                    }
-                }
-            }
-
-            // Create new half-edges for the updated face
-            const segments = [];
-            left.forEach((p, i, a) => {
-                const nextPoint = a[(i + 1) % a.length];
-                const segment = this.getSegment(p, nextPoint);
-                if (segment) {
-                    segments.push(segment);
-                }
-            });
-            this.createHalfEdgesForFace(face, segments);
-
-            // Connect twin half-edges
-            this.connectTwinHalfEdges();
         }
     }
 
@@ -325,40 +249,21 @@ export class Model {
     }
 
     splitFaceBySegment2d(face, a, b) {
-        // If the face doesn't have a half-edge, collect points from face.points
-        let facePoints = [];
-        if (!face.halfEdge) {
-            facePoints = [...face.points];
-        } else {
-            // Collect points by traversing the half-edge structure
-            let current = face.halfEdge;
-            let prev = null;
-            do {
-                // Find the previous half-edge to get the 'from' vertex
-                prev = current;
-                while (prev.next !== current) {
-                    prev = prev.next;
-                }
-                facePoints.push(prev.vertex);
-                current = current.next;
-            } while (current !== face.halfEdge);
-        }
-
         const left = [], right = [];
         let inter = undefined;
 
         // Segment from last to current
         const EPSILON = 1.0;
-        let last = facePoints[facePoints.length - 1];
+        let last = face.points[face.points.length - 1];
         let dLast = Face.distance2dLineToPoint(a, b, last); // Positive if on the right of the segment a,b
         // Discard if on the line but not on Segment
         if (Math.abs(dLast) < EPSILON
-            && Segment.intersectionFlat(a, b, last, facePoints[0]) === undefined) {
+            && Segment.intersectionFlat(a, b, last, face.points[0]) === undefined) {
             return;
         }
-        for (let n = 0; n < facePoints.length; n++) {
+        for (let n = 0; n < face.points.length; n++) {
             // Segment from previous to current
-            const current = facePoints[n];
+            const current = face.points[n];
             const dCurrent = Face.distance2dLineToPoint(a, b, current);
             if (dLast < -EPSILON) { // Last on the left
                 if (dCurrent < -EPSILON) { // Current on the left
@@ -436,52 +341,10 @@ export class Model {
         const areaRight = Face.area2dFlat(right);
         // Modify initial face and add new face if not degenerated
         if (Math.abs(areaLeft) > EPSILON && Math.abs(areaRight) > EPSILON) {
-            // Store the old half-edge for cleanup
-            const oldHalfEdge = face.halfEdge;
-
-            // Update the face with new points
             face.points = left;
-            face.halfEdge = null; // Clear the half-edge reference
-
-            // Create a new face with the right points
             const newFace = this.addFace(right);
             // Keep offset for added face
             newFace.offset = face.offset;
-
-            // Remove old half-edges for this face
-            if (oldHalfEdge) {
-                // Find all half-edges for this face
-                const oldHalfEdges = [];
-                let current = oldHalfEdge;
-                do {
-                    oldHalfEdges.push(current);
-                    current = current.next;
-                } while (current !== oldHalfEdge);
-
-                // Remove them from the halfEdges array
-                this.halfEdges = this.halfEdges.filter(he => !oldHalfEdges.includes(he));
-
-                // Update twins for any half-edges that were twins with the removed ones
-                for (const he of this.halfEdges) {
-                    if (oldHalfEdges.includes(he.twin)) {
-                        he.twin = null;
-                    }
-                }
-            }
-
-            // Create new half-edges for the updated face
-            const segments = [];
-            left.forEach((p, i, a) => {
-                const nextPoint = a[(i + 1) % a.length];
-                const segment = this.getSegment(p, nextPoint);
-                if (segment) {
-                    segments.push(segment);
-                }
-            });
-            this.createHalfEdgesForFace(face, segments);
-
-            // Connect twin half-edges
-            this.connectTwinHalfEdges();
         }
     }
 
@@ -526,87 +389,34 @@ export class Model {
         // Add this as a new point to the model
         p = this.addPoint(p.xf, p.yf);
         Point.align3dFrom2d(a, b, p);
-
-        // Add the point p to both faces using half-edge structure
+        // Add the point p to both faces.
         const listFaces = this.searchFacesWithAB(a, b);
         for (let i = 0; i < listFaces.length; i++) {
             const face = listFaces[i];
-
-            // Store the old half-edge for cleanup
-            const oldHalfEdge = face.halfEdge;
-
-            // Create a new points array with p inserted between a and b
-            const newPoints = [];
-            let current = face.halfEdge;
-            let foundEdge = false;
-
-            do {
-                // Find the previous half-edge to get the 'from' vertex
-                let prev = current;
-                while (prev.next !== current) {
-                    prev = prev.next;
-                }
-                const fromVertex = prev.vertex;
-                const toVertex = current.vertex;
-
-                newPoints.push(fromVertex);
-
-                // If this is the edge we're splitting, add point p after fromVertex
-                if ((fromVertex === a && toVertex === b) || (fromVertex === b && toVertex === a)) {
-                    if (!foundEdge) {
-                        newPoints.push(p);
-                        foundEdge = true;
+            if (face.points.indexOf(p) === -1) {
+                const pts = face.points;
+                for (let i = 0; i < pts.length; i++) {
+                    if (
+                        pts[i] === a &&
+                        pts[i === pts.length - 1 ? 0 : i + 1] === b
+                    ) {
+                        pts.splice(i + 1, 0, p);
+                        break;
                     }
-                }
-
-                current = current.next;
-            } while (current !== face.halfEdge);
-
-            // Update the face with new points
-            face.points = newPoints;
-            face.halfEdge = null; // Clear the half-edge reference
-
-            // Remove old half-edges for this face
-            if (oldHalfEdge) {
-                // Find all half-edges for this face
-                const oldHalfEdges = [];
-                let current = oldHalfEdge;
-                do {
-                    oldHalfEdges.push(current);
-                    current = current.next;
-                } while (current !== oldHalfEdge);
-
-                // Remove them from the halfEdges array
-                this.halfEdges = this.halfEdges.filter(he => !oldHalfEdges.includes(he));
-
-                // Update twins for any half-edges that were twins with the removed ones
-                for (const he of this.halfEdges) {
-                    if (oldHalfEdges.includes(he.twin)) {
-                        he.twin = null;
+                    if (
+                        pts[i] === b &&
+                        pts[i === pts.length - 1 ? 0 : i + 1] === a
+                    ) {
+                        pts.splice(i + 1, 0, p);
+                        break;
                     }
                 }
             }
-
-            // Create new half-edges for the updated face
-            const segments = [];
-            newPoints.forEach((point, i, arr) => {
-                const nextPoint = arr[(i + 1) % arr.length];
-                const segment = this.getSegment(point, nextPoint);
-                if (segment) {
-                    segments.push(segment);
-                }
-            });
-            this.createHalfEdgesForFace(face, segments);
         }
-
         // Reduce segment s to [a, p]
         Model.splitSegment(s, a, p);
         // And add a new segment p,b
         this.addSegment(p, b);
-
-        // Connect twin half-edges
-        this.connectTwinHalfEdges();
-
         return s;
     }
 
@@ -859,21 +669,12 @@ export class Model {
     // Search faces containing a segment [a, b]
     searchFacesWithAB(a, b) {
         const faces = [];
-        // Use half-edge structure to find faces containing the segment [a, b]
-        for (const halfEdge of this.halfEdges) {
-            // Find the previous half-edge to get the 'from' vertex
-            let prev = halfEdge;
-            while (prev.next !== halfEdge) {
-                prev = prev.next;
+        this.faces.forEach((f) => {
+            if (f.points.indexOf(b) !== -1 && f.points.indexOf(a) !== -1) {
+                // Should test if a and b are adjacent?
+                faces.push(f);
             }
-            const fromVertex = prev.vertex;
-            const toVertex = halfEdge.vertex;
-
-            // Check if this half-edge connects a and b (in either direction)
-            if ((fromVertex === a && toVertex === b) || (fromVertex === b && toVertex === a)) {
-                faces.push(halfEdge.face);
-            }
-        }
+        });
         return faces;
     }
 
@@ -921,7 +722,7 @@ export class Model {
         if (dz === 0 || faces.length === 0) {
             this.faces.forEach(function (face) {face.offset = 0;});
         } else {
-            faces.forEach(function (face) {face.offset = dz;});
+            faces.forEach(function (face) {face.offset += dz / 10000.0;});
         }
     }
 
@@ -963,84 +764,6 @@ export class Model {
         return {xMin, xMax, yMin, yMax};
     }
 
-    // Create a half-edge between two points for a face
-    createHalfEdge(fromVertex, toVertex, face, segment) {
-        const halfEdge = new HalfEdge(toVertex, face);
-        halfEdge.segment = segment;
-        this.halfEdges.push(halfEdge);
-        return halfEdge;
-    }
-
-    // Create half-edges for a face
-    createHalfEdgesForFace(face, segments) {
-        if (face.halfEdge) return; // Already has half-edges
-
-        const points = face.points;
-        const halfEdges = [];
-
-        // Create half-edges for each edge of the face
-        for (let i = 0; i < points.length; i++) {
-            const fromVertex = points[i];
-            const toVertex = points[(i + 1) % points.length];
-
-            // Find the segment for this edge
-            let segment = null;
-            for (const s of segments) {
-                if ((s.p1 === fromVertex && s.p2 === toVertex) ||
-                    (s.p1 === toVertex && s.p2 === fromVertex)) {
-                    segment = s;
-                    break;
-                }
-            }
-
-            const halfEdge = this.createHalfEdge(fromVertex, toVertex, face, segment);
-            halfEdges.push(halfEdge);
-        }
-
-        // Connect half-edges in a loop
-        for (let i = 0; i < halfEdges.length; i++) {
-            halfEdges[i].next = halfEdges[(i + 1) % halfEdges.length];
-        }
-
-        // Set the face's half-edge reference
-        face.halfEdge = halfEdges[0];
-    }
-
-    // Find or create twin half-edges
-    connectTwinHalfEdges() {
-        // For each half-edge, find its twin
-        for (const halfEdge of this.halfEdges) {
-            if (halfEdge.twin) continue; // Already has a twin
-
-            // Find the half-edge going in the opposite direction
-            const fromVertex = halfEdge.vertex;
-            let toVertex = null;
-
-            // Find the previous half-edge to get the 'from' vertex
-            let prev = halfEdge;
-            while (prev.next !== halfEdge) {
-                prev = prev.next;
-            }
-            toVertex = prev.vertex;
-
-            // Look for a half-edge going from 'to' to 'from'
-            for (const potentialTwin of this.halfEdges) {
-                if (potentialTwin === halfEdge) continue;
-
-                let potentialPrev = potentialTwin;
-                while (potentialPrev.next !== potentialTwin) {
-                    potentialPrev = potentialPrev.next;
-                }
-
-                if (potentialTwin.vertex === toVertex && potentialPrev.vertex === fromVertex) {
-                    halfEdge.twin = potentialTwin;
-                    potentialTwin.twin = halfEdge;
-                    break;
-                }
-            }
-        }
-    }
-
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Cache model for replacer
@@ -1051,9 +774,7 @@ export class Model {
                 return {'p1': model.points.indexOf(value.p1), 'p2': model.points.indexOf(value.p2)};
             } else if (value instanceof Face) {
                 return value.points.map((point) => model.points.indexOf(point));
-            } else if (key === 'labels' || key==='textures' || key==='overlay' || key==='lines' ||
-                       key === 'halfEdge' || key === 'halfEdges' || key === 'next' || key === 'twin' ||
-                       key === 'vertex' || key === 'face' || key === 'segment') {
+            } else if (key === 'labels' || key==='textures' || key==='overlay' || key==='lines') {
                 return undefined;
             }
             return value;

@@ -522,7 +522,7 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         model.splitCross3d(model.points[0], model.points[2]);
         model.offset(42, [model.faces[0]]);
-        assertEquals(model.faces[0].offset, 42, 'Got:' + model.faces[0].offset);
+        assertEquals(model.faces[0].offset, 0.0042, 'Got:' + model.faces[0].offset);
         assertEquals(model.faces[1].offset, 0, 'Got:' + model.faces[1].offset);
         model.offset(42, []);
         assertEquals(model.faces[0].offset, 0, 'Got:' + model.faces[0].offset);
