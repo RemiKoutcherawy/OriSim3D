@@ -336,7 +336,7 @@ export class Command {
             this.view3d.translationY = y * b;
             this.view3d.scale *= a;
         } else if (tokenList[idx] === 'fit') { // Not OK
-            // Zoom fit 3d: fit3d
+            // Zoom fit 3d: fit
             idx++;
             if (this.tpi === 0) {
                 let bounds = this.model.get3DBounds();

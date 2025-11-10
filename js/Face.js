@@ -65,21 +65,21 @@ export class Face {
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
 
         // If the face doesn't have a half-edge, fall back to the old method
-        if (!face.halfEdge) {
-            let inside = false;
-            const vs = face.points;
-            for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-                const xi = vs[i].xf, yi = vs[i].yf;
-                const xj = vs[j].xf, yj = vs[j].yf;
-                // Special case where the point is part of the face.
-                if (xi === xf && yi === yf) {
-                    return true;
-                }
-                const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
-        }
+        // if (!face.halfEdge) {
+        //     let inside = false;
+        //     const vs = face.points;
+        //     for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+        //         const xi = vs[i].xf, yi = vs[i].yf;
+        //         const xj = vs[j].xf, yj = vs[j].yf;
+        //         // Special case where the point is part of the face.
+        //         if (xi === xf && yi === yf) {
+        //             return true;
+        //         }
+        //         const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
+        //         if (intersect) inside = !inside;
+        //     }
+        //     return inside;
+        // }
 
         // Use half-edge structure to traverse the face in O(n)
         let inside = false;
@@ -100,7 +100,7 @@ export class Face {
             if (xi === xf && yi === yf) {
                 return true;
             }
-
+            // Special case where the point is part of the face.
             const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
             if (intersect) inside = !inside;
 
@@ -119,28 +119,28 @@ export class Face {
         const x = xCanvas, y = yCanvas;
 
         // If the face doesn't have a half-edge, fall back to the old method
-        if (!face.halfEdge) {
-            let inside = false;
-            const pts = face.points;
-            for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-                const idxI = view3d.indexMap.get(pts[i]);
-                const idxJ = view3d.indexMap.get(pts[j]);
-                if (idxI === undefined || idxJ === undefined) continue;
-                const projI = view3d.projected[idxI];
-                const projJ = view3d.projected[idxJ];
-                if (!projI || !projJ) continue;
-                const xi = projI[0], yi = projI[1];
-                const xj = projJ[0], yj = projJ[1];
-                // Special case where the point is part of the face.
-                if (xi === xCanvas && yi === yCanvas) {
-                    return true;
-                }
-
-                const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
-        }
+        // if (!face.halfEdge) {
+        //     let inside = false;
+        //     const pts = face.points;
+        //     for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        //         const idxI = view3d.indexMap.get(pts[i]);
+        //         const idxJ = view3d.indexMap.get(pts[j]);
+        //         if (idxI === undefined || idxJ === undefined) continue;
+        //         const projI = view3d.projected[idxI];
+        //         const projJ = view3d.projected[idxJ];
+        //         if (!projI || !projJ) continue;
+        //         const xi = projI[0], yi = projI[1];
+        //         const xj = projJ[0], yj = projJ[1];
+        //         // Special case where the point is part of the face.
+        //         if (xi === xCanvas && yi === yCanvas) {
+        //             return true;
+        //         }
+        //
+        //         const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        //         if (intersect) inside = !inside;
+        //     }
+        //     return inside;
+        // }
 
         // Use half-edge structure to traverse the face in O(n)
         let inside = false;

@@ -425,7 +425,7 @@ export class Helper {
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
             this.view3d.angleY += dx;
-        } else if (event.buttons & 2) {
+        } else if ((event.buttons & 2) !== 0) {
             // Translation
             const dx = (xCanvas - this.currentX);
             const dy = (yCanvas - this.currentY);

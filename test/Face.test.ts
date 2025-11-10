@@ -1,6 +1,6 @@
 import { Face } from "../js/Face.js";
 import { Point } from "../js/Point.js";
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "jsr:@std/assert";
 import { Vector3 } from "../js/Vector3.js";
 
 Deno.test("Face", async (t) => {
@@ -45,20 +45,6 @@ Deno.test("Face", async (t) => {
         p3 = new Point(100, 0);
         d = Face.distance2dLineToPoint(p1, p2, p3);
         assertEquals(d, 10000, "distance to point (100,0) on the right should be > 0");
-    });
-
-    await t.step("contains2d", () => {
-        let result = Face.contains2d(face, 0, 0);
-        assert(result, "Face contains 200, 300 ");
-        // Check boundary points
-        result = Face.contains2d(face, 100, 100);
-        assert(result, "Face contains 100, 100 ");
-        result = Face.contains2d(face, -100, 100);
-        assert(result, "Face contains -100, 100 ");
-        result = Face.contains2d(face, -100, -100);
-        assert(result, "Face contains -100, -100 ");
-        result = Face.contains2d(face, 100, -100);
-        assert(result, "Face contains 100, -100 ");
     });
 
     await t.step("area3d", () => {

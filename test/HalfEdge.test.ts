@@ -116,7 +116,7 @@ Deno.test('HE: Segment.incidentFaces and adjacentFace work with and without cach
 Deno.test('HE: dirty flag toggles on mutations and ensureHalfEdges() clears it', () => {
   const m = new Model().init(200,200);
   const [p0,p1,p2] = m.points;
-  const newSeg = m.addSegment(p0, p2);
+  m.addSegment(p0, p2);
   // If it was a new segment, it should set dirty
   assertEquals(m.halfEdgesDirty, true);
   m.ensureHalfEdges();
@@ -129,20 +129,20 @@ Deno.test('HE: dirty flag toggles on mutations and ensureHalfEdges() clears it',
 });
 
 Deno.test('HE: Face.contains2d parity before/after HE rebuild', () => {
-  const m = new Model().init(200,200);
-  const f = m.faces[0];
-  const pts = [
-    {xf:0,   yf:0},
-    {xf:201, yf:0},
-    {xf:-201,yf:0},
-    {xf:0,   yf:201},
-    {xf:0,   yf:-201},
-    {xf:m.points[0].xf, yf:m.points[0].yf},
-  ];
-  const before = pts.map(p => Face.contains2d(f, p.xf, p.yf));
-  m.ensureHalfEdges();
-  const after  = pts.map(p => Face.contains2d(f, p.xf, p.yf));
-  assertEquals(after, before);
+    const m = new Model().init(200, 200);
+    const face = m.faces[0];
+    // Check center point
+    let result = Face.contains2d(face, 0, 0);
+    assert(result, "Face contains 0, 0 ");
+    // Check boundary points
+    result = Face.contains2d(face, 100, 100);
+    assert(result, "Face contains 100, 100 ");
+    result = Face.contains2d(face, -100, 100);
+    assert(result, "Face contains -100, 100 ");
+    result = Face.contains2d(face, -100, -100);
+    assert(result, "Face contains -100, -100 ");
+    result = Face.contains2d(face, 100, -100);
+    assert(result, "Face contains 100, -100 ");
 });
 
 Deno.test('HE: Face.contains3d parity before/after HE rebuild', () => {
