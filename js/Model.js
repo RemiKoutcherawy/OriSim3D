@@ -818,8 +818,8 @@ export class Model {
             } else if (value instanceof Face) {
                 return value.points.map((point) => model.points.indexOf(point));
             } else {
-                // Centralized exclusion for non-serialized / UI-only fields
-                const EXCLUDE = Model.EXCLUDED_JSON_KEYS || new Set([
+                // Non-serialized / UI-only fields
+                const EXCLUDE = new Set([
                     'labels','textures','overlay','lines','halfEdges','halfEdgesDirty','devHalfEdgeChecks','segmentToHalfEdges'
                 ]);
                 if (EXCLUDE.has(key)) return undefined;
@@ -856,13 +856,6 @@ export class Model {
     // --- Half-Edge helpers (optional, derived structure) ---
 
     // Central place to mark HE as dirty (optionally log reason in dev)
-    markHalfEdgesDirty(reason) {
-        this.halfEdgesDirty = true;
-        if (this.devHalfEdgeChecks && reason) {
-            // eslint-disable-next-line no-console
-            console.debug('[HE] marked dirty:', reason);
-        }
-    }
 
     // Return the CCW ring of half-edges for a face (ensures HE)
     getFaceHalfEdges(face) {

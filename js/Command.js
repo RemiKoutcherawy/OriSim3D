@@ -1,7 +1,5 @@
 // Interprets a list of commands and apply them on Model
 import {Interpolator} from './Interpolator.js';
-import {Segment} from './Segment.js';
-import {Point} from './Point.js';
 import {State} from './Model.js';
 
 export class Command {
