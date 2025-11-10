@@ -3,6 +3,7 @@ import {Segment} from './Segment.js';
 import {Face} from './Face.js';
 import {Vector3} from './Vector3.js';
 import {Plane} from './Plane.js';
+import {HalfEdge} from './HalfEdge.js';
 
 export const State = {run: 0, anim: 1, undo: 2, pause: 3,};
 
@@ -13,6 +14,10 @@ export class Model {
         this.points = [];
         this.segments = [];
         this.faces = [];
+        // Half-edge mesh extension (kept optional/back-compatible)
+        this.halfEdges = [];
+        this.halfEdgesDirty = true; // mark topology as needing (re)build until init()
+        this.segmentToHalfEdges = new Map(); // Map<Segment, HalfEdge[]> built on rebuild
 
         // State of the model
         this.state = State.run;
@@ -23,6 +28,8 @@ export class Model {
         this.textures = false;
         this.overlay = false; // show points segments and face
         this.lines = false; // render lines on 3d
+        // Dev
+        this.devHalfEdgeChecks = false; // enable extra HE integrity checks in dev
     }
 
     // Initialize with 2d coordinates
@@ -30,6 +37,8 @@ export class Model {
         this.points = [];
         this.segments = [];
         this.faces = [];
+        this.halfEdges = [];
+        this.segmentToHalfEdges = new Map();
         // 4 points
         const p0 = new Point(-width, -height, -width, -height, 0);
         const p1 = new Point(width, -height, width, -height, 0);
@@ -37,14 +46,29 @@ export class Model {
         const p3 = new Point(-width, height, -width, height, 0);
         this.points.push(p0, p1, p2, p3);
         // 4 segments
-        this.segments.push(
-            new Segment(p0, p1),
-            new Segment(p1, p2),
-            new Segment(p2, p3),
-            new Segment(p3, p0),
-        );
+        const s0 = new Segment(p0, p1);
+        const s1 = new Segment(p1, p2);
+        const s2 = new Segment(p2, p3);
+        const s3 = new Segment(p3, p0);
+        this.segments.push(s0, s1, s2, s3);
         // 1 face
-        this.faces.push(new Face([p0, p1, p2, p3]));
+        const f = new Face([p0, p1, p2, p3]);
+        this.faces.push(f);
+        // Half-edge ring for the initial face (optional structure)
+        const e0 = new HalfEdge(p1, f); e0.segment = s0;
+        const e1 = new HalfEdge(p2, f); e1.segment = s1;
+        const e2 = new HalfEdge(p3, f); e2.segment = s2;
+        const e3 = new HalfEdge(p0, f); e3.segment = s3;
+        e0.next = e1; e1.next = e2; e2.next = e3; e3.next = e0;
+        f.halfEdge = e0;
+        this.halfEdges.push(e0, e1, e2, e3);
+        // seed segment->halfEdges map for initial face
+        this.segmentToHalfEdges.set(s0, [e0]);
+        this.segmentToHalfEdges.set(s1, [e1]);
+        this.segmentToHalfEdges.set(s2, [e2]);
+        this.segmentToHalfEdges.set(s3, [e3]);
+        // link twin on opposite directions (none at init) and mark clean
+        this.halfEdgesDirty = false;
         // State run
         this.state = State.run;
         return this;
@@ -131,6 +155,8 @@ export class Model {
         if (!segment) {
             segment = new Segment(a, b);
             this.segments.push(segment);
+            // Topology potentially changed
+            this.halfEdgesDirty = true;
         }
         return segment;
     }
@@ -156,6 +182,8 @@ export class Model {
             });
             face = new Face(points);
             this.faces.push(face);
+            // Topology changed
+            this.halfEdgesDirty = true;
         }
         return face;
     }
@@ -668,10 +696,25 @@ export class Model {
 
     // Search faces containing a segment [a, b]
     searchFacesWithAB(a, b) {
+        // Prefer Half-Edge adjacency when a legacy segment exists
+        const seg = this.getSegment(a, b);
+        if (seg) {
+            try {
+                const { Segment } = require('./Segment.js');
+                const list = Segment.incidentFaces(this, seg);
+                if (list && list.length) return list;
+            } catch (e) {
+                // In Deno or ES modules environment, fall back to static import usage below
+                if (typeof Segment !== 'undefined' && Segment.incidentFaces) {
+                    const list = Segment.incidentFaces(this, seg);
+                    if (list && list.length) return list;
+                }
+            }
+        }
+        // Legacy fallback: faces that contain both vertices (not necessarily adjacent)
         const faces = [];
         this.faces.forEach((f) => {
             if (f.points.indexOf(b) !== -1 && f.points.indexOf(a) !== -1) {
-                // Should test if a and b are adjacent?
                 faces.push(f);
             }
         });
@@ -774,8 +817,12 @@ export class Model {
                 return {'p1': model.points.indexOf(value.p1), 'p2': model.points.indexOf(value.p2)};
             } else if (value instanceof Face) {
                 return value.points.map((point) => model.points.indexOf(point));
-            } else if (key === 'labels' || key==='textures' || key==='overlay' || key==='lines') {
-                return undefined;
+            } else {
+                // Centralized exclusion for non-serialized / UI-only fields
+                const EXCLUDE = Model.EXCLUDED_JSON_KEYS || new Set([
+                    'labels','textures','overlay','lines','halfEdges','halfEdgesDirty','devHalfEdgeChecks','segmentToHalfEdges'
+                ]);
+                if (EXCLUDE.has(key)) return undefined;
             }
             return value;
         }
@@ -798,7 +845,139 @@ export class Model {
             return value;
         }
 
-        return JSON.parse(json, reviver);
+        const obj = JSON.parse(json, reviver);
+        // Ensure non-serialized HE structures are reset and marked dirty
+        obj.halfEdges = [];
+        obj.halfEdgesDirty = true;
+        obj.segmentToHalfEdges = new Map();
+        return obj;
+    }
+
+    // --- Half-Edge helpers (optional, derived structure) ---
+
+    // Central place to mark HE as dirty (optionally log reason in dev)
+    markHalfEdgesDirty(reason) {
+        this.halfEdgesDirty = true;
+        if (this.devHalfEdgeChecks && reason) {
+            // eslint-disable-next-line no-console
+            console.debug('[HE] marked dirty:', reason);
+        }
+    }
+
+    // Return the CCW ring of half-edges for a face (ensures HE)
+    getFaceHalfEdges(face) {
+        this.ensureHalfEdges();
+        const ring = [];
+        const start = face.halfEdge;
+        if (!start) return ring;
+        let e = start;
+        do {
+            ring.push(e);
+            e = e.next;
+        } while (e && e !== start);
+        return ring;
+    }
+
+    // Dev-only integrity validation of built half-edges
+    validateHalfEdges() {
+        for (const face of this.faces) {
+            const pts = face.points || [];
+            const he0 = face.halfEdge;
+            if (!he0) continue;
+            // Walk ring, count and basic checks
+            let count = 0;
+            let e = he0;
+            do {
+                if (!e.face || e.face !== face) throw new Error('HE face mismatch');
+                if (!e.next) throw new Error('HE next missing');
+                if (!e.vertex) throw new Error('HE vertex missing');
+                if (e.twin && e.twin.twin !== e) throw new Error('HE twin symmetry broken');
+                count++;
+                // safety to avoid infinite loop in dev
+                if (count > 10000) throw new Error('HE ring too long (cycle?)');
+                e = e.next;
+            } while (e !== he0);
+            if (count !== pts.length) throw new Error('HE ring length does not match face.points length');
+        }
+    }
+
+    // Rebuild half-edges for all faces from current points/segments/faces
+    rebuildHalfEdges() {
+        // Clear existing
+        this.halfEdges = [];
+        // Reset segment to half-edges map
+        this.segmentToHalfEdges = new Map();
+        // Clear any previous face hooks
+        this.faces.forEach(f => { f.halfEdge = null; });
+        // Directed edge map: key "fromIndex->toIndex" => halfEdge
+        const edgeMap = new Map();
+        // Build rings per face
+        for (const face of this.faces) {
+            this.buildHalfEdgeRingForFace(face, edgeMap);
+        }
+        // Link twins in O(E)
+        for (const [key, he] of edgeMap.entries()) {
+            if (he.twin) continue;
+            const [fromStr, toStr] = key.split('->');
+            const reverseKey = `${toStr}->${fromStr}`;
+            const twin = edgeMap.get(reverseKey);
+            if (twin) {
+                he.twin = twin;
+                twin.twin = he;
+            }
+        }
+        this.halfEdgesDirty = false;
+        if (this.devHalfEdgeChecks) {
+            try { this.validateHalfEdges(); } catch (e) { console.error('[HE] validation failed:', e); }
+        }
+        return this;
+    }
+
+    // Ensure half-edges are available and up-to-date
+    ensureHalfEdges() {
+        if (this.halfEdgesDirty || this.halfEdges.length === 0) {
+            this.rebuildHalfEdges();
+        }
+        return this;
+    }
+
+    // Build a cyclic ring of half-edges for a given face from its points
+    buildHalfEdgeRingForFace(face, edgeMap) {
+        const pts = face.points;
+        if (!pts || pts.length < 3) return;
+        const ring = [];
+        const n = pts.length;
+        for (let i = 0; i < n; i++) {
+            const from = pts[i];
+            const to = pts[(i + 1) % n];
+            const he = new HalfEdge(to, face);
+            // Attach existing segment if present
+            const seg = this.getSegment(from, to);
+            if (seg) {
+                he.segment = seg;
+                // track association for quick incident lookups
+                const list = this.segmentToHalfEdges.get(seg);
+                if (list) list.push(he); else this.segmentToHalfEdges.set(seg, [he]);
+            }
+            ring.push({he, from, to});
+            this.halfEdges.push(he);
+        }
+        // Wire next pointers
+        for (let i = 0; i < n; i++) {
+            ring[i].he.next = ring[(i + 1) % n].he;
+        }
+        // Hook face to one of its half-edges
+        face.halfEdge = ring[0].he;
+        // Populate directed edge map for twin linking
+        const getIndex = (p) => this.points.indexOf(p);
+        for (let i = 0; i < n; i++) {
+            const fromIdx = getIndex(ring[i].from);
+            const toIdx = getIndex(ring[i].to);
+            if (fromIdx !== -1 && toIdx !== -1) {
+                edgeMap.set(`${fromIdx}->${toIdx}`, ring[i].he);
+            }
+        }
+        return face.halfEdge;
     }
 }
 

@@ -81,25 +81,22 @@ export class Face {
             return inside;
         }
 
-        // Use half-edge structure to traverse the face
+        // Use half-edge structure to traverse the face in O(n)
         let inside = false;
-        let current = face.halfEdge;
-        let prev = null;
-
+        let start = face.halfEdge;
+        if (!start) return false;
+        // Find last edge once to seed prev
+        let last = start;
+        while (last.next !== start) last = last.next;
+        let prev = last;
+        let current = start;
         do {
-            // Find the previous half-edge to get the 'from' vertex
-            prev = current;
-            while (prev.next !== current) {
-                prev = prev.next;
-            }
-
             const fromVertex = prev.vertex;
             const toVertex = current.vertex;
 
             const xi = fromVertex.xf, yi = fromVertex.yf;
             const xj = toVertex.xf, yj = toVertex.yf;
 
-            // Special case where the point is part of the face.
             if (xi === xf && yi === yf) {
                 return true;
             }
@@ -107,8 +104,9 @@ export class Face {
             const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
             if (intersect) inside = !inside;
 
+            prev = current;
             current = current.next;
-        } while (current !== face.halfEdge);
+        } while (current !== start);
 
         return inside;
     }
@@ -144,50 +142,41 @@ export class Face {
             return inside;
         }
 
-        // Use half-edge structure to traverse the face
+        // Use half-edge structure to traverse the face in O(n)
         let inside = false;
-        let current = face.halfEdge;
-        let prev = null;
-
+        let start = face.halfEdge;
+        if (!start) return false;
+        // Seed prev with last edge once
+        let last = start;
+        while (last.next !== start) last = last.next;
+        let prev = last;
+        let current = start;
         do {
-            // Find the previous half-edge to get the 'from' vertex
-            prev = current;
-            while (prev.next !== current) {
-                prev = prev.next;
-            }
-
             const fromVertex = prev.vertex;
             const toVertex = current.vertex;
 
             const idxI = view3d.indexMap.get(fromVertex);
             const idxJ = view3d.indexMap.get(toVertex);
 
-            if (idxI === undefined || idxJ === undefined) {
-                current = current.next;
-                continue;
+            if (idxI !== undefined && idxJ !== undefined) {
+                const projI = view3d.projected[idxI];
+                const projJ = view3d.projected[idxJ];
+                if (projI && projJ) {
+                    const xi = projI[0], yi = projI[1];
+                    const xj = projJ[0], yj = projJ[1];
+
+                    if (xi === xCanvas && yi === yCanvas) {
+                        return true;
+                    }
+
+                    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                    if (intersect) inside = !inside;
+                }
             }
 
-            const projI = view3d.projected[idxI];
-            const projJ = view3d.projected[idxJ];
-
-            if (!projI || !projJ) {
-                current = current.next;
-                continue;
-            }
-
-            const xi = projI[0], yi = projI[1];
-            const xj = projJ[0], yj = projJ[1];
-
-            // Special case where the point is part of the face.
-            if (xi === xCanvas && yi === yCanvas) {
-                return true;
-            }
-
-            const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
-
+            prev = current;
             current = current.next;
-        } while (current !== face.halfEdge);
+        } while (current !== start);
 
         return inside;
     }

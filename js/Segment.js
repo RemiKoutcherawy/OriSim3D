@@ -10,6 +10,82 @@ export class Segment {
         this.select = 0;
     }
 
+    /**
+     * Return up to two faces incident to the given segment, preferring Half-Edge when available.
+     * Arrays remain authoritative; no topology is modified here.
+     * @param {import('./Model.js').Model} model
+     * @param {Segment} segment
+     * @returns {Array} list of 0..2 faces
+     */
+    static incidentFaces(model, segment) {
+        if (!model || !segment) return [];
+        // Ensure HE exists if possible
+        if (typeof model.ensureHalfEdges === 'function') {
+            model.ensureHalfEdges();
+        }
+        const faces = [];
+        // Fast path via segmentToHalfEdges cache
+        if (model.segmentToHalfEdges && model.segmentToHalfEdges.size) {
+            const hes = model.segmentToHalfEdges.get(segment);
+            if (hes && hes.length) {
+                for (const he of hes) {
+                    if (he && he.face && !faces.includes(he.face)) faces.push(he.face);
+                    if (faces.length === 2) return faces;
+                }
+                return faces;
+            }
+        }
+        // Fallback: scan all faces' HE rings if available
+        if (model.faces) {
+            for (const face of model.faces) {
+                const he0 = face.halfEdge;
+                if (!he0) continue;
+                let e = he0;
+                do {
+                    const matchesBySegment = e.segment === segment;
+                    const matchesByEndpoints = (e.vertex === segment.p2 && e.next && e.next.vertex === segment.p1);
+                    if (matchesBySegment || matchesByEndpoints) {
+                        if (!faces.includes(face)) faces.push(face);
+                        break;
+                    }
+                    e = e.next;
+                } while (e && e !== he0);
+                if (faces.length === 2) break;
+            }
+            if (faces.length) return faces;
+        }
+        // Legacy ultimate fallback: derive by consecutive points in face.points
+        if (model.faces) {
+            for (const face of model.faces) {
+                const pts = face.points || [];
+                for (let i = 0; i < pts.length; i++) {
+                    const a = pts[i];
+                    const b = pts[(i + 1) % pts.length];
+                    if ((a === segment.p1 && b === segment.p2) || (a === segment.p2 && b === segment.p1)) {
+                        if (!faces.includes(face)) faces.push(face);
+                        break;
+                    }
+                }
+                if (faces.length === 2) break;
+            }
+        }
+        return faces;
+    }
+
+    /**
+     * Return the face across the segment from the provided face, if any.
+     * @param {import('./Model.js').Model} model
+     * @param {Segment} segment
+     * @param {*} face
+     * @returns {*} the other incident face or undefined
+     */
+    static adjacentFace(model, segment, face) {
+        const faces = Segment.incidentFaces(model, segment);
+        if (faces.length === 0) return undefined;
+        if (faces.length === 1) return faces[0] === face ? undefined : faces[0];
+        return faces[0] === face ? faces[1] : (faces[1] === face ? faces[0] : faces[0]);
+    }
+
     // 2d distance from Segment to Point
     static distance2d(x1, y1, x2, y2, x, y) {
         // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
