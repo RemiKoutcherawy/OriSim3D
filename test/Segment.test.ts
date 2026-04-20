@@ -391,10 +391,12 @@ Deno.test("Segment 3D", async (t) => {
     expect = new Vector3( 50, 50, 0);
     assertEquals(s.q, expect, "Non intersecting segments in 3D second point");
   });
-  Deno.test("Segment.length3d", async (t) => {
+});
+
+Deno.test("Segment.length3d", async (t) => {
     const seg = new Segment(
-        new Point(0, 0, 0),
-        new Point(10, 0, 0)
+        new Point(0, 0, 0, 0, 0),
+        new Point(0, 0,10, 0, 0)
     );
 
     await t.step("Length of segment (straight line)", () => {
@@ -405,13 +407,14 @@ Deno.test("Segment 3D", async (t) => {
     await t.step("Length of diagonal segment in 3D", () => {
       const diagSeg = new Segment(
           new Point(0, 0, 0),
-          new Point(3, 4, 12) // 3D Pythagoras: sqrt(3² + 4² + 12²) = 13
+          new Point(0,0,3, 4, 12) // 3D Pythagoras: sqrt(3² + 4² + 12²) = 13
       );
       const length = Segment.length3d(diagSeg);
       assertEquals(length, 13, "Length should be 13");
     });
   });
-  Deno.test("Segment.length2d", async (t) => {
+
+Deno.test("Segment.length2d", async (t) => {
     const seg = new Segment(
         new Point(0, 0),
         new Point(10, 0)
@@ -431,4 +434,3 @@ Deno.test("Segment 3D", async (t) => {
       assertEquals(length, 5, "Length should be 5");
     });
   });
-});

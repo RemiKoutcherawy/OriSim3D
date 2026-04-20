@@ -1,200 +1,365 @@
-// View3dSoft
-// Converted from WebGL to Software Rendering with ImageData API
-// Using putPixel(x, y, color, z) for rendering with depth testing
+// View3dWebGL
+// Inspired by https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Lighting_in_WebGL Sample 7
+// No uNormalMatrix but vLightingBack
 
 export class View3d {
-    vertices = [];
-    lines = [];
-    triangles = [];
-    // Textures
-    uvs = [];
-    frontTexture;
-    backTexture;
-    texWidth;
-    texHeight;
-    texturesLoaded = 0;
-    lightDir = View3d.normalize([0, 0, -1]);
-    ambient = 0.2;
-    // Buffer
-    depthBuffer = null;
-    context2d = null;
-    width = 0;
-    height = 0;
+    // Vertex shader program
+    VERTEX_SHADER = `#version 300 es
+    precision highp float;
+    
+    in vec4 aVertexPosition;
+    in vec3 aVertexNormal;
+    in vec2 aTexCoordsFront;
+    in vec2 aTexCoordsBack;
+
+    uniform mat4 uModelViewMatrix;
+    uniform mat4 uProjectionMatrix;
+
+    out highp vec2 vTexCoordsFront;
+    out highp vec2 vTexCoordsBack;
+    out highp vec3 vLighting;
+    out highp vec3 vLightingBack;
+
+    void main(void) {
+        gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+        vTexCoordsFront = aTexCoordsFront;
+        vTexCoordsBack  = aTexCoordsBack;
+                  
+        highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
+        highp vec3 directionalLightColor = vec3(1.0, 1.0, 1.0);
+        highp vec3 directionalVector =  normalize(vec3(0.1, 0.1, 0.75)); // normalize(vec3(0.85, 0.8, 0.75));
+        highp vec4 normal = normalize(uModelViewMatrix * vec4(aVertexNormal, 1.0));
+        highp float directional = dot(normal.xyz, directionalVector);
+        vLighting = ambientLight + (directionalLightColor * directional);
+        vLightingBack = ambientLight - (directionalLightColor * directional);
+    }
+    `;
+
+    // Fragment shader program
+    FRAGMENT_SHADER = `#version 300 es
+        precision highp float;
+        
+        in highp vec2 vTexCoordsFront;
+        in highp vec2 vTexCoordsBack;
+        in highp vec3 vLighting;
+        in highp vec3 vLightingBack;
+                
+        uniform sampler2D uSamplerFront;
+        uniform sampler2D uSamplerBack;
+        uniform vec4 uFrontColor;
+        uniform vec4 uBackColor;
+
+        uniform bool uLine; 
+
+        out vec4 outColor; 
+
+        void main(void) {
+            highp vec4 texelColor;
+            highp vec3 lighting = vLighting;
+            if (uLine) {
+                texelColor = vec4(0.0, 0.0, 0.0, 1.0);
+            } else if (gl_FrontFacing) {
+                texelColor = texture(uSamplerFront, vTexCoordsFront);
+            } else {
+                texelColor = texture(uSamplerBack,  vTexCoordsBack);
+                lighting = vLightingBack;
+            }
+            outColor = vec4(texelColor.rgb * lighting, texelColor.a);
+        }
+    `;
+
     // Current rotation angle (x-axis, y-axis degrees)
     angleX = 0.0;
     angleY = 0.0;
-    angleZ = 0.0;
     scale = 1.0;
-    translationX = 0;
-    translationY = 0;
-    // Perspective
-    near = 0.1;
-    far = 1000;
-    fov = Math.PI / 4.2;
-    aspect = 1.0;
-    projectionMatrix = View3d.createMat4();
-    baseProjectionMatrix= View3d.createMat4();
 
-    constructor(model, canvas3d) {
+    // Projection and model view matrix
+    projection = new Float32Array(16);
+    modelView = new Float32Array(16);
+    canvasView = new Float32Array(16);
+
+    // Textures dimensions defaults
+    wTexFront = 1;
+    hTexFront = 1;
+    wTexBack = 1;
+    hTexBack = 1;
+
+    // Arrays
+    vtx = []; // vertex coords
+    ftx = []; // front texture coords
+    btx = []; // back texture coords
+    fnr = []; // front normals coords
+    lin = []; // lines indices
+
+    // WebGL Buffers
+    vtxBuffer = null;
+    fnrBuffer = null;
+    ftxBuffer = null;
+    btxBuffer = null;
+    linBuffer = null;
+
+    constructor(model, canvas3d, overlay) {
+        // Instance variables
         this.model = model;
         this.canvas3d = canvas3d;
-        this.context2d = canvas3d.getContext('2d');
-        this.width = canvas3d.width = canvas3d.clientWidth;
-        this.height = canvas3d.height = canvas3d.clientHeight;
-        this.imgData = this.context2d.createImageData(this.width, this.height);
-        this.projectionMatrix = View3d.createMat4();
-        this.baseProjectionMatrix = View3d.createMat4(); // Ajouter cette ligne
-        this.createDepthBuffer();
-        this.initBuffers();
-        this.initModelView(true);
+        this.overlay = overlay;
+        this.gl = canvas3d.getContext('webgl2');
 
-        // Handle window resize
+        this.initShaders();
+        this.initTextures();
+        this.initPerspective();
+        this.initModelView();
+
+        // Resize
         window.addEventListener('resize', () => {
-            this.width = this.canvas3d.width = canvas3d.clientWidth;
-            this.height = this.canvas3d.height = canvas3d.clientHeight;
-            this.imgData = this.context2d.createImageData(this.width, this.height);
-            this.initModelView(true);
-            this.updateProjectionMatrix();
-            this.createDepthBuffer();
+            this.initPerspective();
+            this.initModelView();
             this.render();
         });
     }
 
-    createDepthBuffer() {
-        this.depthBuffer = new Array(this.width * this.height).fill(Infinity);
-    }
+    // Shaders
+    initShaders() {
+        // Vertex
+        const gl = this.gl;
+        const vxShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vxShader, this.VERTEX_SHADER);
+        gl.compileShader(vxShader);
 
-    // Pixel drawing with depth testing
-    putPixel(x, y, color, z) {
-        if (x < 0 || x >= this.width || y < 0 || y >= this.height) return;
-        const pos = y * this.width + x;
-        const i = pos * 4;
-        const data = this.imgData.data;
-        if (z < this.depthBuffer[pos]) {
-            data[i] = color[0];
-            data[i + 1] = color[1];
-            data[i + 2] = color[2];
-            data[i + 3] = 255;
-            this.depthBuffer[pos] = z;
+        // Fragment
+        const fgShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fgShader, this.FRAGMENT_SHADER);
+        gl.compileShader(fgShader);
+
+        // Create the shader program
+        const program = gl.createProgram();
+        gl.attachShader(program, vxShader);
+        gl.attachShader(program, fgShader);
+        gl.linkProgram(program);
+        checkErrors(gl, program, vxShader, fgShader);
+
+        // Use it and copy it in an attribute of gl
+        gl.useProgram(program);
+        gl.program = program;
+        checkErrors(gl, program, vxShader, fgShader);
+
+        // Front color
+        const uFrontColor = gl.getUniformLocation(gl.program, 'uFrontColor');
+        gl.uniform4f(uFrontColor, 0.0, 0.5, 1.0, 0.8); // 0x0080FFCC
+
+        // Back color
+        const uBackColor = gl.getUniformLocation(gl.program, 'uBackColor');
+        gl.uniform4f(uBackColor, 1.0, 1.0, 0.0, 0.8); // 0xFFFF00CC
+
+        function checkErrors(gl, program, glVertexShader, glFragmentShader) {
+            const programLog = gl.getProgramInfoLog(program).trim();
+            const vertexLog = gl.getShaderInfoLog(glVertexShader).trim();
+            const fragmentLog = gl.getShaderInfoLog(glFragmentShader).trim();
+            if (gl.getProgramParameter(program, gl.LINK_STATUS) === false) {
+                console.error('Shader Error ' + gl.getError() + ' - ' + 'VALIDATE_STATUS ' + gl.getProgramParameter(program, 35715) + '\n\n' + 'Program Info Log: ' + programLog + '\n' + vertexLog + '\n' + fragmentLog);
+            }
         }
     }
 
     // Textures
     initTextures() {
-        const textureLoad = (img, data) => {
-            img.onload = () => {
-                const texCanvas = document.createElement("canvas");
-                texCanvas.width = this.texWidth = img.width;
-                texCanvas.height = this.texHeight = img.height;
-                const texCtx = texCanvas.getContext("2d");
-                texCtx.scale(1, -1);
-                texCtx.translate(0, -this.texHeight);
-                texCtx.drawImage(img, 0, 0);
-                data(texCtx.getImageData(0, 0, this.texWidth, this.texHeight).data);
-                if (++this.texturesLoaded === 2) this.render();
-            };
-            img.onerror = () => {
-                this.texturesLoaded = 2;
-                this.render();
-            };
+        const gl = this.gl;
+        // Create a texture object Front
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+        // Placeholder One Pixel Color Blue 70ACF3
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
+        const uSamplerFront = gl.getUniformLocation(gl.program, 'uSamplerFront');
+        gl.uniform1i(uSamplerFront, 0);
+
+        const imageFront = new Image();
+        const scope = this;
+        imageFront.onload = function () {
+            gl.activeTexture(gl.TEXTURE0);
+            // Flip the image Y coordinate
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+            gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+            // One of the dimensions is not a power of 2, so set the filtering to render it.
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageFront);
+            // Textures dimensions
+            scope.wTexFront = imageFront.width;
+            scope.hTexFront = imageFront.height;
         };
-        if (this.model.textures) {
-            const frontImg = new Image(), backImg = new Image();
-            frontImg.src = 'textures/front.jpg';
-            backImg.src = 'textures/back.jpg';
-            textureLoad(frontImg, data => this.frontTexture = data);
-            textureLoad(backImg, data => this.backTexture = data);
-        } else {
-            // Defaults
-            this.frontTexture = new Uint8ClampedArray([0xA5, 0xC6, 0xFA, 255]);  // #A5C6FA  lightblue for front
-            this.backTexture = new Uint8ClampedArray([0xFF, 0xF3, 0x6D, 255]);  // #FFF36D lemon yellow for back
-            this.texWidth = 1;
-            this.texHeight = 1;
+        // Require CORS
+        // imageFront.src = './textures/front.jpg';
+        // Does not require CORS, use if image is inlined in html
+        if (window.document.getElementById('front')) {
+            imageFront.src = window.document.getElementById('front').src;
         }
+
+        // Create a texture object Back
+        const textureBack = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, textureBack);
+
+        // Placeholder One Pixel Color Yellow #FDEC43
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFD, 0xEC, 0x43, 0xFF]));
+        const uSamplerBack = gl.getUniformLocation(gl.program, 'uSamplerBack');
+        gl.uniform1i(uSamplerBack, 1);
+
+        const imageBack = new Image();
+        imageBack.onload = function () {
+            gl.activeTexture(gl.TEXTURE1);
+            // Flip the image Y coordinate
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+            gl.bindTexture(gl.TEXTURE_2D, textureBack);
+            // One of the dimensions is not a power of 2, so set the filtering to render it.
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageBack);
+            // Textures dimensions
+            scope.wTexBack = imageBack.width;
+            scope.hTexBack = imageBack.height;
+
+            // Recompute texture coords
+            scope.initBuffers();
+
+            // First Render
+            scope.render();
+        };
+        // Require CORS
+        // imageBack.src = './textures/back.jpg';
+        // Does not require CORS if image is inlined
+        if (window.document.getElementById('back')) {
+            imageBack.src = window.document.getElementById('back').src;
+        }
+    }
+
+    // Perspective and background
+    initPerspective() {
+        const gl = this.gl;
+        gl.clearColor(0xCC / 0xFF, 0xE4 / 0xFF, 0xFF / 0xFF, 0xFF / 0xFF);  // Clear to light blue, 0xCCE4FF fully opaque
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+
+        // Viewport
+        this.canvas3d.width = this.canvas3d.clientWidth;
+        this.canvas3d.height = this.canvas3d.clientHeight;
+        gl.viewport(0, 0, this.canvas3d.clientWidth, this.canvas3d.clientHeight);
+
+        const ratio = this.canvas3d.clientWidth / this.canvas3d.clientHeight;
+        const fov = 40;
+        const near = 50, far = 1200;
+
+        // Basic perspective at a distance of 700. Camera is at z=0, model at -700
+        const projection = mat4.perspective(new Float32Array(16), fov, ratio, near, far);
+        // Step back
+        mat4.translate(projection, projection, [0, 0, -700]);
+
+        this.projection = projection;
+
+        // Set projection matrix
+        const uProjectionMatrix = gl.getUniformLocation(gl.program, 'uProjectionMatrix');
+        gl.uniformMatrix4fv(uProjectionMatrix, false, this.projection);
     }
 
     // Buffers
     initBuffers() {
-        this.initTextures();
-        const faces = this.model.faces;
-        let triangleCount = 0;
-        for (const f of faces) {
-            triangleCount += Math.max(0, f.points.length - 2);
-        }
-        this.vertices = new Array(triangleCount * 3);
-        this.triangles = new Array(triangleCount);
-        this.uvs = [];
-        this.indexMap = new WeakMap();
+        const gl = this.gl;
+        this.vtx = []; // vertex coords
+        this.ftx = []; // front texture coords
+        this.btx = []; // back texture coords
+        this.fnr = []; // front normals coords
+        this.lin = []; // lines indices
+        this.indexMap = new WeakMap(); // index in vtx for each point
+
+        // Faces with FAN
         let index = 0;
-
-        // Process each face
-        for (const f of faces) {
+        for (let f of this.model.faces) {
             const pts = f.points;
-            if (pts.length < 3) continue;
-            const offset = f.offset || 0;
-            const n = faceNormal(pts);
-            View3d.normalize(n, n);
+            const n = normal(pts);
 
-            // Center of fan
-            const p0 = pts[0];
-
-            // Create triangles using triangle fan
             for (let i = 1; i < pts.length - 1; i++) {
-                const p1 = pts[i];
-                const p2 = pts[i + 1];
-
                 // First point
-                const v0x = p0.x + offset * n[0];
-                const v0y = p0.y + offset * n[1];
-                const v0z = p0.z + offset * n[2];
-                this.vertices[index] = [v0x, v0y, v0z, 1.0];
+                this.vtx.push(pts[0].x + f.offset * n[0], pts[0].y + f.offset * n[1], pts[0].z + f.offset * n[2]);
+                this.fnr.push(n[0], n[1], n[2]);
                 // Texture at first point of triangle
-                const ft0u = (200 + pts[0].xf) / this.texWidth;
-                const ft0v = (200 + pts[0].yf) / this.texHeight;
-                this.uvs[index] = [ft0u, ft0v];
-                this.indexMap.set(p0, index);
+                this.ftx.push((200 + pts[0].xf) / this.wTexFront);
+                this.ftx.push((200 + pts[0].yf) / this.hTexFront);
+                this.btx.push((200 + pts[0].xf) / this.wTexBack);
+                this.btx.push((200 + pts[0].yf) / this.hTexBack);
+
+                // Two other points : i and i+1
+                this.vtx.push(pts[i].x + f.offset * n[0], pts[i].y + f.offset * n[1], pts[i].z + f.offset * n[2]);
+                this.fnr.push(n[0], n[1], n[2]);
 
                 // Second point of triangle
-                const v1x = p1.x + offset * n[0];
-                const v1y = p1.y + offset * n[1];
-                const v1z = p1.z + offset * n[2];
-                this.vertices[index + 1] = [v1x, v1y, v1z, 1.0];
+                this.vtx.push(pts[i + 1].x + f.offset * n[0], pts[i + 1].y + f.offset * n[1], pts[i + 1].z + f.offset * n[2]);
+                this.fnr.push(n[0], n[1], n[2]);
                 // Texture at second point of triangle
-                const ft1u = (200 + pts[i].xf) / this.texWidth;
-                const ft1v = (200 + pts[i].yf) / this.texHeight;
-                this.uvs[index + 1] = [ft1u, ft1v];
-                this.indexMap.set(p1, index + 1);
+                this.ftx.push((200 + pts[i].xf) / this.wTexFront);
+                this.ftx.push((200 + pts[i].yf) / this.hTexFront);
+                this.btx.push((200 + pts[i].xf) / this.wTexBack);
+                this.btx.push((200 + pts[i].yf) / this.hTexBack);
 
-                // Third point of the triangle
-                const v2x = p2.x + f.offset * n[0];
-                const v2y = p2.y + f.offset * n[1];
-                const v2z = p2.z + f.offset * n[2];
-                this.vertices[index + 2] = [v2x, v2y, v2z, 1.0];
                 // Texture at third point of triangle
-                const ft2u = (200 + pts[i + 1].xf) / this.texWidth;
-                const ft2v = (200 + pts[i + 1].yf) / this.texHeight;
-                this.uvs[index + 2] = [ft2u, ft2v];
-                this.indexMap.set(p2, index + 2);
+                this.ftx.push((200 + pts[i + 1].xf) / this.wTexFront);
+                this.ftx.push((200 + pts[i + 1].yf) / this.hTexFront);
+                this.btx.push((200 + pts[i + 1].xf) / this.wTexBack);
+                this.btx.push((200 + pts[i + 1].yf) / this.hTexBack);
 
-                // Add triangle to the list
-                const triangleIndex = Math.floor(index / 3);
-                this.triangles[triangleIndex] = {v: [index, index + 1, index + 2], uv: [index, index + 1, index + 2]};
-
-                index += 3;
+                // Keep track of index in vtx for each point to draw lines
+                this.indexMap.set(pts[0], index++);
+                this.indexMap.set(pts[i], index++);
+                this.indexMap.set(pts[i + 1], index++);
             }
         }
-        // Segments
-        const segmentCount = this.model.segments.length;
-        this.lines = new Array(segmentCount * 2);
-        for (let i = 0; i < segmentCount; i++) {
-            const s = this.model.segments[i];
-            this.lines[i * 2] = this.indexMap.get(s.p1);
-            this.lines[i * 2 + 1] = this.indexMap.get(s.p2);
-        }
 
-        // Face normal in [3]
-        function faceNormal(pts) {
-            const n = [3];
+        // Vertices
+        if (!this.vtxBuffer) {this.vtxBuffer = gl.createBuffer();}
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vtxBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vtx), gl.STATIC_DRAW); // Vertex
+        const aVertexPosition = gl.getAttribLocation(gl.program, 'aVertexPosition');
+        gl.vertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(aVertexPosition);
+
+        // Normals
+        if (!this.fnrBuffer) {this.fnrBuffer = gl.createBuffer();}
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.fnrBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.fnr), gl.STATIC_DRAW); // fnr Face Normal
+        const aVertexNormal = gl.getAttribLocation(gl.program, 'aVertexNormal');
+        gl.vertexAttribPointer(aVertexNormal, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(aVertexNormal);
+
+        // Front texture
+        if (!this.ftxBuffer) {this.ftxBuffer = gl.createBuffer();}
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.ftxBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.ftx), gl.STATIC_DRAW); // Front Texture
+        const aTexCoordsFront = gl.getAttribLocation(gl.program, 'aTexCoordsFront');
+        gl.vertexAttribPointer(aTexCoordsFront, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(aTexCoordsFront);
+
+        // Back texture
+        if (!this.btxBuffer) {this.btxBuffer = gl.createBuffer();}
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.btxBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.btx), gl.STATIC_DRAW); // Back Texture
+        const aTexCoordsBack = gl.getAttribLocation(gl.program, 'aTexCoordsBack');
+        gl.vertexAttribPointer(aTexCoordsBack, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(aTexCoordsBack);
+
+        // Segments
+        for (let s of this.model.segments) {
+            this.lin.push(this.indexMap.get(s.p1), this.indexMap.get(s.p2));
+        }
+        if (!this.linBuffer) {this.linBuffer = gl.createBuffer();}
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.lin), gl.STATIC_DRAW);
+
+        // uniform flag for lines
+        gl.uniform1i(gl.getUniformLocation(gl.program, 'uLine'), 0);
+
+        // Compute Face normal in [3]
+        function normal(pts) {
+            let n = [3];
             for (let i = 0; i < pts.length - 2; i++) {
                 // Take triangles until p2p1 x p1p3 > 0.1
                 const p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
@@ -207,372 +372,135 @@ export class View3d {
                     break;
                 }
             }
+            // n.normalize();
+            const sq = Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            n[0] /= sq;
+            n[1] /= sq;
+            n[2] /= sq;
             return n;
         }
     }
 
-    // Calculate model-view-projection matrix and project vertices
+    // Model view matrix
     initModelView() {
-        // Handle model rotation
-        let modelMatrix = View3d.multiplyMat4(
-            View3d.rotateZMat4(this.angleZ),
-            View3d.rotateXMat4(this.angleX)
-        );
-        modelMatrix = View3d.multiplyMat4(
-            modelMatrix,
-            View3d.rotateYMat4(this.angleY)
-        );
-        // Handle model translation
-        modelMatrix = View3d.multiplyMat4(
-            modelMatrix,
-            View3d.translateMat4(this.translationX, this.translationY, 0)
-        );
-        // Handle model scale
-        modelMatrix = View3d.multiplyMat4(
-            modelMatrix,
-            View3d.scaleMat4(this.scale, this.scale, this.scale)
-        );
-        this.projectionMatrix = View3d.multiplyMat4(this.baseProjectionMatrix.slice(), modelMatrix); // Utiliser la matrice de base
-        // Used for normals
-        this.invTransModel = View3d.inverseTransposeMat4(modelMatrix);
+        // Rotation around X axis
+        let ex = mat4.create();
+        ex = mat4.rotateX(ex, ex, this.angleX / 200);
+        // Rotation around Y axis
+        let mv = mat4.rotateY(ex, ex, this.angleY / 100);
+        // Scale ModelView
+        this.modelView = mat4.scale(mv, mv, [this.scale, this.scale, this.scale]);
 
-        // Project vertices
-        const vertices = this.vertices;
-        const width = this.width;
-        const height = this.height;
-        const projected = new Array(vertices.length);
-        for (let i = 0; i < vertices.length; i++) {
-            const v = vertices[i];
-            const tv = View3d.transformVec4(this.projectionMatrix, v);
-            const w = tv[3] || 1;
-            const invW = 1 / w;
-            projected[i] = [
-                (tv[0] * invW + 1) * width * 0.5,  // x
-                (1 - tv[1] * invW) * height * 0.5, // y
-                tv[2] * invW,                      // z
-                w                                  // w
-            ];
+        // Set Model View Matrix in Shader
+        const uModelViewMatrix = this.gl.getUniformLocation(this.gl.program, 'uModelViewMatrix');
+        this.gl.uniformMatrix4fv(uModelViewMatrix, false, this.modelView);
+
+        // Overlay
+        this.overlay.width = this.overlay.clientWidth;
+        this.overlay.height = this.overlay.clientHeight;
+        const scale = mat4.scale(new Float32Array(16), mat4.create(), [this.overlay.width / 2.0, -this.overlay.height / 2.0, 1.0]);
+        const translation = mat4.fromTranslation(new Float32Array(16), [1, -1, 0]);
+        const overlay = mat4.multiply(new Float32Array(16), scale, translation);
+
+        // canvasView = overlay * projection * modelView
+        // gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+        const projection = mat4.multiply(new Float32Array(16), this.projection, this.modelView,);
+        this.canvasView = mat4.multiply(new Float32Array(16), overlay, projection);
+
+        // Set xCanvas, yCanvas to model points
+        for (let p of this.model.points) {
+            const v = mat4.applyMatrix4(this.canvasView, [p.x, p.y, p.z]);
+            p.xCanvas = v[0];
+            p.yCanvas = v[1];
         }
-        this.projected = projected;
-    }
-
-    updateProjectionMatrix() {
-        this.aspect = this.width / this.height;
-        const bounds = this.model.get3DBounds();
-        const modelWidth = bounds.xMax - bounds.xMin;
-        const modelHeight = bounds.yMax - bounds.yMin;
-        this.far = Math.max(modelWidth / this.aspect, modelHeight) / Math.tan(this.fov / 2) * 0.8;
-        const projection = View3d.perspectiveMat4(this.fov, this.aspect, this.near, this.far * 2);
-        const view = View3d.translateMat4(
-            -(bounds.xMin + bounds.xMax) / 2,
-            -(bounds.yMin + bounds.yMax) / 2,
-            -this.far
-        );
-        this.baseProjectionMatrix = View3d.multiplyMat4(projection, view); // Sauvegarder la matrice de base
-        this.projectionMatrix = this.baseProjectionMatrix.slice(); // Copier la matrice de base
     }
 
     // Render
     render() {
-        if (this.projected === undefined) return;
-        const startTime = performance.now();
-        const data = this.imgData.data;
-        const len = data.length;
-        // Background Color #CCE4FF
-        for (let i = 0; i < len; i += 4) {
-            data[i] = 204;     // R
-            data[i + 1] = 228; // G
-            data[i + 2] = 255; // B
-            data[i + 3] = 255; // A
-        }
-        const depthBuffer = this.depthBuffer;
-        depthBuffer.fill(Infinity);
-        // 3D rendering
-        this.renderTriangles();
-        if (this.model.lines) {
-            this.renderLines();
-        }
-        // Overlay
-        if (this.model.overlay) {
-            this.drawFaces();
-            this.drawSegments();
-            this.drawPoints();
-        }
-        this.context2d.putImageData(this.imgData, 0, 0);
+        const gl = this.gl;
+
+        // Faces with texture shader
+        gl.useProgram(gl.program);
+
+        // Clear and draw triangles
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Faces
+        gl.drawArrays(gl.TRIANGLES, 0, this.vtx.length / 3);
+
+        // Segments drawElements and not drawArrays because normals implies 3 vertices per triangle
+        const uLine = gl.getUniformLocation(gl.program, 'uLine');
+        gl.uniform1i(uLine, 1); // Draw lines in black
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
+        gl.drawElements(gl.LINES, this.lin.length, gl.UNSIGNED_SHORT, 0);
+        gl.uniform1i(uLine, 0); // Back to normal
+
+        // Context 2d
+        const context2d = this.overlay.getContext('2d');
+        context2d.clearRect(0, 0, this.overlay.clientWidth, this.overlay.clientHeight)
+
+        // Model projected on overlay canvas
+        // this.drawSegments(this.model.segments, 'black', 1); // done by webgl
+        this.drawSegments(this.model.segments); // Hover and select
+        this.drawPoints(this.model.points);
+        this.drawFaces(this.model.faces);    // Only for hover and select
+
         if (this.model.labels) {
-            this.drawLabels(this.context2d);
-        }
-
-        // 30 ms is ok
-        const endTime = performance.now();
-        if ((endTime - startTime) > 200) {
-            console.log(`Render time: ${(endTime - startTime).toFixed(2)}ms`);
+            this.drawLabels(context2d);
         }
     }
 
-    // Helper function to fill a triangle with texture and lighting
-    fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor) {
-        const area = Math.abs((p1[0] - p0[0]) * (p2[1] - p0[1]) - (p2[0] - p0[0]) * (p1[1] - p0[1])) / 2;
-        if (area < 0.01) {
-            return; // Skip triangles that are too small
-        }
-        // Calculate bounding box of the triangle (with clipping)
-        const minX = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
-        const maxX = Math.min(this.width - 1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
-        const minY = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1])));
-        const maxY = Math.min(this.height - 1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
-
-        // Barycentric coordinates
-        const p1y_p2y = p1[1] - p2[1];
-        const p2x_p1x = p2[0] - p1[0];
-        const p2y_p0y = p2[1] - p0[1];
-        const p0x_p2x = p0[0] - p2[0];
-        const denominator1 = p1y_p2y * (p0[0] - p2[0]) + p2x_p1x * (p0[1] - p2[1]);
-        const denominator2 = p2y_p0y * (p1[0] - p2[0]) + p0x_p2x * (p1[1] - p2[1]);
-
-        // Bounding box
-        for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-                const b0 = (p1y_p2y * (x - p2[0]) + p2x_p1x * (y - p2[1])) / denominator1;
-                if (b0 < 0) continue;
-                const b1 = (p2y_p0y * (x - p2[0]) + p0x_p2x * (y - p2[1])) / denominator2;
-                if (b1 < 0) continue;
-                const b2 = 1 - b0 - b1;
-                if (b2 < 0) continue;
-                const z = b0 * z0 + b1 * z1 + b2 * z2;
-
-                // Prevent division by zero in w calculations
-                w0 = Math.abs(w0) < 0.001 ? 0.001 : w0;
-                w1 = Math.abs(w1) < 0.001 ? 0.001 : w1;
-                w2 = Math.abs(w2) < 0.001 ? 0.001 : w2;
-                let invW = b0 / w0 + b1 / w1 + b2 / w2;
-                invW = Math.abs(invW) < 0.001 ? 0.001 : invW;
-                const u = (b0 * uv0[0] / w0 + b1 * uv1[0] / w1 + b2 * uv2[0] / w2) / invW;
-                const v = (b0 * uv0[1] / w0 + b1 * uv1[1] / w1 + b2 * uv2[1] / w2) / invW;
-                // Ensure texture coordinates are valid
-                const tx = Math.floor(u * this.texWidth) % this.texWidth;
-                const ty = Math.floor(v * this.texHeight) % this.texHeight;
-                // Handle potential negative values from modulo operation
-                const texX = tx < 0 ? tx + this.texWidth : tx;
-                const texY = ty < 0 ? ty + this.texHeight : ty;
-                const ti = (texY * this.texWidth + texX) * 4;
-                // Ensure texture data exists and is valid
-                const color = tex && ti < tex.length - 2 ?
-                    [tex[ti] * factor, tex[ti + 1] * factor, tex[ti + 2] * factor]
-                        .map(c => Math.min(255, Math.max(0, Math.floor(c)))) :
-                    [0xFF, 0xFF, 0xFF]; // Default to white
-                // Draw pixel with depth testing
-                this.putPixel(x, y, color, z);
-            }
+    // Draw on overlay. Called from render()
+    drawPoints(points,) {
+        const context2d = this.overlay.getContext('2d');
+        for (let p of points) {
+            // Circle with color for selected, bigger for hovered
+            context2d.beginPath();
+            context2d.arc(p.xCanvas, p.yCanvas, p.hover ? 10 : 6, 0, 2 * Math.PI);
+            context2d.fillStyle = p.select === 1 ? 'red' : p.select === 2 ? 'orange' : p.hover ? 'blue' : 'skyblue';
+            context2d.fill();
         }
     }
 
-    // Render triangles using software rendering
-    renderTriangles() {
-        const vertices = this.vertices;
-        const projected = this.projected;
-        const triangles = this.triangles;
-        const ambient = this.ambient;
-        const lightDir = this.lightDir;
-        const invTransModel = this.invTransModel;
-        // console.log(this.frontTexture, this.backTexture);
-        // Process all triangles
-        for (let i = 0; i < triangles.length; i++) {
-            const t = triangles[i];
-            const v0 = vertices[t.v[0]], v1 = vertices[t.v[1]], v2 = vertices[t.v[2]];
-            const e1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
-            const e2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
-            let normal = View3d.normalize(View3d.cross(e1, e2));
-            normal = View3d.transformNormal(invTransModel, normal);
-            const isFront = View3d.dot(normal, [0, 0, -1]) < 0;
-            const tex = isFront ? this.frontTexture : this.backTexture;
-            const lightNormal = isFront ? [-normal[0], -normal[1], -normal[2]] : normal;
-            const factor = Math.max(0, View3d.dot(lightNormal, lightDir)) * (1 - ambient) + ambient;
-            const uv0 = this.uvs[t.uv[0]], uv1 = this.uvs[t.uv[1]], uv2 = this.uvs[t.uv[2]];
-            const p0 = projected[t.v[0]], p1 = projected[t.v[1]], p2 = projected[t.v[2]];
-            const z0 = p0[2], z1 = p1[2], z2 = p2[2];
-            const w0 = p0[3], w1 = p1[3], w2 = p2[3];
-            this.fillTriangle(p0, p1, p2, z0, z1, z2, uv0, uv1, uv2, w0, w1, w2, tex, factor);
+    // Draw on overlay. Called from render()
+    drawSegments(segments) {
+        // if (segments === undefined) {return;}
+        const context2d = this.overlay.getContext('2d');
+        for (let s of segments) {
+            context2d.lineWidth = s.hover ? 6 : 3;
+            context2d.beginPath();
+            context2d.moveTo(s.p1.xCanvas, s.p1.yCanvas);
+            context2d.lineTo(s.p2.xCanvas, s.p2.yCanvas);
+            context2d.strokeStyle = s.select === 1 ? 'red' : s.select === 2 ? 'orange' : s.hover ? 'blue' : 'skyblue';
+            context2d.stroke();
         }
     }
 
-    // Render lines using software rendering
-    renderLines() {
-        const projected = this.projected;
-        for (let i = 0; i < this.lines.length; i += 2) {
-            const idx1 = this.lines[i];
-            const idx2 = this.lines[i + 1];
-            if (idx1 !== undefined && idx2 !== undefined) {
-                const v1 = projected[idx1];
-                const v2 = projected[idx2];
-                this.drawLine(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
-            }
-        }
-    }
-
-    // Draw a line using Bresenham's algorithm
-    drawLine(x1, y1, z1, x2, y2, z2, lineColor = [0, 0, 0]) {
-        x1 = Math.round(x1);
-        x2 = Math.round(x2);
-        y1 = Math.round(y1);
-        y2 = Math.round(y2);
-        const dx = Math.abs(x2 - x1);
-        const dy = Math.abs(y2 - y1);
-        const sx = x1 < x2 ? 1 : -1;
-        const sy = y1 < y2 ? 1 : -1;
-        let err = dx - dy;
-        let x = x1;
-        let y = y1;
-        let z = z1 - 1; // Draw above to see the line
-        const totalSteps = Math.max(dx, dy);
-        const zStep = totalSteps > 0 ? (z2 - z1) / totalSteps : 0;
-        this.putPixel(Math.round(x), Math.round(y), lineColor, z);
-        while ((sx > 0 && x < x2) || (sx < 0 && x > x2) ||
-        (sy > 0 && y < y2) || (sy < 0 && y > y2)) {
-            const e2 = 2 * err;
-            if (e2 > -dy) {
-                err -= dy;
-                x += sx;
-            }
-            if (e2 < dx) {
-                err += dx;
-                y += sy;
-            }
-            z += zStep;
-            this.putPixel(Math.round(x), Math.round(y), lineColor, z);
-        }
-        this.putPixel(Math.round(x2), Math.round(y2), lineColor, z2);
-    }
-
-    // Draw a filled circle using Bresenham's algorithm
-    drawFilledCircle(xc, yc, r, z, color) {
-        let x = 0;
-        let y = r;
-        let d = 3 - 2 * r;
-        z = z - 1;  // Draw above to see the circle
-        const fillSpan = (x1, x2, y) => {
-            for (let x = x1; x <= x2; x++) {
-                this.putPixel(x, y, color, z);
-            }
-        };
-        const plot = (x, y) => {
-            fillSpan(xc - x, xc + x, yc + y);
-            fillSpan(xc - x, xc + x, yc - y);
-            fillSpan(xc - y, xc + y, yc + x);
-            fillSpan(xc - y, xc + y, yc - x);
-        };
-        plot(x, y);
-        while (y >= x) {
-            x++;
-            if (d > 0) {
-                y--;
-                d = d + 4 * (x - y) + 10;
-            } else {
-                d = d + 4 * x + 6;
-            }
-            plot(x, y);
-        }
-    }
-
-    // Draw Points. Called from render()
-    drawPoints() {
-        for (let p of this.model.points) {
-            const idx = this.indexMap.get(p);
-            const proj = this.projected[idx];
-            if (!proj || p.select !== 0 || p.hover === true) continue;
-            const color = [135, 206, 235]; // skyblue
-            const radius = 6;
-            this.drawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
-        }
-        // Overlay with selected and hovered
-        for (let p of this.model.points) {
-            const idx = this.indexMap.get(p);
-            const proj = this.projected[idx];
-            if (!proj || (p.select === 0 && p.hover === false)) continue;
-            const radius = p.hover ? 10 : 6;
-            const color = p.select === 1 ? [255, 0, 0] : // red
-                p.select === 2 ? [255, 165, 0] : // orange
-                    p.hover ? [0, 0, 255] : // blue
-                        [0, 0, 0]; // skyblue
-            this.drawFilledCircle(Math.round(proj[0]), Math.round(proj[1]), radius, proj[2], color);
-        }
-    }
-
-    // Draw hovered segments
-    drawSegments() {
-        for (let i = 0; i < this.model.segments.length; i++) {
-            const s = this.model.segments[i];
-            const width = (s.hover || s.select === 1) ? 6 : 3;
-            const color = s.select === 1 ? [255, 0, 0] : s.select === 2 ? [255, 165, 0] : s.hover ? [0, 0, 255] : [135, 206, 235];
-            for (let w = -Math.floor(width / 2); w <= Math.floor(width / 2); w++) {
-                const p1 = this.projected[this.indexMap.get(s.p1)];
-                const p2 = this.projected[this.indexMap.get(s.p2)];
-                if (!p1 || !p2) continue;
-                const dx = p2[0] - p1[0];
-                const dy = p2[1] - p1[1];
-                const len = Math.sqrt(dx * dx + dy * dy);
-                if (len === 0) continue;
-                const offsetX = -w * dy / len;
-                const offsetY = w * dx / len;
-                const x1 = Math.round(p1[0] + offsetX);
-                const y1 = Math.round(p1[1] + offsetY);
-                const x2 = Math.round(p2[0] + offsetX);
-                const y2 = Math.round(p2[1] + offsetY);
-                const z1 = p1[2];
-                const z2 = p2[2];
-                this.drawLine(x1, y1, z1, x2, y2, z2, color);
-            }
-        }
-    }
-
-    // Draw hovered faces
-    drawFaces() {
-        for (let f of this.model.faces) {
+    // Draw faces
+    drawFaces(faces) {
+        const context2d = this.overlay.getContext('2d');
+        for (let f of faces) {
             if (f.hover) {
+                context2d.fillStyle = 'pink';
                 const pts = f.points;
-                const len = pts.length;
-                const projectedPts = pts.map(p => {
-                    const idx = this.indexMap.get(p);
-                    return this.projected[idx];
-                });
-                let minY = Infinity;
-                let maxY = -Infinity;
-                for (const p of projectedPts) {
-                    minY = Math.min(minY, Math.floor(p[1]));
-                    maxY = Math.max(maxY, Math.ceil(p[1]));
-                }
-                minY = Math.max(0, minY);
-                maxY = Math.min(this.height - 1, maxY);
-                for (let y = minY; y <= maxY; y++) {
-                    let intersections = [];
-                    for (let i = 0; i < len; i++) {
-                        const p1 = projectedPts[i];
-                        const p2 = projectedPts[(i + 1) % len];
-                        if ((p1[1] <= y && p2[1] > y) || (p2[1] <= y && p1[1] > y)) {
-                            const x = p1[0] + (y - p1[1]) * (p2[0] - p1[0]) / (p2[1] - p1[1]);
-                            const z = p1[2] + (y - p1[1]) * (p2[2] - p1[2]) / (p2[1] - p1[1]);
-                            intersections.push({x, z});
-                        }
-                    }
-                    intersections.sort((a, b) => a.x - b.x);
-                    for (let i = 0; i < intersections.length; i += 2) {
-                        const x1 = Math.max(0, Math.floor(intersections[i].x));
-                        const x2 = Math.min(this.width - 1, Math.ceil(intersections[i + 1].x));
-                        const z1 = intersections[i].z;
-                        const z2 = intersections[i + 1].z;
-                        for (let x = x1; x <= x2; x++) {
-                            const t = (x - x1) / (x2 - x1);
-                            const z = z1 + t * (z2 - z1) - 1; // -1 to draw above to see the face
-                            this.putPixel(x, y, [255, 192, 203], z); // Pink color
-                        }
-                    }
-                }
+                context2d.beginPath();
+                let xCanvas = pts[0].xCanvas;
+                let yCanvas = pts[0].yCanvas;
+                context2d.moveTo(xCanvas, yCanvas);
+                pts.forEach((p) => {
+                    xCanvas = p.xCanvas;
+                    yCanvas = p.yCanvas;
+                    context2d.lineTo(xCanvas, yCanvas);
+                })
+                context2d.closePath();
+                context2d.fill();
             }
         }
     }
 
     /**
      * Draw labels for Points, Segments, Faces
+     * each label takes a slot on the screen
      */
     labels = [];
 
@@ -581,12 +509,7 @@ export class View3d {
         // Points
         for (let p of this.model.points) {
             const txt = String(this.model.points.indexOf(p));
-            const idx = this.indexMap.get(p);
-            if (!idx) continue;
-            const proj = this.projected[idx];
-            if (!proj) continue;
-            const x = proj[0], y = proj[1];
-            const oneLabel = new Label(x, y);
+            const oneLabel = new Label(p.xCanvas, p.yCanvas);
             this.labels.push(oneLabel);
             this.labels.forEach(label => {
                 if (label !== oneLabel && label.over(oneLabel)) {
@@ -596,7 +519,7 @@ export class View3d {
             // Line
             context2d.strokeStyle = 'black';
             context2d.beginPath();
-            context2d.moveTo(x, y);
+            context2d.moveTo(p.xCanvas, p.yCanvas);
             context2d.lineTo(oneLabel.getX(), oneLabel.getY());
             context2d.lineWidth = 1;
             context2d.stroke();
@@ -612,104 +535,6 @@ export class View3d {
             context2d.font = '20px serif';
             context2d.fillText(txt, oneLabel.getX() - 4 * (txt.length), oneLabel.getY() + 5);
         }
-    }
-
-    static createMat4() {
-        return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
-    }
-
-    static multiplyMat4(a, b) {
-        const r = View3d.createMat4();
-        for (let i = 0; i < 4; i++)
-            for (let j = 0; j < 4; j++)
-                r[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j] + a[i][3] * b[3][j];
-        return r;
-    }
-
-    static transformVec4(mat, vec) {
-        const r = [0, 0, 0, 0];
-        for (let i = 0; i < 4; i++)
-            r[i] = mat[i][0] * vec[0] + mat[i][1] * vec[1] + mat[i][2] * vec[2] + mat[i][3] * (vec[3] || 1);
-        return r;
-    }
-
-    static perspectiveMat4(fov, aspect, near, far) {
-        const f = 1 / Math.tan(fov / 2), nf = 1 / (near - far);
-        return [[f / aspect, 0, 0, 0], [0, f, 0, 0], [0, 0, (far + near) * nf, 2 * far * near * nf], [0, 0, -1, 0]];
-    }
-
-    static translateMat4(tx, ty, tz) {
-        return [[1, 0, 0, tx], [0, 1, 0, ty], [0, 0, 1, tz], [0, 0, 0, 1]];
-    }
-
-    static rotateYMat4(angle) {
-        const c = Math.cos(angle), s = Math.sin(angle);
-        return [[c, 0, s, 0], [0, 1, 0, 0], [-s, 0, c, 0], [0, 0, 0, 1]];
-    }
-
-    static rotateXMat4(angle) {
-        const c = Math.cos(angle), s = Math.sin(angle);
-        return [[1, 0, 0, 0], [0, c, -s, 0], [0, s, c, 0], [0, 0, 0, 1]];
-    }
-
-    static rotateZMat4(angle) {
-        const c = Math.cos(angle), s = Math.sin(angle);
-        return [[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
-    }
-
-    static scaleMat4(sx, sy, sz) {
-        return [[sx, 0, 0, 0], [0, sy, 0, 0], [0, 0, sz, 0], [0, 0, 0, 1]];
-    }
-
-    // Cross product: v1 × v2, optionally store in result arg
-    static cross(v1, v2, result = null) {
-        if (!result) result = [0, 0, 0];
-        result[0] = v1[1] * v2[2] - v1[2] * v2[1];
-        result[1] = v1[2] * v2[0] - v1[0] * v2[2];
-        result[2] = v1[0] * v2[1] - v1[1] * v2[0];
-        return result;
-    }
-
-    static dot(v1, v2) {
-        return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
-    }
-
-    // Normalize vector, optionally store in result arg
-    static normalize(v, result = null) {
-        if (!result) result = [0, 0, 0];
-        const len = Math.sqrt(this.dot(v, v));
-        if (len) {
-            const invLen = 1 / len;
-            result[0] = v[0] * invLen;
-            result[1] = v[1] * invLen;
-            result[2] = v[2] * invLen;
-        } else if (v !== result) {
-            // Copy input to result if not normalizing in-place
-            result[0] = v[0];
-            result[1] = v[1];
-            result[2] = v[2];
-        }
-        return result;
-    }
-
-    // Transform normal by matrix, optionally store in the result arg
-    static transformNormal(mat, normal, result = null) {
-        if (!result) result = [0, 0, 0];
-        result[0] = mat[0][0] * normal[0] + mat[0][1] * normal[1] + mat[0][2] * normal[2];
-        result[1] = mat[1][0] * normal[0] + mat[1][1] * normal[1] + mat[1][2] * normal[2];
-        result[2] = mat[2][0] * normal[0] + mat[2][1] * normal[1] + mat[2][2] * normal[2];
-        return this.normalize(result, result);
-    }
-
-    static inverseTransposeMat4(mat) {
-        const r = View3d.createMat4();
-        const c = mat[0][0], s = mat[2][0]; // For rotation Y matrix
-        r[0][0] = c;
-        r[0][2] = -s;
-        r[1][1] = 1;
-        r[2][0] = s;
-        r[2][2] = c;
-        return r;
     }
 }
 
@@ -739,7 +564,268 @@ class Label {
         const dx = this.getX() - other.getX();
         const dy = this.getY() - other.getY();
         return !(Math.abs(dy) > 20 || Math.abs(dx) > 20);
+
     }
 }
 
-// 650 lines
+// 574 lines of code
+class mat4 extends Float32Array {
+    static EPSILON = 0.000001;
+
+    static create() {
+        return new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+    }
+
+    static applyMatrix4(m, v) {
+        const x = v[0], y = v[1], z = v[2];
+        const w = 1 / (m[3] * v[0] + m[7] * v[1] + m[11] * v[2] + m[15]);
+        v[0] = (m[0] * x + m[4] * y + m[8] * z + m[12]) * w;
+        v[1] = (m[1] * x + m[5] * y + m[9] * z + m[13]) * w;
+        v[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) * w;
+        return v;
+    }
+
+    static multiply(out, a, b) {
+        const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+        const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+        const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+        const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+        // Cache only the current line of the second matrix
+        let b0 = b[0], b1 = b[1], b2 = b[2], b3 = b[3];
+        out[0] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[1] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[2] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[3] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[4];
+        b1 = b[5];
+        b2 = b[6];
+        b3 = b[7];
+        out[4] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[5] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[6] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[7] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[8];
+        b1 = b[9];
+        b2 = b[10];
+        b3 = b[11];
+        out[8] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[9] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[10] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[11] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+
+        b0 = b[12];
+        b1 = b[13];
+        b2 = b[14];
+        b3 = b[15];
+        out[12] = b0 * a00 + b1 * a10 + b2 * a20 + b3 * a30;
+        out[13] = b0 * a01 + b1 * a11 + b2 * a21 + b3 * a31;
+        out[14] = b0 * a02 + b1 * a12 + b2 * a22 + b3 * a32;
+        out[15] = b0 * a03 + b1 * a13 + b2 * a23 + b3 * a33;
+        return out;
+    }
+
+    static scale(out, a, v) {
+        const x = v[0], y = v[1], z = v[2];
+
+        out[0] = a[0] * x;
+        out[1] = a[1] * x;
+        out[2] = a[2] * x;
+        out[3] = a[3] * x;
+        out[4] = a[4] * y;
+        out[5] = a[5] * y;
+        out[6] = a[6] * y;
+        out[7] = a[7] * y;
+        out[8] = a[8] * z;
+        out[9] = a[9] * z;
+        out[10] = a[10] * z;
+        out[11] = a[11] * z;
+        out[12] = a[12];
+        out[13] = a[13];
+        out[14] = a[14];
+        out[15] = a[15];
+        return out;
+    }
+
+    static rotate(out, a, rad, axis) {
+        let x = axis[0], y = axis[1], z = axis[2];
+        let len = Math.hypot(x, y, z);
+        const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+        const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+        const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+
+        if (len < mat4.EPSILON) {
+            return null;
+        }
+
+        len = 1 / len;
+        x *= len;
+        y *= len;
+        z *= len;
+
+        const s = Math.sin(rad);
+        const c = Math.cos(rad);
+        const t = 1 - c;
+
+        // Construct the elements of the rotation matrix
+        const b00 = x * x * t + c;
+        const b01 = y * x * t + z * s;
+        const b02 = z * x * t - y * s;
+        const b10 = x * y * t - z * s;
+        const b11 = y * y * t + c;
+        const b12 = z * y * t + x * s;
+        const b20 = x * z * t + y * s;
+        const b21 = y * z * t - x * s;
+        const b22 = z * z * t + c;
+
+        // Perform rotation-specific matrix multiplication
+        out[0] = a00 * b00 + a10 * b01 + a20 * b02;
+        out[1] = a01 * b00 + a11 * b01 + a21 * b02;
+        out[2] = a02 * b00 + a12 * b01 + a22 * b02;
+        out[3] = a03 * b00 + a13 * b01 + a23 * b02;
+        out[4] = a00 * b10 + a10 * b11 + a20 * b12;
+        out[5] = a01 * b10 + a11 * b11 + a21 * b12;
+        out[6] = a02 * b10 + a12 * b11 + a22 * b12;
+        out[7] = a03 * b10 + a13 * b11 + a23 * b12;
+        out[8] = a00 * b20 + a10 * b21 + a20 * b22;
+        out[9] = a01 * b20 + a11 * b21 + a21 * b22;
+        out[10] = a02 * b20 + a12 * b21 + a22 * b22;
+        out[11] = a03 * b20 + a13 * b21 + a23 * b22;
+
+        if (a !== out) {
+            // If the source and destination differ, copy the unchanged last row
+            out[12] = a[12];
+            out[13] = a[13];
+            out[14] = a[14];
+            out[15] = a[15];
+        }
+        return out;
+    }
+
+    static rotateX(out, a, rad) {
+        const s = Math.sin(rad);
+        const c = Math.cos(rad);
+        const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+        const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+
+        if (a !== out) {
+            // If the source and destination differ, copy the unchanged rows
+            out[0] = a[0];
+            out[1] = a[1];
+            out[2] = a[2];
+            out[3] = a[3];
+            out[12] = a[12];
+            out[13] = a[13];
+            out[14] = a[14];
+            out[15] = a[15];
+        }
+
+        // Perform axis-specific matrix multiplication
+        out[4] = a10 * c + a20 * s;
+        out[5] = a11 * c + a21 * s;
+        out[6] = a12 * c + a22 * s;
+        out[7] = a13 * c + a23 * s;
+        out[8] = a20 * c - a10 * s;
+        out[9] = a21 * c - a11 * s;
+        out[10] = a22 * c - a12 * s;
+        out[11] = a23 * c - a13 * s;
+        return out;
+    }
+
+    static rotateY(out, a, rad) {
+        const s = Math.sin(rad);
+        const c = Math.cos(rad);
+        const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+        const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+
+        if (a !== out) {
+            // If the source and destination differ, copy the unchanged rows
+            out[4] = a[4];
+            out[5] = a[5];
+            out[6] = a[6];
+            out[7] = a[7];
+            out[12] = a[12];
+            out[13] = a[13];
+            out[14] = a[14];
+            out[15] = a[15];
+        }
+
+        // Perform axis-specific matrix multiplication
+        out[0] = a00 * c - a20 * s;
+        out[1] = a01 * c - a21 * s;
+        out[2] = a02 * c - a22 * s;
+        out[3] = a03 * c - a23 * s;
+        out[8] = a00 * s + a20 * c;
+        out[9] = a01 * s + a21 * c;
+        out[10] = a02 * s + a22 * c;
+        out[11] = a03 * s + a23 * c;
+        return out;
+    }
+
+    static translate(out, a, v) {
+        let x = v[0], y = v[1], z = v[2];
+        if (a === out) {
+            out[12] = a[0] * x + a[4] * y + a[8] * z + a[12];
+            out[13] = a[1] * x + a[5] * y + a[9] * z + a[13];
+            out[14] = a[2] * x + a[6] * y + a[10] * z + a[14];
+            out[15] = a[3] * x + a[7] * y + a[11] * z + a[15];
+        } else {
+            let a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+            let a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+            let a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+            out[0] = a00; out[1] = a01; out[2] = a02; out[3] = a03;
+            out[4] = a10; out[5] = a11; out[6] = a12; out[7] = a13;
+            out[8] = a20; out[9] = a21; out[10] = a22; out[11] = a23;
+            out[12] = a00 * x + a10 * y + a20 * z + a[12];
+            out[13] = a01 * x + a11 * y + a21 * z + a[13];
+            out[14] = a02 * x + a12 * y + a22 * z + a[14];
+            out[15] = a03 * x + a13 * y + a23 * z + a[15];
+        }
+        return out;
+    }
+
+    static fromTranslation(out, v) {
+        out[0] = 1;
+        out[1] = 0;
+        out[2] = 0;
+        out[3] = 0;
+        out[4] = 0;
+        out[5] = 1;
+        out[6] = 0;
+        out[7] = 0;
+        out[8] = 0;
+        out[9] = 0;
+        out[10] = 1;
+        out[11] = 0;
+        out[12] = v[0];
+        out[13] = v[1];
+        out[14] = v[2];
+        out[15] = 1;
+        return out;
+    }
+
+    static perspective(out, fovy, aspect, near, far) {
+        const f = 1.0 / Math.tan(fovy * Math.PI / 360);
+        const nf = 1 / (near - far);
+        out[0] = f / aspect;
+        out[1] = 0;
+        out[2] = 0;
+        out[3] = 0;
+        out[4] = 0;
+        out[5] = f;
+        out[6] = 0;
+        out[7] = 0;
+        out[8] = 0;
+        out[9] = 0;
+        out[10] = (far + near) * nf;
+        out[11] = -1;
+        out[12] = 0;
+        out[13] = 0;
+        out[14] = (2 * far * near) * nf;
+        out[15] = 0;
+        return out;
+    }
+
+}
