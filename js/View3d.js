@@ -98,7 +98,7 @@ export class View3d {
     btxBuffer = null;
     linBuffer = null;
 
-    constructor(model, canvas3d, overlay) {
+    constructor(model, canvas3d, overlay = null) {
         // Instance variables
         this.model = model;
         this.canvas3d = canvas3d;
@@ -396,22 +396,24 @@ export class View3d {
         this.gl.uniformMatrix4fv(uModelViewMatrix, false, this.modelView);
 
         // Overlay
-        this.overlay.width = this.overlay.clientWidth;
-        this.overlay.height = this.overlay.clientHeight;
-        const scale = mat4.scale(new Float32Array(16), mat4.create(), [this.overlay.width / 2.0, -this.overlay.height / 2.0, 1.0]);
-        const translation = mat4.fromTranslation(new Float32Array(16), [1, -1, 0]);
-        const overlay = mat4.multiply(new Float32Array(16), scale, translation);
+        if (this.model.overlay) {
+            this.overlay.width = this.overlay.clientWidth;
+            this.overlay.height = this.overlay.clientHeight;
+            const scale = mat4.scale(new Float32Array(16), mat4.create(), [this.overlay.width / 2.0, -this.overlay.height / 2.0, 1.0]);
+            const translation = mat4.fromTranslation(new Float32Array(16), [1, -1, 0]);
+            const overlay = mat4.multiply(new Float32Array(16), scale, translation);
 
-        // canvasView = overlay * projection * modelView
-        // gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-        const projection = mat4.multiply(new Float32Array(16), this.projection, this.modelView,);
-        this.canvasView = mat4.multiply(new Float32Array(16), overlay, projection);
+            // canvasView = overlay * projection * modelView
+            // gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+            const projection = mat4.multiply(new Float32Array(16), this.projection, this.modelView,);
+            this.canvasView = mat4.multiply(new Float32Array(16), overlay, projection);
 
-        // Set xCanvas, yCanvas to model points
-        for (let p of this.model.points) {
-            const v = mat4.applyMatrix4(this.canvasView, [p.x, p.y, p.z]);
-            p.xCanvas = v[0];
-            p.yCanvas = v[1];
+            // Set xCanvas, yCanvas to model points
+            for (let p of this.model.points) {
+                const v = mat4.applyMatrix4(this.canvasView, [p.x, p.y, p.z]);
+                p.xCanvas = v[0];
+                p.yCanvas = v[1];
+            }
         }
     }
 
@@ -428,25 +430,27 @@ export class View3d {
         // Faces
         gl.drawArrays(gl.TRIANGLES, 0, this.vtx.length / 3);
 
-        // Segments drawElements and not drawArrays because normals implies 3 vertices per triangle
-        const uLine = gl.getUniformLocation(gl.program, 'uLine');
-        gl.uniform1i(uLine, 1); // Draw lines in black
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
-        gl.drawElements(gl.LINES, this.lin.length, gl.UNSIGNED_SHORT, 0);
-        gl.uniform1i(uLine, 0); // Back to normal
+        if (this.model.lines){
+            // Segments drawElements and not drawArrays because normals implies 3 vertices per triangle
+            const uLine = gl.getUniformLocation(gl.program, 'uLine');
+            gl.uniform1i(uLine, 1); // Draw lines in black
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
+            gl.drawElements(gl.LINES, this.lin.length, gl.UNSIGNED_SHORT, 0);
+            gl.uniform1i(uLine, 0); // Back to normal
+        }
 
+        // Model projected on overlay canvas
         // Context 2d
         const context2d = this.overlay.getContext('2d');
         context2d.clearRect(0, 0, this.overlay.clientWidth, this.overlay.clientHeight)
-
-        // Model projected on overlay canvas
-        // this.drawSegments(this.model.segments, 'black', 1); // done by webgl
-        this.drawSegments(this.model.segments); // Hover and select
-        this.drawPoints(this.model.points);
-        this.drawFaces(this.model.faces);    // Only for hover and select
-
-        if (this.model.labels) {
-            this.drawLabels(context2d);
+        if (this.model.overlay) {
+            // this.drawSegments(this.model.segments, 'black', 1); // done by webgl
+            this.drawSegments(this.model.segments); // Hover and select
+            this.drawPoints(this.model.points);
+            this.drawFaces(this.model.faces);    // Only for hover and select
+            if (this.model.labels) {
+                this.drawLabels(context2d);
+            }
         }
     }
 
@@ -568,7 +572,8 @@ class Label {
     }
 }
 
-// 574 lines of code
+// 571 lines of code
+
 class mat4 extends Float32Array {
     static EPSILON = 0.000001;
 

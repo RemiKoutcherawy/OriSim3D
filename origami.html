@@ -51,7 +51,8 @@
 
     // Origami
     const model = new Model().init();
-    const command = new Command(model,view3d);
+    let geometry = createGeometry(model);
+    const command = new Command(model, geometry);
 
     function createGeometry(model) {
 
@@ -141,8 +142,6 @@
         geometry.setIndex(fin);
         return geometry;
     }
-
-    let geometry = createGeometry(model);
 
     const frontMat = new three.MeshPhongMaterial
     ({

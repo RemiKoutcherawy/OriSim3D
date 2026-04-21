@@ -118,30 +118,6 @@ export class Face {
 
         const x = xCanvas, y = yCanvas;
 
-        // If the face doesn't have a half-edge, fall back to the old method
-        // if (!face.halfEdge) {
-        //     let inside = false;
-        //     const pts = face.points;
-        //     for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-        //         const idxI = view3d.indexMap.get(pts[i]);
-        //         const idxJ = view3d.indexMap.get(pts[j]);
-        //         if (idxI === undefined || idxJ === undefined) continue;
-        //         const projI = view3d.projected[idxI];
-        //         const projJ = view3d.projected[idxJ];
-        //         if (!projI || !projJ) continue;
-        //         const xi = projI[0], yi = projI[1];
-        //         const xj = projJ[0], yj = projJ[1];
-        //         // Special case where the point is part of the face.
-        //         if (xi === xCanvas && yi === yCanvas) {
-        //             return true;
-        //         }
-        //
-        //         const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-        //         if (intersect) inside = !inside;
-        //     }
-        //     return inside;
-        // }
-
         // Use half-edge structure to traverse the face in O(n)
         let inside = false;
         let start = face.halfEdge;
@@ -159,8 +135,8 @@ export class Face {
             const idxJ = view3d.indexMap.get(toVertex);
 
             if (idxI !== undefined && idxJ !== undefined) {
-                const projI = view3d.projected[idxI];
-                const projJ = view3d.projected[idxJ];
+                const projI = [fromVertex.xCanvas, fromVertex.yCanvas];
+                const projJ = [toVertex.xCanvas, toVertex.yCanvas];
                 if (projI && projJ) {
                     const xi = projI[0], yi = projI[1];
                     const xj = projJ[0], yj = projJ[1];

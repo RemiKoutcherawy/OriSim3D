@@ -8,12 +8,14 @@
   <style>
     #canvas2d { position: absolute; width: 50%; height: 100%; left: 0; top: 0; border: 1px solid black;}
     #canvas3d { position: absolute; width: 50%; height: 100%; left: 50%; top: 0; color: hsl(210 100% 50%);border: 1px solid black;}
+    #overlay  { position: absolute; width: 50%; height: 100%; left: 50%; top: 0; z-index: 1; color: hsl(60, 100%, 50%);}
   </style>
 </head>
 <body>
 <div>
   <canvas id="canvas2d"></canvas>
   <canvas id="canvas3d"></canvas>
+  <canvas id="overlay"></canvas>
 </div>
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
@@ -34,9 +36,10 @@
 
     // View 3d with 2D overlay
     const canvas3d = window.document.getElementById("canvas3d");
-    const view3d = new View3d(model, canvas3d);
+    const overlay = window.document.getElementById("overlay");
+    const view3d = new View3d(model, canvas3d, overlay);
     view3d.initBuffers();
-    view3d.updateProjectionMatrix();
+    view3d.initPerspective();
 
     // View 2d
     const canvas2d = window.document.getElementById("canvas2d");
@@ -46,27 +49,25 @@
     const command = new Command(model, view3d);
 
     // Helper
-    const helper = new Helper(model, command, canvas2d, view3d, canvas3d);
+    const helper = new Helper(model, command, canvas2d, view3d, overlay);
+    helper.out();
 
     // Animation loop
     function loop() {
-      requestAnimationFrame(loop);
-      const changed = command.anim();
-      if (changed) {
-          view3d.initBuffers();
+      if (command.anim()) {
+        view3d.initBuffers();
+        view3d.initModelView();
       }
-      view3d.initModelView();
-      view3d.updateProjectionMatrix();
       view2d.drawModel();
       view3d.render();
-      helper.draw();
+      requestAnimationFrame(loop);
     }
     loop();
 
     setTimeout( () => {
       command.command(`
 d 200 200
-lines overlay
+lines
 c3d 0 1 c3d 1 2 offset -1 1 2
 t 1000 r 6 -180 1 2 7
 offset -1 2 3

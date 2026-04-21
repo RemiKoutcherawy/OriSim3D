@@ -2,24 +2,24 @@ import {Segment} from './Segment.js';
 import {Face} from './Face.js';
 
 export class Helper {
-    constructor(model, command, canvas2d, view3d, canvas3d, commandArea) {
+    constructor(model, command, canvas2d, view3d, overlay, commandArea) {
         this.model = model;
         this.command = command;
         this.canvas2d = canvas2d;
         this.view3d = view3d;
-        this.overlay = canvas3d;
+        this.overlay = overlay;
         this.commandArea = commandArea; // maybe null
         this.touchTime = 0;
         this.label = undefined;
         // To test with Deno
-        if (canvas3d) {
+        if (overlay) {
             // 3d
-            canvas3d.addEventListener('mousedown', (event) => this.down3d(event));
-            canvas3d.addEventListener('mousemove', (event) => this.move3d(event));
-            canvas3d.addEventListener('mouseup', (event) => this.up3d(event));
-            canvas3d.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
-            canvas3d.addEventListener('mouseout', (event) => this.out(event));
-            canvas3d.addEventListener('contextmenu', (event) => {event.preventDefault();});
+            overlay.addEventListener('mousedown', (event) => this.down3d(event));
+            overlay.addEventListener('mousemove', (event) => this.move3d(event));
+            overlay.addEventListener('mouseup', (event) => this.up3d(event));
+            overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
+            overlay.addEventListener('mouseout', (event) => this.out(event));
+            overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
         }
         if (canvas2d) {
             // 2d
@@ -121,9 +121,9 @@ export class Helper {
                     const p2Idx = this.view3d.indexMap.get(s.p2);
 
                     if (pIdx !== undefined && p1Idx !== undefined && p2Idx !== undefined) {
-                        const pProj = this.view3d.projected[pIdx];
-                        const p1Proj = this.view3d.projected[p1Idx];
-                        const p2Proj = this.view3d.projected[p2Idx];
+                        const pProj = [p.xCanvas, p.yCanvas];
+                        const p1Proj = [s.p1.xCanvas, s.p1.yCanvas];
+                        const p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
 
                         if (pProj && p1Proj && p2Proj) {
                             // Signed distance from the first point to segment.
@@ -367,33 +367,9 @@ export class Helper {
     // Points, then segments, then faces near xCanvas, yCanvas
     search3d(xCanvas, yCanvas) {
         // Points near xCanvas, yCanvas
-        const points = [];
-        for (const p of this.model.points) {
-            const idx = this.view3d.indexMap.get(p);
-            if (idx !== undefined) {
-                const proj = this.view3d.projected[idx];
-                const delta = 10.0 / this.view3d.scale;
-                if (proj && Math.abs(proj[0] - xCanvas) + Math.abs(proj[1] - yCanvas) < delta) {
-                    points.push(p);
-                }
-            }
-        }
-
+        const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < 10);
         // Segments near xCanvas, yCanvas
-        const segments = [];
-        for (const s of this.model.segments) {
-            const idx1 = this.view3d.indexMap.get(s.p1);
-            const idx2 = this.view3d.indexMap.get(s.p2);
-            if (idx1 !== undefined && idx2 !== undefined) {
-                const proj1 = this.view3d.projected[idx1];
-                const proj2 = this.view3d.projected[idx2];
-                const delta = 6.0 / this.view3d.scale;
-                if (proj1 && proj2 && Segment.distance2d(proj1[0], proj1[1], proj2[0], proj2[1], xCanvas, yCanvas) < delta) {
-                    segments.push(s);
-                }
-            }
-        }
-
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
         // Face containing xCanvas, yCanvas
         const faces = this.model.faces.filter(f => Face.contains3d(f, xCanvas, yCanvas, this.view3d));
         return {points, segments, faces, xCanvas, yCanvas};
@@ -420,7 +396,7 @@ export class Helper {
             && event.buttons === 1
             && !this.firstPoint && !this.firstSegment && !this.firstFace) {
             // Rotation
-            const factor = (600.0 / event.target.height) / 100.0;
+            const factor = (600.0 / event.target.height) ;
             const dx = factor * (xCanvas - this.currentX);
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
@@ -434,7 +410,7 @@ export class Helper {
         }
         this.move(points, segments, faces, xCanvas, yCanvas);
         this.view3d.initModelView();
-        this.view3d.updateProjectionMatrix();
+        this.view3d.initPerspective();
     }
 
     // Up on 3d overlay
@@ -454,7 +430,7 @@ export class Helper {
         this.view3d.scale = event.scale !== undefined ? event.scale / 10.0 : this.view3d.scale + event.deltaY / 3000.0;
         this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 3); // 0.2 < scale < 3
         this.view3d.initModelView();
-        this.view3d.updateProjectionMatrix();
+        this.view3d.initPerspective();
     }
 
     doubleClick() {
@@ -469,7 +445,7 @@ export class Helper {
                 this.view3d.translationX = 0.0;
                 this.view3d.translationY = 0.0;
                 this.view3d.scale = 1.0;
-                this.view3d.updateProjectionMatrix();
+                this.view3d.initPerspective();
                 this.view3d.initModelView();
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
                 const projected = this.view3d.projected;

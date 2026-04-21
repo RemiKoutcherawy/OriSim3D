@@ -9,6 +9,9 @@ export class Point {
         // Helper
         this.hover = false;
         this.select = 0;
+        // xCanvas projected point in overlay
+        this.xCanvas = null;
+        this.yCanvas = null;
     }
 
     // Adjust point i 2d coords on segment ab
