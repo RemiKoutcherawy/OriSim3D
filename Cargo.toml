@@ -1,0 +1,17 @@
+[package]
+name = "orisim3d"
+version = "1.0.0"
+edition = "2024"
+[dependencies]
+eframe = "0.31.0"
+egui = "0.31.0"
+
+[profile.dev]
+opt-level = 1
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "orisim3d"
+path = "src/main.rs"
