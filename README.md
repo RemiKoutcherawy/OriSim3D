@@ -1,30 +1,16 @@
 # OriSim3D
-Origami simulation
-
-Test and Coverage
-```bash
-deno test --coverage=cov_profile test
-deno coverage cov_profile
-open cov_profile/html/index.html
-```
-
-Serve index.html
-```bash
-deno run --allow-net --allow-read jsr:@std/http/file-server
-open http://localhost:8000
-```
-
+Origami simulation in Rust
 
 Work in progress, any help is welcome.
 
 ### Doc for developers
 
-1. Point.js has x,y,z coordinates in 3D, xf,yf on the crease pattern
-2. Segment.js is two points references: p1,p2
-3. Face.js is a list of points references: p1,p2,p3...
-4. Model.js has Points, Segments, Faces with methods to manipulate them
-5. Commands.js interprets text to call model methods
-6. Helper.js interprets mouse click and drag to send commands
+1. point.rs has x,y,z coordinates in 3D, xf,yf on the crease pattern
+2. segment.rs is two points references: p1,p2
+3. face.rs is a list of points references: p1,p2,p3...
+4. model.rs has Points, Segments, Faces with methods to manipulate them
+5. commands.rs interprets text to call model methods
+6. helper.rs interprets mouse click and drag to send commands
 
 ### Origami text commands :
 - define: width height : d 200 200
@@ -45,7 +31,6 @@ Work in progress, any help is welcome.
 - move : move points dx,dy,dz: move dx dy dz p1 p2 p3...
 - adjust: move points in 3D to equal 2D length of segments: adjust p1 p2 p3...
 - offset: offset by d a list of faces on faces
-- flat: set z to zero for all points in 3D
 
 ### Helper interprets mouse moves to make commands
 - click selects point, segment, face, or marks them
@@ -55,8 +40,3 @@ Work in progress, any help is welcome.
 - swipe from left to right on 2D undo
 - swipe from right to left on 2D turns model
 
-### Commands in CommandArea 
-- ss selectSegments to select without a mouse
-- sp selectPoints to select without a mouse
-- labels
-- textures

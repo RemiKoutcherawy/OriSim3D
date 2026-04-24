@@ -1,0 +1,1062 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AIAssistantCustomInstructionsStorage">
+    <option name="instructions">
+      <map>
+        <entry key="AIAssistant.General.ProjectPrompt">
+          <value>
+            <AIAssistantStoredInstruction>
+              <option name="actionId" value="AIAssistant.General.ProjectPrompt" />
+              <option name="content" value="Aucun commentaire, aucune ligne vide dans le code. Réponse brève." />
+            </AIAssistantStoredInstruction>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="AnalysisUIOptions">
+    <option name="SPLITTER_PROPORTION" value="0.37578124" />
+    <option name="ANALYZE_INJECTED_CODE" value="false" />
+    <option name="SCOPE_TYPE" value="3" />
+  </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="0d31415c-e712-4928-8c2f-8716b84351aa" name="Changes" comment="Rust with egui">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ChangesViewManager">
+    <option name="groupingKeys">
+      <option value="directory" />
+    </option>
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="25" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:test" />
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript File" />
+        <option value="JavaScript File" />
+        <option value="package.json" />
+        <option value="HTML File" />
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Merge.Settings">
+    <option name="BRANCH" value="origin/detached" />
+    <option name="OPTIONS">
+      <set>
+        <option value="SQUASH" />
+      </set>
+    </option>
+  </component>
+  <component name="Git.Rebase.Settings">
+    <option name="NEW_BASE" value="origin/detached" />
+  </component>
+  <component name="Git.Settings">
+    <option name="PUSH_TAGS">
+      <GitPushTagMode>
+        <option name="argument" value="--tags" />
+        <option name="title" value="All" />
+      </GitPushTagMode>
+    </option>
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="Local" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="SOFT" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {}
+}</component>
+  <component name="GitRewordedCommitMessages">
+    <option name="commitMessagesMapping">
+      <RewordedCommitMessageMapping>
+        <option name="originalMessage" value="Boat in progress" />
+        <option name="rewordedMessage" value="Boat in progress" />
+      </RewordedCommitMessageMapping>
+    </option>
+    <option name="currentCommit" value="1" />
+    <option name="onto" value="3351a59518836758710298a0a8424a8b73a2931e" />
+  </component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/RemiKoutcherawy/OriSim3D&quot;,
+    &quot;accountId&quot;: &quot;4e1abdaa-6065-49e4-ac35-7ff731b0b603&quot;
+  }
+}</component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="J7Zg9xhw" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
+  <component name="ProjectId" id="2qRe3ZLo1m6RJjCIuEpLWDbqemv" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Cargo.Build orisim3d.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Install cargo-llvm-cov.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Run model.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Run orisim3d.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test face.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test interpolator.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test model::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test plane.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test point::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test point::tests::test_distance2d.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test segment::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.clean.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.model.executor&quot;: &quot;Run&quot;,
+    &quot;DefaultHtmlFileTemplate&quot;: &quot;HTML File&quot;,
+    &quot;Deno.Deno :View3dSoft.test.js.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno :view3d.test.js.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno :view3d_soft_test_suite.js.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Command.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Face.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Helper.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Interpolator.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Model.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Plane.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Point.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Segment.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Test.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: Vector3.test.ts.executor&quot;: &quot;Run&quot;,
+    &quot;Deno.Deno: View3dSoftTests.ts.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.BoatThree.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.Claude-1.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.Claude-4.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.Claude-6.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.CocotteThree.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.ConceptionThree.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.Controls.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.Essai.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.Grok-14.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.Grok-15.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.Grok-16.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.IK-Survey.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.RasterTriangle.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.boat.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.cocotte.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.conception.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.crane.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.index.html (1).executor&quot;: &quot;Debug&quot;,
+    &quot;JavaScript Debug.index.html.executor&quot;: &quot;Debug&quot;,
+    &quot;JavaScript Debug.index3dSoft.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.main.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.misc_controls_orbit.html.executor&quot;: &quot;Debug&quot;,
+    &quot;JavaScript Debug.origami.html.executor&quot;: &quot;Run&quot;,
+    &quot;JavaScript Debug.raster-12.html.executor&quot;: &quot;Debug&quot;,
+    &quot;JavaScript Debug.test.html.executor&quot;: &quot;Run&quot;,
+    &quot;Node.js.Essai.js.executor&quot;: &quot;Run&quot;,
+    &quot;Node.js.Model.js.executor&quot;: &quot;Run&quot;,
+    &quot;Node.js.TestAdjustMethods.js.executor&quot;: &quot;Run&quot;,
+    &quot;Node.js.View3dSoft.js.executor&quot;: &quot;Run&quot;,
+    &quot;Node.js.view3d_soft_test_suite.js.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;Shell Script.Web.executor&quot;: &quot;Run&quot;,
+    &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultAutoModeForALLUsers.v1&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Rust&quot;,
+    &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/remi/git/OriSim3D&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.disableDetachedFileInspection/Users/remi/git/OriSim3D/src/halfedge.rs&quot;: &quot;true&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;aDefault&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.LLMConfigurable&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/Applications/RustRover.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  },
+  &quot;keyToStringList&quot;: {
+    &quot;ChangesTree.GroupingKeys&quot;: []
+  }
+}</component>
+  <component name="RecapSpentCounter">
+    <option name="endsOfQuotaMs" value="1778252411439" />
+    <option name="spentUsd" value="0.34628698" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/js" />
+      <recent name="$PROJECT_DIR$/textures" />
+      <recent name="$PROJECT_DIR$/test" />
+      <recent name="$PROJECT_DIR$/ts" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src" />
+      <recent name="$PROJECT_DIR$/test" />
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/Trombinoscope" />
+      <recent name="$PROJECT_DIR$/SeeLater" />
+    </key>
+    <key name="es6.move.members.recent.items">
+      <recent name="$PROJECT_DIR$/js/MakeOYRotationMatrix.js" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Cargo.Test">
+    <configuration name="Build orisim3d" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="buildProfileId" value="dev" />
+      <option name="command" value="build --package orisim3d --lib" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Run orisim3d" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="buildProfileId" value="dev" />
+      <option name="command" value="run --package orisim3d --bin orisim3d" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test face" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package orisim3d --lib -- face" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test interpolator" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package orisim3d --lib -- interpolator" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test model::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package orisim3d --lib -- model::tests" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test plane" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="command" value="test -- plane::tests" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test point" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="test" />
+      <option name="command" value="test -- point::tests" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="test" />
+      <option name="command" value="test" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Deno: Helper.test.ts" type="DenoConfigurationType" nameIsGenerated="true" inputPath="$PROJECT_DIR$/test/Helper.test.ts" programParameters="test" workingDirectory="$PROJECT_DIR$/test">
+      <method v="2" />
+    </configuration>
+    <configuration name="Deno: Model.test.ts" type="DenoConfigurationType" nameIsGenerated="true" inputPath="$PROJECT_DIR$/test/Model.test.ts" programParameters="test" workingDirectory="$PROJECT_DIR$/test">
+      <method v="2" />
+    </configuration>
+    <configuration name="Deno: Test" type="DenoConfigurationType" exePath="$USER_HOME$/.deno/bin/deno" inputPath="$PROJECT_DIR$/test" programParameters="test test/*.test.ts " workingDirectory="$PROJECT_DIR$/test">
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="JavascriptDebugType" engineId="98ca6316-2f89-46d9-a9e5-fa9e2b0625b3">
+      <method v="2" />
+    </configuration>
+    <configuration name="Web" type="ShConfigurationType">
+      <option name="SCRIPT_TEXT" value="trunk serve" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="Script text" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="/bin/zsh" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="false" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Cargo.Test point" />
+      <item itemvalue="Cargo.Test plane" />
+      <item itemvalue="Cargo.Test" />
+      <item itemvalue="Cargo.Build orisim3d" />
+      <item itemvalue="Cargo.Run orisim3d" />
+      <item itemvalue="Cargo.Test face" />
+      <item itemvalue="Cargo.Test interpolator" />
+      <item itemvalue="Cargo.Test model::tests" />
+      <item itemvalue="Deno.Deno: Helper.test.ts" />
+      <item itemvalue="Deno.Deno: Model.test.ts" />
+      <item itemvalue="Deno.Deno: Test" />
+      <item itemvalue="Shell Script.Web" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Cargo.Run orisim3d" />
+        <item itemvalue="Cargo.Test model::tests" />
+        <item itemvalue="Cargo.Test interpolator" />
+        <item itemvalue="Cargo.Test face" />
+        <item itemvalue="Cargo.Build orisim3d" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-3bd3a6803838-JavaScript-WS-261.22158.274" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="0d31415c-e712-4928-8c2f-8716b84351aa" name="Changes" comment="" />
+      <created>1705750015466</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1705750015466</updated>
+      <workItem from="1705750074354" duration="613000" />
+      <workItem from="1734629617268" duration="9000" />
+      <workItem from="1734632012670" duration="112000" />
+      <workItem from="1734632142240" duration="3071000" />
+      <workItem from="1734766499342" duration="3503000" />
+      <workItem from="1734780790748" duration="4834000" />
+      <workItem from="1734850191312" duration="599000" />
+      <workItem from="1734853685728" duration="12742000" />
+      <workItem from="1734937515142" duration="918000" />
+      <workItem from="1734949964655" duration="1279000" />
+      <workItem from="1734953591055" duration="1642000" />
+      <workItem from="1734965831705" duration="1358000" />
+      <workItem from="1735024215784" duration="1348000" />
+      <workItem from="1735033752868" duration="34000" />
+      <workItem from="1735033798094" duration="34000" />
+      <workItem from="1735049524228" duration="2492000" />
+      <workItem from="1735115317926" duration="840000" />
+      <workItem from="1735144658418" duration="2646000" />
+      <workItem from="1735289088985" duration="1455000" />
+      <workItem from="1735310487637" duration="702000" />
+      <workItem from="1735376873449" duration="1748000" />
+      <workItem from="1735399986449" duration="592000" />
+      <workItem from="1735457753686" duration="1752000" />
+      <workItem from="1735722016197" duration="653000" />
+      <workItem from="1736075434092" duration="3982000" />
+      <workItem from="1736588685374" duration="287000" />
+      <workItem from="1737875449654" duration="10983000" />
+      <workItem from="1738398441895" duration="9413000" />
+      <workItem from="1738497284539" duration="11265000" />
+      <workItem from="1739082211595" duration="597000" />
+      <workItem from="1739095829422" duration="925000" />
+      <workItem from="1739109010140" duration="5698000" />
+      <workItem from="1740294743332" duration="213000" />
+      <workItem from="1740295038569" duration="7046000" />
+      <workItem from="1740306981499" duration="8532000" />
+      <workItem from="1740319558643" duration="5710000" />
+      <workItem from="1742119028188" duration="326000" />
+      <workItem from="1742119401298" duration="182000" />
+      <workItem from="1743331938238" duration="2342000" />
+      <workItem from="1743334675609" duration="15692000" />
+      <workItem from="1744200327137" duration="2135000" />
+      <workItem from="1744226621798" duration="310000" />
+      <workItem from="1744555689109" duration="266000" />
+      <workItem from="1744556497902" duration="3355000" />
+      <workItem from="1744560137775" duration="8000" />
+      <workItem from="1744645850062" duration="229000" />
+      <workItem from="1745219919284" duration="15492000" />
+      <workItem from="1745306734628" duration="4030000" />
+      <workItem from="1745314216867" duration="7707000" />
+      <workItem from="1745675515697" duration="4585000" />
+      <workItem from="1746102963907" duration="10657000" />
+      <workItem from="1746117849603" duration="5123000" />
+      <workItem from="1746171849338" duration="4162000" />
+      <workItem from="1746988625961" duration="2506000" />
+      <workItem from="1747500328089" duration="149000" />
+      <workItem from="1747500527310" duration="86000" />
+      <workItem from="1747554752789" duration="19728000" />
+      <workItem from="1748158506538" duration="217000" />
+      <workItem from="1748158737428" duration="24329000" />
+      <workItem from="1748199351809" duration="201000" />
+      <workItem from="1748524707490" duration="10349000" />
+      <workItem from="1748586394252" duration="21818000" />
+      <workItem from="1748681142844" duration="7102000" />
+      <workItem from="1748698824864" duration="11698000" />
+      <workItem from="1748770848105" duration="14303000" />
+      <workItem from="1748791874035" duration="4091000" />
+      <workItem from="1749389163352" duration="494000" />
+      <workItem from="1749389676433" duration="4784000" />
+      <workItem from="1749476269621" duration="5235000" />
+      <workItem from="1749912770193" duration="1487000" />
+      <workItem from="1749918587583" duration="448000" />
+      <workItem from="1749982051355" duration="2972000" />
+      <workItem from="1750579630024" duration="2171000" />
+      <workItem from="1750599542928" duration="18382000" />
+      <workItem from="1750941100499" duration="779000" />
+      <workItem from="1750953867184" duration="1659000" />
+      <workItem from="1751737870374" duration="690000" />
+      <workItem from="1751738918385" duration="598000" />
+      <workItem from="1751785529772" duration="146000" />
+      <workItem from="1751785682714" duration="14991000" />
+      <workItem from="1752405174704" duration="17058000" />
+      <workItem from="1752485413932" duration="6564000" />
+      <workItem from="1752911437715" duration="662000" />
+      <workItem from="1752912107573" duration="340000" />
+      <workItem from="1752994282110" duration="20466000" />
+      <workItem from="1753260649726" duration="5662000" />
+      <workItem from="1753267080698" duration="27000" />
+      <workItem from="1753547855028" duration="108000" />
+      <workItem from="1754112507306" duration="3723000" />
+      <workItem from="1754118630373" duration="165000" />
+      <workItem from="1754118817678" duration="605000" />
+      <workItem from="1754153171058" duration="623000" />
+      <workItem from="1754154419470" duration="204000" />
+      <workItem from="1754154633861" duration="203000" />
+      <workItem from="1754154847481" duration="599000" />
+      <workItem from="1754212295274" duration="20688000" />
+      <workItem from="1754245016115" duration="11000" />
+      <workItem from="1754245067081" duration="733000" />
+      <workItem from="1754817621031" duration="657000" />
+      <workItem from="1754818325723" duration="4469000" />
+      <workItem from="1754823922067" duration="10073000" />
+      <workItem from="1755265043122" duration="2646000" />
+      <workItem from="1755331448970" duration="12532000" />
+      <workItem from="1755352177354" duration="13088000" />
+      <workItem from="1755408567261" duration="6749000" />
+      <workItem from="1755433273599" duration="10874000" />
+      <workItem from="1756024248575" duration="402000" />
+      <workItem from="1756029794258" duration="2618000" />
+      <workItem from="1756032436803" duration="2152000" />
+      <workItem from="1756040774544" duration="13695000" />
+      <workItem from="1756055733898" duration="737000" />
+      <workItem from="1756537464772" duration="12695000" />
+      <workItem from="1756634217205" duration="183000" />
+      <workItem from="1756635354284" duration="16608000" />
+      <workItem from="1756662213303" duration="947000" />
+      <workItem from="1757228393509" duration="1268000" />
+      <workItem from="1757760561293" duration="711000" />
+      <workItem from="1758971725992" duration="625000" />
+      <workItem from="1758972377809" duration="226000" />
+      <workItem from="1761720691492" duration="130000" />
+      <workItem from="1761720855136" duration="12539000" />
+      <workItem from="1761835923554" duration="27000" />
+      <workItem from="1761843190169" duration="5000" />
+      <workItem from="1761901321926" duration="82000" />
+      <workItem from="1762778289376" duration="7451000" />
+      <workItem from="1762785770258" duration="400000" />
+      <workItem from="1762792452725" duration="2778000" />
+      <workItem from="1763895176064" duration="69000" />
+      <workItem from="1763917488642" duration="1730000" />
+      <workItem from="1763920378925" duration="111000" />
+      <workItem from="1763921803152" duration="2433000" />
+      <workItem from="1765111412542" duration="867000" />
+      <workItem from="1765723149105" duration="58000" />
+      <workItem from="1765723229837" duration="1691000" />
+      <workItem from="1765731042582" duration="70000" />
+      <workItem from="1775406187343" duration="19000" />
+      <workItem from="1776679279592" duration="3515000" />
+      <workItem from="1776682817481" duration="51000" />
+      <workItem from="1776682920980" duration="14731000" />
+      <workItem from="1776755260531" duration="8450000" />
+      <workItem from="1776765892700" duration="159000" />
+      <workItem from="1776839969929" duration="10265000" />
+      <workItem from="1776850751508" duration="1620000" />
+      <workItem from="1776855095245" duration="1321000" />
+      <workItem from="1776950240056" duration="1224000" />
+      <workItem from="1777020653439" duration="13273000" />
+      <workItem from="1777196537302" duration="2861000" />
+    </task>
+    <task id="LOCAL-00107" summary="In progress">
+      <option name="closed" value="true" />
+      <created>1754216385226</created>
+      <option name="number" value="00107" />
+      <option name="presentableId" value="LOCAL-00107" />
+      <option name="project" value="LOCAL" />
+      <updated>1754216385226</updated>
+    </task>
+    <task id="LOCAL-00108" summary="Crane in progress">
+      <option name="closed" value="true" />
+      <created>1754244979291</created>
+      <option name="number" value="00108" />
+      <option name="presentableId" value="LOCAL-00108" />
+      <option name="project" value="LOCAL" />
+      <updated>1754244979291</updated>
+    </task>
+    <task id="LOCAL-00109" summary="Essai IA">
+      <option name="closed" value="true" />
+      <created>1754824981275</created>
+      <option name="number" value="00109" />
+      <option name="presentableId" value="LOCAL-00109" />
+      <option name="project" value="LOCAL" />
+      <updated>1754824981275</updated>
+    </task>
+    <task id="LOCAL-00110" summary="Essai IA">
+      <option name="closed" value="true" />
+      <created>1754826911331</created>
+      <option name="number" value="00110" />
+      <option name="presentableId" value="LOCAL-00110" />
+      <option name="project" value="LOCAL" />
+      <updated>1754826911331</updated>
+    </task>
+    <task id="LOCAL-00111" summary="Essai IA pas fameux.">
+      <option name="closed" value="true" />
+      <created>1754834182227</created>
+      <option name="number" value="00111" />
+      <option name="presentableId" value="LOCAL-00111" />
+      <option name="project" value="LOCAL" />
+      <updated>1754834182227</updated>
+    </task>
+    <task id="LOCAL-00112" summary="Essai IA pas fameux.">
+      <option name="closed" value="true" />
+      <created>1755336189272</created>
+      <option name="number" value="00112" />
+      <option name="presentableId" value="LOCAL-00112" />
+      <option name="project" value="LOCAL" />
+      <updated>1755336189272</updated>
+    </task>
+    <task id="LOCAL-00113" summary="Essai IA pas fameux.">
+      <option name="closed" value="true" />
+      <created>1755364540234</created>
+      <option name="number" value="00113" />
+      <option name="presentableId" value="LOCAL-00113" />
+      <option name="project" value="LOCAL" />
+      <updated>1755364540235</updated>
+    </task>
+    <task id="LOCAL-00114" summary="Essai IA pas fameux.">
+      <option name="closed" value="true" />
+      <created>1755365203436</created>
+      <option name="number" value="00114" />
+      <option name="presentableId" value="LOCAL-00114" />
+      <option name="project" value="LOCAL" />
+      <updated>1755365203436</updated>
+    </task>
+    <task id="LOCAL-00115" summary="Remove AI generated">
+      <option name="closed" value="true" />
+      <created>1755366450684</created>
+      <option name="number" value="00115" />
+      <option name="presentableId" value="LOCAL-00115" />
+      <option name="project" value="LOCAL" />
+      <updated>1755366450684</updated>
+    </task>
+    <task id="LOCAL-00116" summary="Basic Three.js from Model">
+      <option name="closed" value="true" />
+      <created>1755421168839</created>
+      <option name="number" value="00116" />
+      <option name="presentableId" value="LOCAL-00116" />
+      <option name="project" value="LOCAL" />
+      <updated>1755421168839</updated>
+    </task>
+    <task id="LOCAL-00117" summary="Basic Three.js from Model">
+      <option name="closed" value="true" />
+      <created>1755434186775</created>
+      <option name="number" value="00117" />
+      <option name="presentableId" value="LOCAL-00117" />
+      <option name="project" value="LOCAL" />
+      <updated>1755434186775</updated>
+    </task>
+    <task id="LOCAL-00118" summary="Three.js origami from Model">
+      <option name="closed" value="true" />
+      <created>1755440253249</created>
+      <option name="number" value="00118" />
+      <option name="presentableId" value="LOCAL-00118" />
+      <option name="project" value="LOCAL" />
+      <updated>1755440253249</updated>
+    </task>
+    <task id="LOCAL-00119" summary="Remove old files">
+      <option name="closed" value="true" />
+      <created>1755441905720</created>
+      <option name="number" value="00119" />
+      <option name="presentableId" value="LOCAL-00119" />
+      <option name="project" value="LOCAL" />
+      <updated>1755441905720</updated>
+    </task>
+    <task id="LOCAL-00120" summary="Remove AI generated">
+      <option name="closed" value="true" />
+      <created>1755444978458</created>
+      <option name="number" value="00120" />
+      <option name="presentableId" value="LOCAL-00120" />
+      <option name="project" value="LOCAL" />
+      <updated>1755444978458</updated>
+    </task>
+    <task id="LOCAL-00121" summary="Remove AI generated">
+      <option name="closed" value="true" />
+      <created>1755444995974</created>
+      <option name="number" value="00121" />
+      <option name="presentableId" value="LOCAL-00121" />
+      <option name="project" value="LOCAL" />
+      <updated>1755444995974</updated>
+    </task>
+    <task id="LOCAL-00122" summary="Fix test">
+      <option name="closed" value="true" />
+      <created>1756034428938</created>
+      <option name="number" value="00122" />
+      <option name="presentableId" value="LOCAL-00122" />
+      <option name="project" value="LOCAL" />
+      <updated>1756034428938</updated>
+    </task>
+    <task id="LOCAL-00123" summary="Boat in progress">
+      <option name="closed" value="true" />
+      <created>1756055651061</created>
+      <option name="number" value="00123" />
+      <option name="presentableId" value="LOCAL-00123" />
+      <option name="project" value="LOCAL" />
+      <updated>1756055651061</updated>
+    </task>
+    <task id="LOCAL-00124" summary="Something to fix !">
+      <option name="closed" value="true" />
+      <created>1756056419066</created>
+      <option name="number" value="00124" />
+      <option name="presentableId" value="LOCAL-00124" />
+      <option name="project" value="LOCAL" />
+      <updated>1756056419066</updated>
+    </task>
+    <task id="LOCAL-00125" summary="Something to fix !">
+      <option name="closed" value="true" />
+      <created>1756553730574</created>
+      <option name="number" value="00125" />
+      <option name="presentableId" value="LOCAL-00125" />
+      <option name="project" value="LOCAL" />
+      <updated>1756553730574</updated>
+    </task>
+    <task id="LOCAL-00126" summary="Test fixed. bisector2d bug">
+      <option name="closed" value="true" />
+      <created>1756637917004</created>
+      <option name="number" value="00126" />
+      <option name="presentableId" value="LOCAL-00126" />
+      <option name="project" value="LOCAL" />
+      <updated>1756637917005</updated>
+    </task>
+    <task id="LOCAL-00127" summary="Fix bisector2d">
+      <option name="closed" value="true" />
+      <created>1756639913663</created>
+      <option name="number" value="00127" />
+      <option name="presentableId" value="LOCAL-00127" />
+      <option name="project" value="LOCAL" />
+      <updated>1756639913663</updated>
+    </task>
+    <task id="LOCAL-00128" summary="Fix Three.js edges and offset">
+      <option name="closed" value="true" />
+      <created>1756643632543</created>
+      <option name="number" value="00128" />
+      <option name="presentableId" value="LOCAL-00128" />
+      <option name="project" value="LOCAL" />
+      <updated>1756643632543</updated>
+    </task>
+    <task id="LOCAL-00129" summary="Replace three by THREE">
+      <option name="closed" value="true" />
+      <created>1756646903749</created>
+      <option name="number" value="00129" />
+      <option name="presentableId" value="LOCAL-00129" />
+      <option name="project" value="LOCAL" />
+      <updated>1756646903749</updated>
+    </task>
+    <task id="LOCAL-00130" summary="Need simplification. Still a bug in ty.">
+      <option name="closed" value="true" />
+      <created>1756655518855</created>
+      <option name="number" value="00130" />
+      <option name="presentableId" value="LOCAL-00130" />
+      <option name="project" value="LOCAL" />
+      <updated>1756655518855</updated>
+    </task>
+    <task id="LOCAL-00131" summary="Need simplification. Still a bug in ty.">
+      <option name="closed" value="true" />
+      <created>1756656181336</created>
+      <option name="number" value="00131" />
+      <option name="presentableId" value="LOCAL-00131" />
+      <option name="project" value="LOCAL" />
+      <updated>1756656181336</updated>
+    </task>
+    <task id="LOCAL-00132" summary="HalfEdge">
+      <option name="closed" value="true" />
+      <created>1761748312943</created>
+      <option name="number" value="00132" />
+      <option name="presentableId" value="LOCAL-00132" />
+      <option name="project" value="LOCAL" />
+      <updated>1761748312944</updated>
+    </task>
+    <task id="LOCAL-00133" summary="Clean">
+      <option name="closed" value="true" />
+      <created>1761749434404</created>
+      <option name="number" value="00133" />
+      <option name="presentableId" value="LOCAL-00133" />
+      <option name="project" value="LOCAL" />
+      <updated>1761749434404</updated>
+    </task>
+    <task id="LOCAL-00134" summary="Clean">
+      <option name="closed" value="true" />
+      <created>1761749857891</created>
+      <option name="number" value="00134" />
+      <option name="presentableId" value="LOCAL-00134" />
+      <option name="project" value="LOCAL" />
+      <updated>1761749857891</updated>
+    </task>
+    <task id="LOCAL-00135" summary="Begin migration to Half Edge">
+      <option name="closed" value="true" />
+      <created>1762784050529</created>
+      <option name="number" value="00135" />
+      <option name="presentableId" value="LOCAL-00135" />
+      <option name="project" value="LOCAL" />
+      <updated>1762784050529</updated>
+    </task>
+    <task id="LOCAL-00136" summary="Continue migration to Half Edge">
+      <option name="closed" value="true" />
+      <created>1762785589340</created>
+      <option name="number" value="00136" />
+      <option name="presentableId" value="LOCAL-00136" />
+      <option name="project" value="LOCAL" />
+      <updated>1762785589340</updated>
+    </task>
+    <task id="LOCAL-00137" summary="Fix warnings">
+      <option name="closed" value="true" />
+      <created>1762795146445</created>
+      <option name="number" value="00137" />
+      <option name="presentableId" value="LOCAL-00137" />
+      <option name="project" value="LOCAL" />
+      <updated>1762795146445</updated>
+    </task>
+    <task id="LOCAL-00138" summary="Migration WebGL en cours">
+      <option name="closed" value="true" />
+      <created>1776685498180</created>
+      <option name="number" value="00138" />
+      <option name="presentableId" value="LOCAL-00138" />
+      <option name="project" value="LOCAL" />
+      <updated>1776685498180</updated>
+    </task>
+    <task id="LOCAL-00139" summary="Migration WebGL en cours">
+      <option name="closed" value="true" />
+      <created>1776706543691</created>
+      <option name="number" value="00139" />
+      <option name="presentableId" value="LOCAL-00139" />
+      <option name="project" value="LOCAL" />
+      <updated>1776706543691</updated>
+    </task>
+    <task id="LOCAL-00140" summary="Migration WebGL en cours">
+      <option name="closed" value="true" />
+      <created>1776711376979</created>
+      <option name="number" value="00140" />
+      <option name="presentableId" value="LOCAL-00140" />
+      <option name="project" value="LOCAL" />
+      <updated>1776711376979</updated>
+    </task>
+    <task id="LOCAL-00141" summary="Migration WebGL en cours">
+      <option name="closed" value="true" />
+      <created>1776713130133</created>
+      <option name="number" value="00141" />
+      <option name="presentableId" value="LOCAL-00141" />
+      <option name="project" value="LOCAL" />
+      <updated>1776713130133</updated>
+    </task>
+    <task id="LOCAL-00142" summary="Migration WebGL Fix Tests">
+      <option name="closed" value="true" />
+      <created>1776762820265</created>
+      <option name="number" value="00142" />
+      <option name="presentableId" value="LOCAL-00142" />
+      <option name="project" value="LOCAL" />
+      <updated>1776762820266</updated>
+    </task>
+    <task id="LOCAL-00143" summary="Migration WebGL Fix Tests">
+      <option name="closed" value="true" />
+      <created>1776765145314</created>
+      <option name="number" value="00143" />
+      <option name="presentableId" value="LOCAL-00143" />
+      <option name="project" value="LOCAL" />
+      <updated>1776765145314</updated>
+    </task>
+    <task id="LOCAL-00144" summary="Migration WebGL Fix Tests">
+      <option name="closed" value="true" />
+      <created>1776765175024</created>
+      <option name="number" value="00144" />
+      <option name="presentableId" value="LOCAL-00144" />
+      <option name="project" value="LOCAL" />
+      <updated>1776765175024</updated>
+    </task>
+    <task id="LOCAL-00145" summary="Test Rust basique">
+      <option name="closed" value="true" />
+      <created>1776845882214</created>
+      <option name="number" value="00145" />
+      <option name="presentableId" value="LOCAL-00145" />
+      <option name="project" value="LOCAL" />
+      <updated>1776845882215</updated>
+    </task>
+    <task id="LOCAL-00146" summary="Rust metal wgsl sans webgl à voir.">
+      <option name="closed" value="true" />
+      <created>1776851978830</created>
+      <option name="number" value="00146" />
+      <option name="presentableId" value="LOCAL-00146" />
+      <option name="project" value="LOCAL" />
+      <updated>1776851978831</updated>
+    </task>
+    <task id="LOCAL-00147" summary="Rust Model in progress">
+      <option name="closed" value="true" />
+      <created>1777033930554</created>
+      <option name="number" value="00147" />
+      <option name="presentableId" value="LOCAL-00147" />
+      <option name="project" value="LOCAL" />
+      <updated>1777033930555</updated>
+    </task>
+    <task id="LOCAL-00148" summary="Rust Model in progress">
+      <option name="closed" value="true" />
+      <created>1777033950782</created>
+      <option name="number" value="00148" />
+      <option name="presentableId" value="LOCAL-00148" />
+      <option name="project" value="LOCAL" />
+      <updated>1777033950782</updated>
+    </task>
+    <task id="LOCAL-00149" summary="Rust Model">
+      <option name="closed" value="true" />
+      <created>1777035311794</created>
+      <option name="number" value="00149" />
+      <option name="presentableId" value="LOCAL-00149" />
+      <option name="project" value="LOCAL" />
+      <updated>1777035311794</updated>
+    </task>
+    <task id="LOCAL-00150" summary="Rust Model">
+      <option name="closed" value="true" />
+      <created>1777035382010</created>
+      <option name="number" value="00150" />
+      <option name="presentableId" value="LOCAL-00150" />
+      <option name="project" value="LOCAL" />
+      <updated>1777035382010</updated>
+    </task>
+    <task id="LOCAL-00151" summary="Rust Command">
+      <option name="closed" value="true" />
+      <created>1777045501850</created>
+      <option name="number" value="00151" />
+      <option name="presentableId" value="LOCAL-00151" />
+      <option name="project" value="LOCAL" />
+      <updated>1777045501850</updated>
+    </task>
+    <task id="LOCAL-00152" summary="Rust View2d">
+      <option name="closed" value="true" />
+      <created>1777053858995</created>
+      <option name="number" value="00152" />
+      <option name="presentableId" value="LOCAL-00152" />
+      <option name="project" value="LOCAL" />
+      <updated>1777053858995</updated>
+    </task>
+    <task id="LOCAL-00153" summary="Rust View2d">
+      <option name="closed" value="true" />
+      <created>1777054053767</created>
+      <option name="number" value="00153" />
+      <option name="presentableId" value="LOCAL-00153" />
+      <option name="project" value="LOCAL" />
+      <updated>1777054053767</updated>
+    </task>
+    <task id="LOCAL-00154" summary="Rust with egui">
+      <option name="closed" value="true" />
+      <created>1777054107142</created>
+      <option name="number" value="00154" />
+      <option name="presentableId" value="LOCAL-00154" />
+      <option name="project" value="LOCAL" />
+      <updated>1777054107142</updated>
+    </task>
+    <task id="LOCAL-00155" summary="Rust with egui">
+      <option name="closed" value="true" />
+      <created>1777054180669</created>
+      <option name="number" value="00155" />
+      <option name="presentableId" value="LOCAL-00155" />
+      <option name="project" value="LOCAL" />
+      <updated>1777054180669</updated>
+    </task>
+    <option name="localTasksCounter" value="156" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="Model" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Remove old files" />
+    <MESSAGE value="Remove AI generated" />
+    <MESSAGE value="Fix test" />
+    <MESSAGE value="Boat in progress" />
+    <MESSAGE value="Something to fix !" />
+    <MESSAGE value="Test fixed. bisector2d bug" />
+    <MESSAGE value="Fix bisector2d" />
+    <MESSAGE value="Fix Three.js edges and offset" />
+    <MESSAGE value="Replace three by THREE" />
+    <MESSAGE value="Need simplification. Still a bug in ty." />
+    <MESSAGE value="HalfEdge" />
+    <MESSAGE value="Clean" />
+    <MESSAGE value="Begin migration to Half Edge" />
+    <MESSAGE value="Continue migration to Half Edge" />
+    <MESSAGE value="Fix warnings" />
+    <MESSAGE value="Migration WebGL en cours, fix tests" />
+    <MESSAGE value="Migration WebGL en cours" />
+    <MESSAGE value="Migration WebGL Fix Tests" />
+    <MESSAGE value="Test Rust basique" />
+    <MESSAGE value="Rust metal wgsl sans webgl à voir." />
+    <MESSAGE value="Rust Model in progress" />
+    <MESSAGE value="Rust Model" />
+    <MESSAGE value="Rust Command" />
+    <MESSAGE value="Rust View2d" />
+    <MESSAGE value="Rust with egui" />
+    <option name="LAST_COMMIT_MESSAGE" value="Rust with egui" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>
