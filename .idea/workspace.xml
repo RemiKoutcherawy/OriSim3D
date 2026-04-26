@@ -30,9 +30,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0d31415c-e712-4928-8c2f-8716b84351aa" name="Changes" comment="Rust with egui">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-    </list>
+    <list default="true" id="0d31415c-e712-4928-8c2f-8716b84351aa" name="Changes" comment="Handle clicks in main.rs" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -50,7 +48,7 @@
     <option name="cachedIndexableFilesCount" value="25" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:test" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
@@ -87,6 +85,7 @@
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="SOFT" />
+    <option name="SWAP_SIDES_IN_COMPARE_BRANCHES" value="true" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {}
@@ -248,7 +247,7 @@
       <recent name="$PROJECT_DIR$/js/MakeOYRotationMatrix.js" />
     </key>
   </component>
-  <component name="RunManager" selected="Cargo.Test">
+  <component name="RunManager" selected="Cargo.Run orisim3d">
     <configuration name="Build orisim3d" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="build --package orisim3d --lib" />
@@ -267,7 +266,7 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Run orisim3d" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+    <configuration name="Run orisim3d" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
       <option name="buildProfileId" value="dev" />
       <option name="command" value="run --package orisim3d --bin orisim3d" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -420,8 +419,8 @@
       <item itemvalue="Cargo.Test point" />
       <item itemvalue="Cargo.Test plane" />
       <item itemvalue="Cargo.Test" />
-      <item itemvalue="Cargo.Build orisim3d" />
       <item itemvalue="Cargo.Run orisim3d" />
+      <item itemvalue="Cargo.Build orisim3d" />
       <item itemvalue="Cargo.Test face" />
       <item itemvalue="Cargo.Test interpolator" />
       <item itemvalue="Cargo.Test model::tests" />
@@ -432,7 +431,6 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Cargo.Run orisim3d" />
         <item itemvalue="Cargo.Test model::tests" />
         <item itemvalue="Cargo.Test interpolator" />
         <item itemvalue="Cargo.Test face" />
@@ -605,14 +603,6 @@
       <workItem from="1776950240056" duration="1224000" />
       <workItem from="1777020653439" duration="13273000" />
       <workItem from="1777196537302" duration="2861000" />
-    </task>
-    <task id="LOCAL-00107" summary="In progress">
-      <option name="closed" value="true" />
-      <created>1754216385226</created>
-      <option name="number" value="00107" />
-      <option name="presentableId" value="LOCAL-00107" />
-      <option name="project" value="LOCAL" />
-      <updated>1754216385226</updated>
     </task>
     <task id="LOCAL-00108" summary="Crane in progress">
       <option name="closed" value="true" />
@@ -998,7 +988,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777054180669</updated>
     </task>
-    <option name="localTasksCounter" value="156" />
+    <task id="LOCAL-00156" summary="Handle clicks in main.rs">
+      <option name="closed" value="true" />
+      <created>1777224108620</created>
+      <option name="number" value="00156" />
+      <option name="presentableId" value="LOCAL-00156" />
+      <option name="project" value="LOCAL" />
+      <updated>1777224108620</updated>
+    </task>
+    <option name="localTasksCounter" value="157" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -1028,7 +1026,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Remove old files" />
     <MESSAGE value="Remove AI generated" />
     <MESSAGE value="Fix test" />
     <MESSAGE value="Boat in progress" />
@@ -1053,7 +1050,8 @@
     <MESSAGE value="Rust Command" />
     <MESSAGE value="Rust View2d" />
     <MESSAGE value="Rust with egui" />
-    <option name="LAST_COMMIT_MESSAGE" value="Rust with egui" />
+    <MESSAGE value="Handle clicks in main.rs" />
+    <option name="LAST_COMMIT_MESSAGE" value="Handle clicks in main.rs" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

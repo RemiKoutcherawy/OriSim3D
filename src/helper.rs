@@ -1,3 +1,4 @@
+use std::time::SystemTime;
 use crate::model::Model;
 use crate::command::Command;
 
@@ -9,12 +10,13 @@ pub struct Helper {
     pub first_point: Option<usize>,
     pub first_segment: Option<usize>,
     pub first_face: Option<usize>,
-    pub touch_time: u64,
+    pub time: SystemTime,
     pub label: Option<String>,
 }
 
 impl Helper {
     pub fn new() -> Self {
+        println!("helper");
         Self {
             first_x: None,
             first_y: None,
@@ -23,7 +25,7 @@ impl Helper {
             first_point: None,
             first_segment: None,
             first_face: None,
-            touch_time: 0,
+            time: SystemTime::now(),
             label: None,
         }
     }
@@ -51,7 +53,7 @@ impl Helper {
             self.first_segment = None;
             self.first_face = None;
         }
-        // touch_time should be updated here with current timestamp
+        self.time = SystemTime::now();
         self.first_x = Some(x);
         self.current_x = Some(x);
         self.first_y = Some(y);
@@ -131,7 +133,7 @@ impl Helper {
         let (points, segments, faces) = model.search2d(x, y);
 
         if let Some(p1_idx) = self.first_point {
-            if !points.is_empty() && self.label.is_none() {
+            if !points.is_empty() {
                 let p2_idx = points[0];
                 if p1_idx == p2_idx {
                     // Click on same point: toggle select
@@ -168,7 +170,8 @@ impl Helper {
                     }
                 }
             }
-        } else if let Some(s1_idx) = self.first_segment {
+        }
+        else if let Some(s1_idx) = self.first_segment {
             if !segments.is_empty() && segments[0] == s1_idx {
                 model.segments[s1_idx].select = (model.segments[s1_idx].select + 1) % 3;
             } else if !points.is_empty() {

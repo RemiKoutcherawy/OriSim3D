@@ -12,6 +12,7 @@ pub enum State {
     Pause = 3,
 }
 
+#[derive(Debug)]
 pub struct Model {
     pub points: Vec<Point>,
     pub segments: Vec<Segment>,

@@ -37,7 +37,6 @@ impl OriSimApp {
     fn new() -> Self {
         let mut model = Model::new();
         model.init(200.0, 200.0);
-        
         Self {
             model,
             command: Command::new(),
@@ -62,16 +61,18 @@ impl eframe::App for OriSimApp {
 
             // Handle Input
             let response = ui.interact(rect, ui.id(), egui::Sense::click_and_drag());
-            
+
             if let Some(pos) = response.hover_pos() {
                 let (xf, yf) = self.view2d.from_screen(pos);
                 let (points, segments, faces) = self.model.search2d(xf, yf);
-
                 if response.drag_started() {
                     self.helper.down(&points, &segments, &faces, xf, yf);
                 } else if response.dragged() {
                     self.helper.move_event(&mut self.model, &points, &segments, &faces, xf, yf);
                 } else if response.drag_stopped() {
+                    self.helper.up(&mut self.model, &mut self.command, xf, yf);
+                } else if response.clicked() {
+                    self.helper.down(&points, &segments, &faces, xf, yf);
                     self.helper.up(&mut self.model, &mut self.command, xf, yf);
                 } else {
                     // Hover only
