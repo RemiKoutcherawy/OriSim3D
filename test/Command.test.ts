@@ -216,16 +216,16 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.points[2].y), 200);
     });
 
-    // await t.step('undo', () => {
-    //     cde.command('d 200 200').anim();
-    //     assertEquals(Math.round(model.points[2].y), 200);
-    //     cde.command('time 10 rotate 0 90 2 3;');
-    //     while(cde.anim()) {/* wait for animation to finish */}
-    //     assertEquals(Math.round(model.points[2].y), -200);
-    //     cde.command('undo');
-    //     while(cde.anim()) {/* wait for animation to finish */}
-    //     assertEquals(Math.round(model.points[2].y), 200);
-    // });
+    await t.step('undo', () => {
+        cde.command('d 200 200').anim();
+        assertEquals(Math.round(model.points[2].y), 200);
+        cde.command('time 10 rotate 0 90 2 3;');
+        while(cde.anim()) {/* wait for animation to finish */}
+        assertEquals(Math.round(model.points[2].y), -200);
+        cde.command('undo');
+        while(cde.anim()) {/* wait for animation to finish */}
+        assertEquals(Math.round(model.points[2].y), 200);
+    });
 
     // Animation commands
     await t.step('command t 10 rotate 0 90 2 3', () => {
