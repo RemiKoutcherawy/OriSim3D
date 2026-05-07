@@ -56,9 +56,11 @@ export class Command {
 
     // Tokenize, split the input String in Array of String
     tokenize = function tokenize(input) {
-        let text = input.replace(/\/\/.*$/mg, ''); // Remove comments
-        text = text.replace(/([);\n])|(\)\n)/g, ' eoc '); // ) or ; or \n => end of command
-        return text.split(/\s+/).filter(e => e !== '')
+        let cleaned = input
+            .replace(/[);]|(\/\/.*$)/gm, '') // Remove comments /g global /m multiline
+            .replace(/^\s*$/gm, '')   // Remove spaces only lines
+            .replace(/\n{2,}/g, '\n') // Remove empty lines
+        return cleaned.match(/[^\s\n\r]+|\r?\n/g) || [];
     }
 
     // State machine returns true if the model needs redrawing
@@ -82,17 +84,17 @@ export class Command {
                     this.duration = Number(this.tokenTodo[this.iToken++]);
                     this.tStart = performance.now();
                     this.tpi = 0.0;
-                    // Ensure there's an 'eoc' token after the current 't' block, before the next 't' block
+                    // Ensure there's an '\n' token after the current 't' block, before the next 't' block
                     const nextT = this.tokenTodo.indexOf('t', this.iToken);
-                    const nextEoc = this.tokenTodo.indexOf('eoc', this.iToken);
+                    const nextEoc = this.tokenTodo.indexOf('\n', this.iToken);
                     if (nextT !== -1) {
-                        // If there's a 't' and no 'eoc' before it, insert 'eoc' before 't'
+                        // If there's a 't' and no '\n' before it, insert '\n' before 't'
                         if (nextEoc === -1 || nextEoc > nextT) {
-                            this.tokenTodo.splice(nextT, 0, 'eoc');
+                            this.tokenTodo.splice(nextT, 0, '\n');
                         }
                     } else if (nextEoc === -1) {
-                        // If there's no 't' and no 'eoc', append 'eoc'
-                        this.tokenTodo.push('eoc');
+                        // If there's no 't' and no '\n', append '\n'
+                        this.tokenTodo.push('\n');
                     }
 
                     // State anim for the next call
@@ -125,9 +127,9 @@ export class Command {
             let tn = (t - this.tStart) / this.duration;
             tn = (tn > 1.0) ? 1.0 : tn;
             this.tni = this.interpolator(tn);
-            // Execute commands after t xxx up to including eoc
+            // Execute commands after t xxx up to end of line
             let iBeginAnim = this.iToken;
-            while (this.tokenTodo[this.iToken] !== 'eoc') {
+            while (this.tokenTodo[this.iToken] !== '\n' && this.iToken < this.tokenTodo.length) {
                 this.execute(this.iToken);
             }
             // t preceding (tpi) is now to t now (tni)
@@ -153,7 +155,7 @@ export class Command {
     doneInstructions(idxBefore, idxAfter) {
         // Keep track of commands done
         let doneCommands = this.tokenTodo.slice(idxBefore, idxAfter).join(' ');
-        if (doneCommands !== '' && doneCommands !== 'eoc') {
+        if (doneCommands !== '' && doneCommands !== '\n') {
             if (doneCommands !== 'undo') {
                 this.instructions.push(doneCommands);
             } else {
@@ -313,7 +315,6 @@ export class Command {
         else if (tokenList[idx] === 'tx') {
             // "tx: TurnX angle"
             idx++;
-            console.log('tx', this.view3d.angleX);
             this.view3d.angleX = Number(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180.0;
         } else if (tokenList[idx] === 'ty') {
             // "ty: TurnY angle"
@@ -412,22 +413,21 @@ export class Command {
         }
 
         // End of command
-        else if (tokenList[idx] === 'eoc') {
+        else if (tokenList[idx] === '\n') {
             idx++;
         }
 
         // Unexpected end
         else {
-            console.log('Syntax error', tokenList[idx-2], tokenList[idx-1], tokenList[idx], tokenList[idx+1], tokenList[idx+2])
             idx = tokenList.length + 1;
-            // Ignore until the next command after 'eoc'
-            while (tokenList[idx] !== 'eoc' && idx < tokenList.length) {
+            // Ignore until the next command after '\n'
+            while (tokenList[idx] !== '\n' && idx < tokenList.length) {
                 idx++;
             }
             if (idx < tokenList.length) {
                 idx++;
             }
-            // throw new Error("Syntax error!", idx);
+            throw new Error('Syntax error! '+idx+" "+tokenList[idx]);
         }
 
         // Keep state after executing
@@ -438,7 +438,7 @@ export class Command {
     // Make a list from the following points numbers @testOK
     listPoints(tokenList, iStart) {
         const list = [];
-        while (Number.isInteger(Number(tokenList[iStart]))) {
+        while (/^\d+$/.test(tokenList[iStart]) && this.model.points[tokenList[iStart]] !== undefined) {
             list.push(this.model.points[tokenList[iStart++]]);
         }
         return list;
@@ -447,7 +447,7 @@ export class Command {
     // Make a list from the following segments numbers @testOK
     listSegments(tokenList, iStart) {
         const list = [];
-        while (Number.isInteger(Number(tokenList[iStart]))) {
+        while (/^\d+$/.test(tokenList[iStart]) && this.model.segments[tokenList[iStart]] !== undefined) {
             list.push(this.model.segments[tokenList[iStart++]]);
         }
         return list;
@@ -456,7 +456,7 @@ export class Command {
     // Make a list from the following faces numbers @testOK
     listFaces(tokenList, iStart) {
         const list = [];
-        while (Number.isInteger(Number(tokenList[iStart]))) {
+        while (/^\d+$/.test(tokenList[iStart]) && this.model.faces[tokenList[iStart]] !== undefined) {
             list.push(this.model.faces[tokenList[iStart++]]);
         }
         return list;

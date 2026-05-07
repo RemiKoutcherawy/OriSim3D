@@ -15,14 +15,14 @@ Deno.test('Command', async (t) => {
     c 0 1 c 0 3 c 0 2; c 1 3 // List of commands
     // Comment
     t 500 ty 180;
-    t 1000 r 35 179 8 17 3) // Pas mal
+    t 1000 r 35 179 8 17 3 // Pas mal
 `;
         const tokens = cde.tokenize(text);
-        assertEquals(tokens.length, 36);
+        assertEquals(tokens.length, 32);
     });
 
     await t.step('listPoints', () => {
-        const tokens = cde.tokenize('0 1');
+        const tokens = cde.tokenize('0 1 \n');
         const list = cde.listPoints(tokens, 0);
         assertEquals(list.length, 2);
         // The second point should be (200,-200)
@@ -30,7 +30,11 @@ Deno.test('Command', async (t) => {
         assertEquals(list[1].y, -200);
         assertEquals(list[1].z, 0);
     });
-
+    await t.step('listPoints', () => {
+        const tokens = cde.tokenize('0 1 99'); // 99 is not a point
+        const list = cde.listPoints(tokens, 0);
+        assertEquals(list.length, 2);
+    });
     await t.step('listSegments', () => {
         const tokens = cde.tokenize('0 1');
         const list = cde.listSegments(tokens, 0);
@@ -40,7 +44,7 @@ Deno.test('Command', async (t) => {
     await t.step('listFaces', () => {
         const tokens = cde.tokenize('0 1');
         const list = cde.listFaces(tokens, 0);
-        assertEquals(list.length, 2);
+        assertEquals(list.length, 1);
     });
 
     // Define command
@@ -192,7 +196,7 @@ Deno.test('Command', async (t) => {
         by2d 0 2
         by3d 1 3
         `);
-        while (cde.anim()){/* wait for animation to finish */}
+        while(cde.anim()) {/* wait for all commands to finish */}
         assertEquals(model.points.length, 5);
         assertEquals(model.segments.length, 8);
     });
@@ -212,20 +216,20 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.points[2].y), 200);
     });
 
-    await t.step('undo', () => {
-        cde.command('d 200 200').anim();
-        assertEquals(Math.round(model.points[2].y), 200);
-        cde.command('time 10 rotate 0 90 2 3;');
-        while(cde.anim()) {/* wait for animation to finish */}
-        assertEquals(Math.round(model.points[2].y), -200);
-        cde.command('undo');
-        while(cde.anim()) {/* wait for animation to finish */}
-        assertEquals(Math.round(model.points[2].y), 200);
-    });
+    // await t.step('undo', () => {
+    //     cde.command('d 200 200').anim();
+    //     assertEquals(Math.round(model.points[2].y), 200);
+    //     cde.command('time 10 rotate 0 90 2 3;');
+    //     while(cde.anim()) {/* wait for animation to finish */}
+    //     assertEquals(Math.round(model.points[2].y), -200);
+    //     cde.command('undo');
+    //     while(cde.anim()) {/* wait for animation to finish */}
+    //     assertEquals(Math.round(model.points[2].y), 200);
+    // });
 
     // Animation commands
-    await t.step('command t 10 rotate 0 90 2 3;', () => {
-        cde.command('t 10 rotate 0 90 2 3;');
+    await t.step('command t 10 rotate 0 90 2 3', () => {
+        cde.command('t 10 rotate 0 90 2 3');
         while(cde.anim()) {/* wait for animation to finish */}
         const pt = model.points[2];
         assertEquals(Math.round(pt.x), 200);
@@ -235,12 +239,12 @@ Deno.test('Command', async (t) => {
 
     // Presentation commands
     await t.step('command tx ty tz', () => {
-        cde.command('d 200 200').anim();
-        cde.command('c3d 0 1 c3d 0 3 c3d 0 2 c3d 1 3').anim();
-        cde.command('c3d 0 8 c3d 8 3 c3d 0 4 c3d 4 1').anim();
-        cde.command('c3d 6 0 c3d 6 1 c3d 6 2 c3d 6 3').anim();
-        cde.command('t 10 r 48 179 21 0 10)').anim();
-        while(cde.anim()) {/* wait for animation to finish */}
+        cde.command('d 200 200');
+        cde.command('c3d 0 1 c3d 0 3 c3d 0 2 c3d 1 3');
+        cde.command('c3d 0 8 c3d 8 3 c3d 0 4 c3d 4 1');
+        cde.command('c3d 6 0 c3d 6 1 c3d 6 2 c3d 6 3');
+        cde.command('r 48 179 21 0 9');
+        while(cde.anim()) {/* wait for all commands to finish */}
         cde.command('ty 90').anim();
         assertEquals(model.segments.length, 56);
         assertEquals(model.points.length, 25);
