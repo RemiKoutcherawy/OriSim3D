@@ -11,26 +11,7 @@ export class View2d {
         });
     }
 
-    // Prefer Half-Edge ring to get face vertices in CCW order; fallback to face.points
     getFaceVerticesCCW(face) {
-        try {
-            if (this.model && typeof this.model.ensureHalfEdges === 'function') {
-                this.model.ensureHalfEdges();
-            }
-        } catch (e) {
-            // ignore; fallback below
-        }
-        if (face && face.halfEdge) {
-            const verts = [];
-            let start = face.halfEdge;
-            let e = start;
-            do {
-                verts.push(e.vertex);
-                e = e.next;
-            } while (e && e !== start);
-            return verts;
-        }
-        // legacy fallback
         return face && face.points ? face.points : [];
     }
 

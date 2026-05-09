@@ -8,7 +8,6 @@ export class Face {
         this.offset = 0;
         this.hover = false;
         this.select = 0;
-        this.halfEdge = null; // Reference to one of the half-edges of this face
     }
 
     // Area 2d for an array of points
@@ -64,50 +63,18 @@ export class Face {
         // ray-casting algorithm based on
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
 
-        // If the face doesn't have a half-edge, fall back to the old method
-        // if (!face.halfEdge) {
-        //     let inside = false;
-        //     const vs = face.points;
-        //     for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-        //         const xi = vs[i].xf, yi = vs[i].yf;
-        //         const xj = vs[j].xf, yj = vs[j].yf;
-        //         // Special case where the point is part of the face.
-        //         if (xi === xf && yi === yf) {
-        //             return true;
-        //         }
-        //         const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
-        //         if (intersect) inside = !inside;
-        //     }
-        //     return inside;
-        // }
-
-        // Use half-edge structure to traverse the face in O(n)
         let inside = false;
-        let start = face.halfEdge;
-        if (!start) return false;
-        // Find last edge once to seed prev
-        let last = start;
-        while (last.next !== start) last = last.next;
-        let prev = last;
-        let current = start;
-        do {
-            const fromVertex = prev.vertex;
-            const toVertex = current.vertex;
-
-            const xi = fromVertex.xf, yi = fromVertex.yf;
-            const xj = toVertex.xf, yj = toVertex.yf;
-
+        const vs = face.points;
+        for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+            const xi = vs[i].xf, yi = vs[i].yf;
+            const xj = vs[j].xf, yj = vs[j].yf;
+            // Special case where the point is part of the face.
             if (xi === xf && yi === yf) {
                 return true;
             }
-            // Special case where the point is part of the face.
             const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
             if (intersect) inside = !inside;
-
-            prev = current;
-            current = current.next;
-        } while (current !== start);
-
+        }
         return inside;
     }
 
@@ -117,42 +84,27 @@ export class Face {
         // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
 
         const x = xCanvas, y = yCanvas;
-
-        // Use half-edge structure to traverse the face in O(n)
         let inside = false;
-        let start = face.halfEdge;
-        if (!start) return false;
-        // Seed prev with last edge once
-        let last = start;
-        while (last.next !== start) last = last.next;
-        let prev = last;
-        let current = start;
-        do {
-            const fromVertex = prev.vertex;
-            const toVertex = current.vertex;
+        const vs = face.points;
+        for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+            const pi = vs[i];
+            const pj = vs[j];
 
-            const idxI = view3d.indexMap.get(fromVertex);
-            const idxJ = view3d.indexMap.get(toVertex);
+            const idxI = view3d.indexMap.get(pi);
+            const idxJ = view3d.indexMap.get(pj);
 
             if (idxI !== undefined && idxJ !== undefined) {
-                const projI = [fromVertex.xCanvas, fromVertex.yCanvas];
-                const projJ = [toVertex.xCanvas, toVertex.yCanvas];
-                if (projI && projJ) {
-                    const xi = projI[0], yi = projI[1];
-                    const xj = projJ[0], yj = projJ[1];
+                const xi = pi.xCanvas, yi = pi.yCanvas;
+                const xj = pj.xCanvas, yj = pj.yCanvas;
 
-                    if (xi === xCanvas && yi === yCanvas) {
-                        return true;
-                    }
-
-                    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                    if (intersect) inside = !inside;
+                if (xi === xCanvas && yi === yCanvas) {
+                    return true;
                 }
-            }
 
-            prev = current;
-            current = current.next;
-        } while (current !== start);
+                const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+        }
 
         return inside;
     }

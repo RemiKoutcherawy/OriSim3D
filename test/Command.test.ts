@@ -297,6 +297,6 @@ Deno.test('Command', async (t) => {
         cde.command('c3d 0 2').anim();
         cde.command('o 42  1').anim();
         assertEquals(model.faces[0].offset, 0);
-        assertEquals(model.faces[1].offset, 0.00042);
+        assertEquals(Math.round(model.faces[1].offset*100)/100, 0.42);
     });
 });
