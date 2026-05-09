@@ -141,7 +141,9 @@ Deno.test('Command', async (t) => {
     await t.step('command splitSegment2d', () => {
         // Split by ratio n / d
         cde.command('d 200 200').anim();
-        cde.command('splitSegment2d 0 1 2').anim();
+        cde.command('splitSegment2d 0 0.5').anim();
+        cde.command('splitSegment2d 0 1').anim();
+        cde.command('splitSegment2d 0 -1').anim();
         assertEquals(model.points.length, 5);
     });
 

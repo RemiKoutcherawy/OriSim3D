@@ -193,7 +193,7 @@ export class Command {
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
             this.model.splitBy2d(p1, p2);
-        } else if (tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d' || tokenList[idx] === 'cross3d') {
+        } else if (tokenList[idx] === 'c' ||tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d' || tokenList[idx] === 'cross3d') {
             // Split across two points in 3d: c3d p1 p2;
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
@@ -244,15 +244,15 @@ export class Command {
             let c = this.model.points[tokenList[idx++]];
             this.model.bisector3dPoints(a, b, c);
         }
-
-        // Segments splits
-        else if (tokenList[idx] === 'splitSegment2d') { // "s: split segment numerator denominator"
-            // Split segment by N/D
+        // Segment split
+        else if (tokenList[idx] === 'split'|| tokenList[idx] === 'splitSegment2d') { // "s: split segment factor"
+            // Split segment by ratio
             idx++;
             const s = this.model.segments[tokenList[idx++]];
-            const n = tokenList[idx++];
-            const d = tokenList[idx++];
-            this.model.splitSegmentByRatio2d(s, n / d);
+            const k = Number(tokenList[idx++]);
+            if (k >= 0 && k <= 1) {
+                this.model.splitSegmentByRatio2d(s, k);
+            }
         }
 
         // Origami folding
@@ -429,7 +429,6 @@ export class Command {
             if (idx < tokenList.length) {
                 idx++;
             }
-            // throw new Error('Syntax error! '+idx+" "+tokenList[idx]);
         }
 
         // Keep state after executing
