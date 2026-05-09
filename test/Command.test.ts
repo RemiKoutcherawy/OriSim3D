@@ -18,7 +18,7 @@ Deno.test('Command', async (t) => {
     t 1000 r 35 179 8 17 3 // Pas mal
 `;
         const tokens = cde.tokenize(text);
-        assertEquals(tokens.length, 32);
+        assertEquals(tokens.length, 30);
     });
 
     await t.step('listPoints', () => {

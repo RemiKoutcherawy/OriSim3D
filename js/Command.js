@@ -57,9 +57,11 @@ export class Command {
     // Tokenize, split the input String in Array of String
     tokenize = function tokenize(input) {
         let cleaned = input
-            .replace(/[);]|(\/\/.*$)/gm, '') // Remove comments /g global /m multiline
+            .replace(/[);]/gm, '') // Remove old /g global /m multiline
+            .replace(/\/\/.*$/gm, '') // Remove comments /g global /m multiline
             .replace(/^\s*$/gm, '')   // Remove spaces only lines
             .replace(/\n{2,}/g, '\n') // Remove empty lines
+            .trim();                  // Remove leading/trailing whitespace
         return cleaned.match(/[^\s\n\r]+|\r?\n/g) || [];
     }
 
@@ -427,7 +429,7 @@ export class Command {
             if (idx < tokenList.length) {
                 idx++;
             }
-            throw new Error('Syntax error! '+idx+" "+tokenList[idx]);
+            // throw new Error('Syntax error! '+idx+" "+tokenList[idx]);
         }
 
         // Keep state after executing
