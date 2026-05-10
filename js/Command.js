@@ -58,7 +58,7 @@ export class Command {
     tokenize = function tokenize(input) {
         let cleaned = input
             .replace(/[);]/gm, '') // Remove old /g global /m multiline
-            .replace(/\/\/[^\r\n]*$/gm, '') // Remove comments /g global /m multiline
+            .replace(/\/\/[^\r\n]*/g, '') // Remove comments /g global
             .replace(/^\s*$/gm, '')   // Remove spaces only lines
             .replace(/\n{2,}/g, '\n') // Remove empty lines
             .trim();                  // Remove leading/trailing whitespace
