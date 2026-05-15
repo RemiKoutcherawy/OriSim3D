@@ -33,16 +33,6 @@ export class Segment {
         return faces;
     }
 
-    /**
-     * Return the face across the segment from the provided face, if any.
-     */
-    static adjacentFace(model, segment, face) {
-        const faces = Segment.incidentFaces(model, segment);
-        if (faces.length === 0) return undefined;
-        if (faces.length === 1) return faces[0] === face ? undefined : faces[0];
-        return faces[0] === face ? faces[1] : (faces[1] === face ? faces[0] : faces[0]);
-    }
-
     // 2d distance from Segment to Point
     static distance2d(x1, y1, x2, y2, x, y) {
         // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment

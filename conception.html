@@ -39,14 +39,14 @@
     const model = new Model().init(200, 200);
 
     // View 3d
-    const canvas3d = window.document.getElementById("canvas3d");
-    const overlay = window.document.getElementById("overlay");
+    const canvas3d = document.getElementById("canvas3d");
+    const overlay = document.getElementById("overlay");
     const view3d = new View3d(model, canvas3d, overlay);
     view3d.initBuffers();
     view3d.initPerspective();
 
     // View 2d
-    const canvas2d = window.document.getElementById("canvas2d");
+    const canvas2d = document.getElementById("canvas2d");
     const view2d = new View2d(model, canvas2d);
 
     // Command
@@ -69,10 +69,10 @@
       requestAnimationFrame(loop);
     }
     loop();
-    if (typeof window !== 'undefined') {
+    if (typeof document !== 'undefined') {
       // Read tag and launch
       const commandText = document.getElementById("test.txt").textContent;
-      window.addEventListener("load", () => { command.command(commandText) });
+      globalThis.addEventListener("load", () => { command.command(commandText) });
     }
   }
 </script>

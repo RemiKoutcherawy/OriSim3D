@@ -28,7 +28,7 @@ export class View3d {
         highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
         highp vec3 directionalLightColor = vec3(1.0, 1.0, 1.0);
         highp vec3 directionalVector =  normalize(vec3(0.1, 0.1, 0.75)); // normalize(vec3(0.85, 0.8, 0.75));
-        highp vec4 normal = normalize(uModelViewMatrix * vec4(aVertexNormal, 1.0));
+        highp vec4 normal = normalize(uModelViewMatrix * vec4(aVertexNormal, 0.0));
         highp float directional = dot(normal.xyz, directionalVector);
         vLighting = ambientLight + (directionalLightColor * directional);
         vLightingBack = ambientLight - (directionalLightColor * directional);
@@ -167,7 +167,7 @@ export class View3d {
         // Create a texture object Front
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
-        // Placeholder One Pixel Color Blue 70ACF3
+        // Placeholder One-Pixel Color Blue 70ACF3
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
         const uSamplerFront = gl.getUniformLocation(gl.program, 'uSamplerFront');
         gl.uniform1i(uSamplerFront, 0);
@@ -190,7 +190,7 @@ export class View3d {
         };
         // Require CORS
         // imageFront.src = './textures/front.jpg';
-        // Does not require CORS, use if image is inlined in html
+        // Does not require CORS, use if image is inlined in HTML
         if (window.document.getElementById('front')) {
             imageFront.src = window.document.getElementById('front').src;
         }
@@ -237,7 +237,7 @@ export class View3d {
     // Perspective and background
     initPerspective() {
         const gl = this.gl;
-        gl.clearColor(0xCC / 0xFF, 0xE4 / 0xFF, 0xFF / 0xFF, 0xFF / 0xFF);  // Clear to light blue, 0xCCE4FF fully opaque
+        gl.clearColor(0xCC / 0xFF, 0xE4 / 0xFF, 0x1, 0x1);  // Clear to light blue, 0xCCE4FF fully opaque
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
 
@@ -248,15 +248,9 @@ export class View3d {
 
         const ratio = this.canvas3d.clientWidth / this.canvas3d.clientHeight;
         const fov = 40;
-        const near = 50, far = 1200;
-
-        // Basic perspective at a distance of 700. Camera is at z=0, model at -700
-        const projection = mat4.perspective(new Float32Array(16), fov, ratio, near, far);
-        // Step back
-        mat4.translate(projection, projection, [0, 0, -700]);
-
-        this.projection = projection;
-
+        const near = 50;
+        const far = 1200;
+        this.projection = mat4.perspective(new Float32Array(16), fov, ratio, near, far);
         // Set projection matrix
         const uProjectionMatrix = gl.getUniformLocation(gl.program, 'uProjectionMatrix');
         gl.uniformMatrix4fv(uProjectionMatrix, false, this.projection);
@@ -385,6 +379,7 @@ export class View3d {
     initModelView() {
         // Rotation around X axis
         let ex = mat4.create();
+        mat4.translate(ex, ex, [0, 0, -700]);   // recul en view space
         ex = mat4.rotateX(ex, ex, this.angleX / 200);
         // Rotation around Y axis
         let mv = mat4.rotateY(ex, ex, this.angleY / 100);
@@ -811,8 +806,8 @@ class mat4 extends Float32Array {
         return out;
     }
 
-    static perspective(out, fovy, aspect, near, far) {
-        const f = 1.0 / Math.tan(fovy * Math.PI / 360);
+    static perspective(out, fov, aspect, near, far) {
+        const f = 1.0 / Math.tan(fov * Math.PI / 360);
         const nf = 1 / (near - far);
         out[0] = f / aspect;
         out[1] = 0;
