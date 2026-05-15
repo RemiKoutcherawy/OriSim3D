@@ -84,7 +84,6 @@ export class Helper {
             this.firstSegment = undefined;
             this.firstFace = undefined;
         }
-        this.touchTime = new Date().getTime();
         this.firstX = this.currentX = x;
         this.firstY = this.currentY = y;
     }
@@ -274,27 +273,6 @@ export class Helper {
             }
         }
         // From Nothing to Nothing
-        // Handle swipe on canvas2D: undo or turn
-        else if (((new Date().getTime()) - this.touchTime) < 1000 && this.currentCanvas === '2d') {
-            if ((this.firstX - this.currentX) < -50) {
-                // Undo if swipe right
-                this.command.command('undo');
-            } else if ((this.firstX - this.currentX) > 50) {
-                // Turn if swipe left
-                this.command.command('t 1000 ty -180;');
-            } else if ((this.firstY - this.currentY) < -50) {
-                // Handle turn if swipe up
-                this.command.command('t 1000 tx 180;');
-            } else if ((this.firstY - this.currentY) > 50) {
-                // Handle turn if swipe down
-                this.command.command('t 1000 tx -180;');
-            }
-            // Deselect
-            this.model.points.forEach(p => p.select = 0);
-            this.model.segments.forEach(s => s.select = 0);
-            this.model.faces.forEach(f => f.select = 0);
-        }
-        // Deselect
         else {
             // Deselect
             this.model.points.forEach(p => p.select = 0);
@@ -437,8 +415,8 @@ export class Helper {
         if (this.touchTime === 0) {
             this.touchTime = new Date().getTime();
         } else {
-            // Double click?
             if (((new Date().getTime()) - this.touchTime) < 400) {
+                this.touchTime = 0;                              // Bug 4 : reset
                 this.view3d.angleX = 0.0;
                 this.view3d.angleY = 0.0;
                 this.view3d.angleZ = 0.0;
@@ -447,37 +425,30 @@ export class Helper {
                 this.view3d.scale = 1.0;
                 this.view3d.initPerspective();
                 this.view3d.initModelView();
-                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                const projected = this.view3d.projected;
-                if (!projected || projected.length === 0) {
-                    return;
-                }
-                for (let i = 0; i < projected.length; i++) {
-                    const p = projected[i];
-                    if (!p) continue;
-                    if (p[0] < minX) minX = p[0];
-                    if (p[0] > maxX) maxX = p[0];
-                    if (p[1] < minY) minY = p[1];
-                    if (p[1] > maxY) maxY = p[1];
+                let minX = Infinity, minY = Infinity;
+                let maxX = -Infinity, maxY = -Infinity;
+                for (let p of this.model.points) {
+                    if (p.xCanvas < minX) minX = p.xCanvas;
+                    if (p.xCanvas > maxX) maxX = p.xCanvas;
+                    if (p.yCanvas < minY) minY = p.yCanvas;
+                    if (p.yCanvas > maxY) maxY = p.yCanvas;
                 }
                 const bboxW = Math.max(1, maxX - minX);
                 const bboxH = Math.max(1, maxY - minY);
-                const w = this.view3d.width;
-                const h = this.view3d.height;
+                const w = this.view3d.canvas3d.clientWidth;
+                const h = this.view3d.canvas3d.clientHeight;
                 const padding = 0.9;
                 const factorX = (w * padding) / bboxW;
                 const factorY = (h * padding) / bboxH;
                 this.view3d.scale = Math.min(factorX, factorY);
                 this.view3d.initModelView();
-                // Recenter inside the canvas
-                let cMinX = Infinity, cMinY = Infinity, cMaxX = -Infinity, cMaxY = -Infinity;
-                for (let i = 0; i < projected.length; i++) {
-                    const p = this.view3d.projected[i];
-                    if (!p) continue;
-                    if (p[0] < cMinX) cMinX = p[0];
-                    if (p[0] > cMaxX) cMaxX = p[0];
-                    if (p[1] < cMinY) cMinY = p[1];
-                    if (p[1] > cMaxY) cMaxY = p[1];
+                let cMinX = Infinity, cMinY = Infinity;
+                let cMaxX = -Infinity, cMaxY = -Infinity;
+                for (let p of this.model.points) {
+                    if (p.xCanvas < cMinX) cMinX = p.xCanvas;
+                    if (p.xCanvas > cMaxX) cMaxX = p.xCanvas;
+                    if (p.yCanvas < cMinY) cMinY = p.yCanvas;
+                    if (p.yCanvas > cMaxY) cMaxY = p.yCanvas;
                 }
                 const bboxCX = (cMinX + cMaxX) * 0.5;
                 const bboxCY = (cMinY + cMaxY) * 0.5;
@@ -485,8 +456,8 @@ export class Helper {
                 const canvasCY = h * 0.5;
                 const dxScreen = canvasCX - bboxCX;
                 const dyScreen = canvasCY - bboxCY;
-                this.view3d.translationX += dxScreen / this.view3d.scale;
-                this.view3d.translationY -= dyScreen / this.view3d.scale;
+                this.view3d.translationX = dxScreen / this.view3d.scale;
+                this.view3d.translationY = dyScreen / this.view3d.scale;
                 this.view3d.initModelView();
             } else {
                 this.touchTime = new Date().getTime();

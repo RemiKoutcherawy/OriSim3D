@@ -13,7 +13,7 @@ export class Command {
     tpi = 0;
     tni = 1;
     // Goal for fit
-    scale = 1.0; deltaX = 0.0; deltaY = 0.0;
+    scale = 1; deltaX = 0; deltaY = 0;
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
@@ -58,7 +58,7 @@ export class Command {
     tokenize = function tokenize(input) {
         let cleaned = input
             .replace(/[);]/gm, '') // Remove old /g global /m multiline
-            .replace(/\/\/.*$/gm, '') // Remove comments /g global /m multiline
+            .replace(/\/\/[^\r\n]*/g, '') // Remove comments /g global
             .replace(/^\s*$/gm, '')   // Remove spaces only lines
             .replace(/\n{2,}/g, '\n') // Remove empty lines
             .trim();                  // Remove leading/trailing whitespace
@@ -88,9 +88,9 @@ export class Command {
                 // Handle time command to start animation and switch to Anim
                 if (this.tokenTodo[this.iToken] === 't' || this.tokenTodo[this.iToken] === 'time') {
                     this.iToken++;
-                    this.duration = Number(this.tokenTodo[this.iToken++]);
+                    this.duration = parseFloat(this.tokenTodo[this.iToken++]);
                     this.tStart = performance.now();
-                    this.tpi = 0.0;
+                    this.tpi = 0;
                     // State anim for the next call
                     this.model.state = State.anim;
                     return true;
@@ -119,7 +119,7 @@ export class Command {
             // Compute tn varying from 0 to 1
             const t = performance.now();
             let tn = (t - this.tStart) / this.duration;
-            tn = (tn > 1.0) ? 1.0 : tn;
+            tn = (tn > 1) ? 1 : tn;
             this.tni = this.interpolator(tn);
             // Execute commands after t xxx up to end of line
             let iBeginAnim = this.iToken;
@@ -129,9 +129,9 @@ export class Command {
             // t preceding (tpi) is now to t now (tni)
             this.tpi = this.tni; // t preceding
             // If Animation is finished, set end values
-            if (tn >= 1.0) {
-                this.tni = 1.0;
-                this.tpi = 0.0;
+            if (tn >= 1) {
+                this.tni = 1;
+                this.tpi = 0;
                 // Keep track of done
                 this.doneInstructions(this.idxBefore, this.iToken);
                 // No more animation State run for the next call
@@ -167,8 +167,8 @@ export class Command {
         if (tokenList[idx] === 'd' || tokenList[idx] === 'define') {
             // Define a sheet by N points x,y CCW
             idx++;
-            const width = this.isNumber(tokenList[idx]) ? Number(tokenList[idx++]) : 200;
-            const height = this.isNumber(tokenList[idx]) ? Number(tokenList[idx++]) : 200;
+            const width = this.isNumber(tokenList[idx]) ? parseFloat(tokenList[idx++]) : 200;
+            const height = this.isNumber(tokenList[idx]) ? parseFloat(tokenList[idx++]) : 200;
             this.model.init(width, height);
         }
 
@@ -241,7 +241,7 @@ export class Command {
             // Split segment by ratio
             idx++;
             const s = this.model.segments[tokenList[idx++]];
-            const k = Number(tokenList[idx++]);
+            const k = parseFloat(tokenList[idx++]);
             if (k >= 0 && k <= 1) {
                 this.model.splitSegmentByRatio2d(s, k);
             }
@@ -299,7 +299,7 @@ export class Command {
         } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
             // Offset by dz a list of faces: o dz f1 f2...
             idx++;
-            const dz = Number(tokenList[idx++]) / 10.0;
+            const dz = parseFloat(tokenList[idx++]) / 10;
             list = this.listFaces(tokenList, idx);
             idx += list.length;
             this.model.offset(dz, list);
@@ -309,21 +309,21 @@ export class Command {
         else if (tokenList[idx] === 'tx') {
             // "tx: TurnX angle"
             idx++;
-            this.view3d.angleX = Number(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180.0;
+            this.view3d.angleX = parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
         } else if (tokenList[idx] === 'ty') {
             // "ty: TurnY angle"
             idx++;
-            this.view3d.angleY = Number(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180.0;
+            this.view3d.angleY = parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
         } else if (tokenList[idx] === 'tz') {
             // "tz: TurnZ angle"
             idx++;
-            this.view3d.angleZ = Number(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180.0;
+            this.view3d.angleZ = parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
         } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
             // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
             idx++;
-            let scale = Number(tokenList[idx++]);
-            const x = this.isNumber(tokenList[idx]) ? Number(tokenList[idx++]) : 0;
-            const y = this.isNumber(tokenList[idx]) ? Number(tokenList[idx++]) : 0;
+            let scale = parseFloat(tokenList[idx++]);
+            const x = this.isNumber(tokenList[idx]) ? parseFloat(tokenList[idx++]) : 0;
+            const y = this.isNumber(tokenList[idx]) ? parseFloat(tokenList[idx++]) : 0;
             // Animation
             const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
             const b = scale * (this.tni / a - this.tpi);
