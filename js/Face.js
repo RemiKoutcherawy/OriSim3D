@@ -37,7 +37,7 @@ export class Face {
         const t = (Vector3.dot(plane.normal, plane.origin) - Vector3.dot(plane.normal, a)) / abn;
         if (t >= 0 && t <= 1.0) {
             Vector3.scale(ab, t);
-            return new Point(NaN, NaN, a.x + ab.x, a.y + ab.y, a.z + ab.z);
+            return new Point(Number.NaN, Number.NaN, a.x + ab.x, a.y + ab.y, a.z + ab.z);
         }
         return undefined;
     }

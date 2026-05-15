@@ -67,7 +67,7 @@ export class Command {
 
     // Returns true if token is a number
     isNumber(token) {
-        return token !== '\n' && !isNaN(Number(token));
+        return token !== '\n' && !Number.isNaN(Number(token));
     }
 
     // State machine returns true if the model needs redrawing
@@ -88,7 +88,7 @@ export class Command {
                 // Handle time command to start animation and switch to Anim
                 if (this.tokenTodo[this.iToken] === 't' || this.tokenTodo[this.iToken] === 'time') {
                     this.iToken++;
-                    this.duration = parseFloat(this.tokenTodo[this.iToken++]);
+                    this.duration = Number.parseFloat(this.tokenTodo[this.iToken++]);
                     this.tStart = performance.now();
                     this.tpi = 0;
                     // State anim for the next call
@@ -241,7 +241,7 @@ export class Command {
             // Split segment by ratio
             idx++;
             const s = this.model.segments[tokenList[idx++]];
-            const k = parseFloat(tokenList[idx++]);
+            const k = Number.parseFloat(tokenList[idx++]);
             if (k >= 0 && k <= 1) {
                 this.model.splitSegmentByRatio2d(s, k);
             }
@@ -299,7 +299,7 @@ export class Command {
         } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
             // Offset by dz a list of faces: o dz f1 f2...
             idx++;
-            const dz = parseFloat(tokenList[idx++]) / 10;
+            const dz = Number.parseFloat(tokenList[idx++]) / 10;
             list = this.listFaces(tokenList, idx);
             idx += list.length;
             this.model.offset(dz, list);
@@ -309,21 +309,21 @@ export class Command {
         else if (tokenList[idx] === 'tx') {
             // "tx: TurnX angle"
             idx++;
-            this.view3d.angleX = parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
+            this.view3d.angleX = Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
         } else if (tokenList[idx] === 'ty') {
             // "ty: TurnY angle"
             idx++;
-            this.view3d.angleY = parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
+            this.view3d.angleY = Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
         } else if (tokenList[idx] === 'tz') {
             // "tz: TurnZ angle"
             idx++;
-            this.view3d.angleZ = parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
+            this.view3d.angleZ = Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
         } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
             // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
             idx++;
-            let scale = parseFloat(tokenList[idx++]);
-            const x = this.isNumber(tokenList[idx]) ? parseFloat(tokenList[idx++]) : 0;
-            const y = this.isNumber(tokenList[idx]) ? parseFloat(tokenList[idx++]) : 0;
+            let scale = Number.parseFloat(tokenList[idx++]);
+            const x = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 0;
+            const y = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 0;
             // Animation
             const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
             const b = scale * (this.tni / a - this.tpi);

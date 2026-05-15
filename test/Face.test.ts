@@ -62,7 +62,7 @@ Deno.test("Face", async (t) => {
             const a = new Vector3(0, -1, 0);
             const b = new Vector3(0, 1, 0);
             const result = Face.intersectionPlaneSegment(plane, a, b);
-            assertEquals(result, new Point(NaN, NaN, 0, 0, 0));
+            assertEquals(result, new Point(Number.NaN, Number.NaN, 0, 0, 0));
         },
     );
 
@@ -104,7 +104,7 @@ Deno.test("Face", async (t) => {
             const a = new Vector3(-1, -1, -1);
             const b = new Vector3(1, 1, 1);
             const result = Face.intersectionPlaneSegment(plane, a, b);
-            assertEquals(result, new Point(NaN, NaN, 0, 0, 0));
+            assertEquals(result, new Point(Number.NaN, Number.NaN, 0, 0, 0));
         },
     );
 });
