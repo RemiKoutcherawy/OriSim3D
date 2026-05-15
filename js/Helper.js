@@ -218,9 +218,9 @@ export class Helper {
                 const adjust = this.model.points.filter(s => s.select === 2);
                 const cIndex = adjust.map(p => this.model.points.indexOf(p));
                 if (adjust.length === 0) {
-                    this.command.command(`t 1000 rotate ${aIndex} ${this.label} ${bIndex.join(' ')};`);
+                    this.command.command(`t 1000 rotate ${aIndex} ${this.label} ${bIndex.join(' ')}`);
                 } else {
-                    this.command.command(`t 1000 rotate ${aIndex} ${this.label} ${bIndex.join(' ')} a ${cIndex.join(' ')};`);
+                    this.command.command(`t 1000 rotate ${aIndex} ${this.label} ${bIndex.join(' ')} a ${cIndex.join(' ')}`);
                 }
             }
         }
@@ -416,6 +416,12 @@ export class Helper {
             this.touchTime = new Date().getTime();
         } else {
             if (((new Date().getTime()) - this.touchTime) < 400) {
+                this.view3d.angleX = 0.0;
+                this.view3d.angleY = 0.0;
+                this.view3d.angleZ = 0.0;
+                this.view3d.translationX = 0.0;
+                this.view3d.translationY = 0.0;
+                this.view3d.scale = 1.0;
                 this.command.command(`fit`);
             } else {
                 this.touchTime = new Date().getTime();

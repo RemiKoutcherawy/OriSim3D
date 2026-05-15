@@ -31,7 +31,6 @@ export class CommandArea {
             const start = value.lastIndexOf('\n', caretPos - 1) + 1;
             const end = value.indexOf('\n', caretPos) === -1 ? value.length : value.indexOf('\n', caretPos);
             let line = value.substring(start, end);
-            if (line.startsWith('t') && !line.endsWith(';')) line += ';';
             this.command.command(line);
             this.textarea.selectionStart = this.textarea.selectionEnd = this.textarea.value.length;
             el.scrollTop = el.scrollHeight;

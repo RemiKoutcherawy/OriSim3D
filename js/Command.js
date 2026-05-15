@@ -309,15 +309,18 @@ export class Command {
         else if (tokenList[idx] === 'tx') {
             // "tx: TurnX angle"
             idx++;
-            this.view3d.angleX = Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
+            this.view3d.angleX += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
+            this.view3d.initModelView();
         } else if (tokenList[idx] === 'ty') {
             // "ty: TurnY angle"
             idx++;
-            this.view3d.angleY = Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
+            this.view3d.angleY += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
+            this.view3d.initModelView();
         } else if (tokenList[idx] === 'tz') {
             // "tz: TurnZ angle"
             idx++;
-            this.view3d.angleZ = Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi) * Math.PI / 180;
+            this.view3d.angleZ += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
+            this.view3d.initModelView();
         } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
             // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
             idx++;
@@ -327,10 +330,11 @@ export class Command {
             // Animation
             const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
             const b = scale * (this.tni / a - this.tpi);
-            this.view3d.translationX = x * b;
-            this.view3d.translationY = y * b;
+            this.view3d.translationX += x * b;
+            this.view3d.translationY += y * b;
             this.view3d.scale *= a;
-        } else if (tokenList[idx] === 'fit') { // Not OK
+            this.view3d.initModelView();
+        } else if (tokenList[idx] === 'fit') { // OK
             // Zoom fit 3d: fit
             idx++;
             if (this.tpi === 0) {
@@ -344,7 +348,8 @@ export class Command {
             const b = this.scale * (this.tni / a - this.tpi);
             this.view3d.translationX += this.deltaX * b;
             this.view3d.translationY += this.deltaY * b;
-            this.view3d.scale = a;
+            this.view3d.scale *= a;
+            this.view3d.initModelView();
         }
 
         // Interpolator
