@@ -18,20 +18,15 @@ export class View3d {
     out highp vec2 vTexCoordsFront;
     out highp vec2 vTexCoordsBack;
     out highp vec3 vLighting;
-    out highp vec3 vLightingBack;
-
     void main(void) {
         gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
         vTexCoordsFront = aTexCoordsFront;
         vTexCoordsBack  = aTexCoordsBack;
-                  
-        highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
-        highp vec3 directionalLightColor = vec3(1.0, 1.0, 1.0);
+        highp vec3 ambientLight = vec3(0.1, 0.1, 0.1);
         highp vec3 directionalVector =  normalize(vec3(0.1, 0.1, 0.75)); // normalize(vec3(0.85, 0.8, 0.75));
         highp vec4 normal = normalize(uModelViewMatrix * vec4(aVertexNormal, 0.0));
-        highp float directional = dot(normal.xyz, directionalVector);
-        vLighting = ambientLight + (directionalLightColor * directional);
-        vLightingBack = ambientLight - (directionalLightColor * directional);
+        float directional = dot(normal.xyz, directionalVector);
+        vLighting = vec3(0.1) + directional;
     }
     `;
 
@@ -42,17 +37,11 @@ export class View3d {
         in highp vec2 vTexCoordsFront;
         in highp vec2 vTexCoordsBack;
         in highp vec3 vLighting;
-        in highp vec3 vLightingBack;
                 
         uniform sampler2D uSamplerFront;
         uniform sampler2D uSamplerBack;
-        uniform vec4 uFrontColor;
-        uniform vec4 uBackColor;
-
         uniform bool uLine; 
-
         out vec4 outColor; 
-
         void main(void) {
             highp vec4 texelColor;
             highp vec3 lighting = vLighting;
@@ -62,7 +51,7 @@ export class View3d {
                 texelColor = texture(uSamplerFront, vTexCoordsFront);
             } else {
                 texelColor = texture(uSamplerBack,  vTexCoordsBack);
-                lighting = vLightingBack;
+                lighting = vec3(0.2) - vLighting;            
             }
             outColor = vec4(texelColor.rgb * lighting, texelColor.a);
         }
@@ -142,15 +131,6 @@ export class View3d {
         gl.useProgram(program);
         gl.program = program;
         checkErrors(gl, program, vxShader, fgShader);
-
-        // Front color
-        const uFrontColor = gl.getUniformLocation(gl.program, 'uFrontColor');
-        gl.uniform4f(uFrontColor, 0.0, 0.5, 1.0, 0.8); // 0x0080FFCC
-
-        // Back color
-        const uBackColor = gl.getUniformLocation(gl.program, 'uBackColor');
-        gl.uniform4f(uBackColor, 1.0, 1.0, 0.0, 0.8); // 0xFFFF00CC
-
         function checkErrors(gl, program, glVertexShader, glFragmentShader) {
             const programLog = gl.getProgramInfoLog(program).trim();
             const vertexLog = gl.getShaderInfoLog(glVertexShader).trim();

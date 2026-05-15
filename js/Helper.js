@@ -416,49 +416,7 @@ export class Helper {
             this.touchTime = new Date().getTime();
         } else {
             if (((new Date().getTime()) - this.touchTime) < 400) {
-                this.touchTime = 0;                              // Bug 4 : reset
-                this.view3d.angleX = 0.0;
-                this.view3d.angleY = 0.0;
-                this.view3d.angleZ = 0.0;
-                this.view3d.translationX = 0.0;
-                this.view3d.translationY = 0.0;
-                this.view3d.scale = 1.0;
-                this.view3d.initPerspective();
-                this.view3d.initModelView();
-                let minX = Infinity, minY = Infinity;
-                let maxX = -Infinity, maxY = -Infinity;
-                for (let p of this.model.points) {
-                    if (p.xCanvas < minX) minX = p.xCanvas;
-                    if (p.xCanvas > maxX) maxX = p.xCanvas;
-                    if (p.yCanvas < minY) minY = p.yCanvas;
-                    if (p.yCanvas > maxY) maxY = p.yCanvas;
-                }
-                const bboxW = Math.max(1, maxX - minX);
-                const bboxH = Math.max(1, maxY - minY);
-                const w = this.view3d.canvas3d.clientWidth;
-                const h = this.view3d.canvas3d.clientHeight;
-                const padding = 0.9;
-                const factorX = (w * padding) / bboxW;
-                const factorY = (h * padding) / bboxH;
-                this.view3d.scale = Math.min(factorX, factorY);
-                this.view3d.initModelView();
-                let cMinX = Infinity, cMinY = Infinity;
-                let cMaxX = -Infinity, cMaxY = -Infinity;
-                for (let p of this.model.points) {
-                    if (p.xCanvas < cMinX) cMinX = p.xCanvas;
-                    if (p.xCanvas > cMaxX) cMaxX = p.xCanvas;
-                    if (p.yCanvas < cMinY) cMinY = p.yCanvas;
-                    if (p.yCanvas > cMaxY) cMaxY = p.yCanvas;
-                }
-                const bboxCX = (cMinX + cMaxX) * 0.5;
-                const bboxCY = (cMinY + cMaxY) * 0.5;
-                const canvasCX = w * 0.5;
-                const canvasCY = h * 0.5;
-                const dxScreen = canvasCX - bboxCX;
-                const dyScreen = canvasCY - bboxCY;
-                this.view3d.translationX = dxScreen / this.view3d.scale;
-                this.view3d.translationY = dyScreen / this.view3d.scale;
-                this.view3d.initModelView();
+                this.command.command(`fit`);
             } else {
                 this.touchTime = new Date().getTime();
             }
