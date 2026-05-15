@@ -65,6 +65,11 @@ export class Command {
         return cleaned.match(/\S+|\n/g) || [];
     }
 
+    // Returns true if token is a number
+    isNumber(token) {
+        return token !== '\n' && !isNaN(Number(token));
+    }
+
     // State machine returns true if the model needs redrawing
     // Only 4 states: run, anim, undo, pause
     // Called by requestAnimationFrame(loop)
@@ -86,19 +91,6 @@ export class Command {
                     this.duration = Number(this.tokenTodo[this.iToken++]);
                     this.tStart = performance.now();
                     this.tpi = 0.0;
-                    // Ensure there's an '\n' token after the current 't' block, before the next 't' block
-                    const nextT = this.tokenTodo.indexOf('t', this.iToken);
-                    const nextEoc = this.tokenTodo.indexOf('\n', this.iToken);
-                    if (nextT !== -1) {
-                        // If there's a 't' and no '\n' before it, insert '\n' before 't'
-                        if (nextEoc === -1 || nextEoc > nextT) {
-                            this.tokenTodo.splice(nextT, 0, '\n');
-                        }
-                    } else if (nextEoc === -1) {
-                        // If there's no 't' and no '\n', append '\n'
-                        this.tokenTodo.push('\n');
-                    }
-
                     // State anim for the next call
                     this.model.state = State.anim;
                     return true;
@@ -175,14 +167,14 @@ export class Command {
         if (tokenList[idx] === 'd' || tokenList[idx] === 'define') {
             // Define a sheet by N points x,y CCW
             idx++;
-            const width = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
-            const height = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 200;
+            const width = this.isNumber(tokenList[idx]) ? Number(tokenList[idx++]) : 200;
+            const height = this.isNumber(tokenList[idx]) ? Number(tokenList[idx++]) : 200;
             this.model.init(width, height);
         }
 
         // Origami splits
         else if (tokenList[idx] === 'by3d') {
-            // Split by two points in 3d: b3d p1 p2
+            // Split by two points in 3d: by3d p1 p2
             idx++;
             let p1 = this.model.points[tokenList[idx++]];
             let p2 = this.model.points[tokenList[idx++]];
@@ -293,7 +285,7 @@ export class Command {
             this.model.flat(list);
             idx += list.length;
         } else if (tokenList[idx] === 'a' || tokenList[idx] === 'adjust') {
-            // Adjust points in 3D to equal 2D length of segments : a p1 p2 p3...
+            // Adjust points in 3D to equal 2D length of segments: a p1 p2 p3...
             idx++;
             list = this.listPoints(tokenList, idx);
             idx += list.length;
@@ -330,8 +322,8 @@ export class Command {
             // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
             idx++;
             let scale = Number(tokenList[idx++]);
-            const x = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 0;
-            const y = !isNaN(Number(tokenList[idx])) ? Number(tokenList[idx++]) : 0;
+            const x = this.isNumber(tokenList[idx]) ? Number(tokenList[idx++]) : 0;
+            const y = this.isNumber(tokenList[idx]) ? Number(tokenList[idx++]) : 0;
             // Animation
             const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
             const b = scale * (this.tni / a - this.tpi);
@@ -421,7 +413,6 @@ export class Command {
 
         // Unexpected end
         else {
-            idx = tokenList.length + 1;
             // Ignore until the next command after '\n'
             while (tokenList[idx] !== '\n' && idx < tokenList.length) {
                 idx++;

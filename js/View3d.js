@@ -200,7 +200,7 @@ export class View3d {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, textureBack);
 
-        // Placeholder One Pixel Color Yellow #FDEC43
+        // Placeholder one-pixel Color Yellow #FDEC43
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFD, 0xEC, 0x43, 0xFF]));
         const uSamplerBack = gl.getUniformLocation(gl.program, 'uSamplerBack');
         gl.uniform1i(uSamplerBack, 1);
@@ -288,7 +288,7 @@ export class View3d {
                 this.btx.push((200 + pts[0].xf) / this.wTexBack);
                 this.btx.push((200 + pts[0].yf) / this.hTexBack);
 
-                // Two other points : i and i+1
+                // Two other points: i and i+1
                 this.vtx.push(pts[i].x + f.offset * n[0], pts[i].y + f.offset * n[1], pts[i].z + f.offset * n[2]);
                 this.fnr.push(n[0], n[1], n[2]);
 
@@ -431,7 +431,7 @@ export class View3d {
         gl.drawArrays(gl.TRIANGLES, 0, this.vtx.length / 3);
 
         if (this.model.lines){
-            // Segments drawElements and not drawArrays because normals implies 3 vertices per triangle
+            // Segments drawElements and not drawArrays because normals imply 3 vertices per triangle
             const uLine = gl.getUniformLocation(gl.program, 'uLine');
             gl.uniform1i(uLine, 1); // Draw lines in black
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
