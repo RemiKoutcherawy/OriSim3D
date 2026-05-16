@@ -255,21 +255,24 @@ export class Helper {
         }
         // From face
         else if (this.firstFace) {
-            // To face
-            if (faces.length !== 0) {
-                if (this.firstFace === faces[0]) {
-                    // To the same face
-                    this.model.click2d3d(points, segments, faces);
-                    let liste = faces.map(f => this.model.indexOf(f) + ':' + f.offset).join(' ');
-                    if (this.commandArea) this.commandArea.addLine(`offsets ${liste}`);
-                } else {
-                    // To another face
-                }
+            if (faces.length !== 0 && this.firstFace === faces[0]) {
+                // To the same face
+                this.model.click2d3d(points, segments, faces);
+                let liste = faces.map(f => this.model.indexOf(f) + ':' + f.offset).join(' ');
+                if (this.commandArea) this.commandArea.addLine(`offsets ${liste}`);
             } else {
-                // Deselect
-                this.model.points.forEach(p => p.select = 0);
-                this.model.segments.forEach(s => s.select = 0);
-                this.model.faces.forEach(f => f.select = 0);
+                // To another face or nothing: split segments on crease pattern.
+                const first = {xf: this.firstX, yf: this.currentCanvas === '2d' ? -this.firstY : this.firstY};
+                const current = {xf: this.currentX, yf: this.currentCanvas === '2d' ? -this.currentY : this.currentY};
+                this.model.segments.forEach((s, i) => {
+                    const p1 = this.currentCanvas === '2d' ? s.p1 : {xf: s.p1.xCanvas, yf: s.p1.yCanvas};
+                    const p2 = this.currentCanvas === '2d' ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
+                    const inter = Segment.intersectionFlat(first, current, p1, p2);
+                    if (inter) {
+                        const ratio = Math.sqrt((inter.xf - p1.xf) ** 2 + (inter.yf - p1.yf) ** 2) / Math.sqrt((p2.xf - p1.xf) ** 2 + (p2.yf - p1.yf) ** 2);
+                        this.command.command(`split ${i} ${ratio}`);
+                    }
+                });
             }
         }
         // From Nothing to Nothing
