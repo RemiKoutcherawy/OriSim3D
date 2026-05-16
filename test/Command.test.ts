@@ -253,15 +253,17 @@ Deno.test('Command', async (t) => {
     });
 
     await t.step('command turn 180', () => {
-        cde.command('d 200 200').anim();
-        cde.command('tx 180').anim();
+        const viewReset = {angleX:0, angleY:0, angleZ:0};
+        const cdeReset = new Command(model, viewReset);
+        cdeReset.command('d 200 200').anim();
+        cdeReset.command('tx 180').anim();
         // Model is not modified only view is rotated
         assertEquals(Math.round(model.points[0].x), -200);
         assertEquals(Math.round(model.points[1].x), 200);
         // View is turned
-        assertEquals(view.angleX, 180 * (Math.PI / 180));
-        cde.command('ty 180').anim();
-        assertEquals(view.angleY, 180 * (Math.PI / 180));
+        assertEquals(viewReset.angleX, 180);
+        cdeReset.command('ty 180').anim();
+        assertEquals(viewReset.angleY, 180);
     });
 
     await t.step('end', () => {
