@@ -700,11 +700,14 @@ export class Model {
     }
     // Move on the segment s the following point.
     moveOnSegment(s, p) {
-        // Project point and get vector from point to segment
-        const closest = Vector3.closestPoint(p, s.p1, s.p2);
-        p.x = closest.x ;
-        p.y = closest.y ;
-        p.z = closest.z ;
+        const A = s.p1, B = s.p2;
+        const abx = B.x - A.x, aby = B.y - A.y, abz = B.z - A.z;
+        const t = Math.min(1, Math.max(0,
+            (abx*(p.x-A.x) + aby*(p.y-A.y) + abz*(p.z-A.z)) /
+            (abx*abx + aby*aby + abz*abz) || 0));
+        p.x = A.x + abx * t;
+        p.y = A.y + aby * t;
+        p.z = A.z + abz * t;
         this.adjust(p);
     }
 

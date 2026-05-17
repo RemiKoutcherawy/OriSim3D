@@ -451,7 +451,7 @@ Deno.test("Model", async (t) => {
         model.splitBy2d(model.points[0], model.points[2]);
         model.splitBy2d(model.points[1], model.points[3]);
         const s = model.segments[4]; // -200, -200 to 0, 0
-        let p = model.points[4]; // 0,0
+        const p = model.points[4]; // 0,0
         p.x = 10;
         p.y = 10;
         // Move p on s
