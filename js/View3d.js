@@ -357,15 +357,6 @@ export class View3d {
             return n;
         }
     }
-    // Reset model view
-    resetModelView() {
-        this.angleX = 0.0;
-        this.angleY = 0.0;
-        this.angleZ = 0.0;
-        this.translationX = 0.0;
-        this.translationY = 0.0;
-        this.scale = 1.0;
-    }
     // Model view matrix
     initModelView() {
         // Rotation around X axis

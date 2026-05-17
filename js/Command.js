@@ -19,16 +19,13 @@ export class Command {
     // Animation
     duration = 0;
     tStart = 0;
+    glues = []; // List of glues to apply
     // Eventual CommandArea
     commandArea;
 
     constructor(model, view3d) {
         this.model = model;
         this.view3d = view3d;
-    }
-
-    initModelView() {
-        this.view3d.initModelView();
     }
 
     // The main entry point executes a string of commands
@@ -43,6 +40,7 @@ export class Command {
             this.tokenTodo = [];
             this.iToken = 0;
             this.instructions = [];
+            this.glues = [];
         }
         // Undo
         else if (cde === 'u' || cde === 'undo') {
@@ -260,6 +258,7 @@ export class Command {
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.rotate(s, angle, list);
+            this.applyGlues();
         } else if (tokenList[idx] === 'mop' || tokenList[idx] === 'moveOnPoint') {
             // Move all points on first
             idx++;
@@ -307,6 +306,15 @@ export class Command {
             list = this.listFaces(tokenList, idx);
             idx += list.length;
             this.model.offset(dz, list);
+        } else if (tokenList[idx] === 'glue') {
+            // Glue S p1 p2 p3... to S
+            idx++;
+            const s = this.model.segments[tokenList[idx++]];
+            const p = this.model.points[tokenList[idx++]];
+            this.glues.push({type: 's', s, p});
+        } else if (tokenList[idx] === 'glueClear') {
+            idx++;
+            this.glues = [];
         }
 
         // View3D turn, zoom and move
@@ -314,17 +322,14 @@ export class Command {
             // "tx: TurnX angle"
             idx++;
             this.view3d.angleX += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
-            this.initModelView();
         } else if (tokenList[idx] === 'ty') {
             // "ty: TurnY angle"
             idx++;
             this.view3d.angleY += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
-            this.initModelView();
         } else if (tokenList[idx] === 'tz') {
             // "tz: TurnZ angle"
             idx++;
             this.view3d.angleZ += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
-            this.initModelView();
         } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
             // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
             idx++;
@@ -337,7 +342,6 @@ export class Command {
             this.view3d.translationX += x * b;
             this.view3d.translationY += y * b;
             this.view3d.scale *= a;
-            this.initModelView();
         } else if (tokenList[idx] === 'fit') { // OK
             // Zoom fit 3d: fit
             idx++;
@@ -353,8 +357,6 @@ export class Command {
             this.view3d.translationX += this.deltaX * b;
             this.view3d.translationY += this.deltaY * b;
             this.view3d.scale *= a;
-            this.view3d.resetModelView();
-            this.initModelView();
         }
 
         // Interpolator
@@ -436,7 +438,11 @@ export class Command {
         this.pushUndo();
         this.iToken = idx;
     }
-
+    applyGlues() {
+        for (const g of this.glues) {
+            this.model.moveOnSegment(g.s, g.p);
+        }
+    }
     // Make a list from the following points numbers @testOK
     listPoints(tokenList, iStart) {
         const list = [];
