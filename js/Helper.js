@@ -377,7 +377,7 @@ export class Helper {
             && event.buttons === 1
             && !this.firstPoint && !this.firstSegment && !this.firstFace) {
             // Rotation
-            const factor = (600.0 / event.target.height) ;
+            const factor = (600 / event.target.height) ;
             const dx = factor * (xCanvas - this.currentX);
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
@@ -408,7 +408,7 @@ export class Helper {
     // Mouse wheel on 3d overlay
     wheel(event) {
         // deltaY => up or down zoom view
-        this.view3d.scale = event.scale !== undefined ? event.scale / 10.0 : this.view3d.scale + event.deltaY / 3000.0;
+        this.view3d.scale = event.scale !== undefined ? event.scale / 10 : this.view3d.scale + event.deltaY / 3000;
         this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 3); // 0.2 < scale < 3
         this.view3d.initModelView();
         this.view3d.initPerspective();
@@ -419,12 +419,12 @@ export class Helper {
             this.touchTime = new Date().getTime();
         } else {
             if (((new Date().getTime()) - this.touchTime) < 400) {
-                this.view3d.angleX = 0.0;
-                this.view3d.angleY = 0.0;
-                this.view3d.angleZ = 0.0;
-                this.view3d.translationX = 0.0;
-                this.view3d.translationY = 0.0;
-                this.view3d.scale = 1.0;
+                this.view3d.angleX = 0;
+                this.view3d.angleY = 0;
+                this.view3d.angleZ = 0;
+                this.view3d.translationX = 0;
+                this.view3d.translationY = 0;
+                this.view3d.scale = 1;
                 this.command.command(`fit`);
             } else {
                 this.touchTime = new Date().getTime();

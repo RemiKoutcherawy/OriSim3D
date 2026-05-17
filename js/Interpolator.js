@@ -1,7 +1,7 @@
 // ReadWrite: js/Interpolator.js
 //  Maps from time to time
 // interpolate(tn) returns t for tn.
-// t and tn should start at 0.0 and end at 1.0
+// t and tn should start at 0 and end at 1
 // between 0 and 1, t can be < 0 (anticipate) and >1 (overshoot)
 // Use Padé approximations for fun
 export class Interpolator {
@@ -12,7 +12,7 @@ export class Interpolator {
     // Starts and ends slowly accelerate between "iad"
     /** @return {number} */
     static AccelerateDecelerateInterpolator = function AccelerateDecelerateInterpolator(t) {
-        return (Math.cos((t + 1) * Math.PI) / 2.0) + 0.5;
+        return (Math.cos((t + 1) * Math.PI) / 2) + 0.5;
     }
     // Model of a spring with overshoot "iso"
     /** @return {number} */
@@ -23,12 +23,12 @@ export class Interpolator {
             return (((74.243 * t) - 72.681) * t + 21.007) * t - 0.579;
         if (t < 0.6875)
             return (((-16.378 * t) + 28.574) * t - 15.913) * t + 3.779;
-        if (t < 1.0)
+        if (t < 1)
             return (((5.120 * t) - 12.800) * t + 10.468) * t - 1.788;
         return (((-176.823 * t) + 562.753) * t - 594.598) * t + 209.669;
     }
     // Model of a spring with bounce "isb"
-    // 1.0-Math.exp(-4.0*t)*Math.cos(2*Math.PI*t)
+    // 1-Math.exp(-4*t)*Math.cos(2*Math.PI*t)
     /** @return {number} */
     static SpringBounceInterpolator = function SpringBounceInterpolator(t) {
         let x;
@@ -38,13 +38,13 @@ export class Interpolator {
             x = (((-3.215 * t) - 4.890) * t + 5.362) * t + 0.011;
         else if (t < 0.75)
             x = (((5.892 * t) - 10.432) * t + 5.498) * t + 0.257;
-        else if (t < 1.0)
+        else if (t < 1)
             x = (((1.520 * t) - 2.480) * t + 0.835) * t + 1.125;
         else x = (((-299.289 * t) + 945.190) * t - 991.734) * t + 346.834;
         return x > 1 ? 2 - x : x;
     }
     // Model of gravity with bounce "igb"
-    // a = 8.0, k=1.5; x=(a*t*t-v0*t)*Math.exp(-k*t);
+    // a = 8, k=1.5; x=(a*t*t-v0*t)*Math.exp(-k*t);
     /** @return {number} */
     static GravityBounceInterpolator = function GravityBounceInterpolator(t) {
         let x;
@@ -54,8 +54,8 @@ export class Interpolator {
             x = (((-16.696 * t) + 21.298) * t - 6.390) * t + 0.909;
         else if (t < 0.885)
             x = (((31.973 * t) - 74.528) * t + 56.497) * t + -12.844;
-        else if (t < 1.0)
-            x = (((-37.807 * t) + 114.745) * t - 114.938) * t + 39.000;
+        else if (t < 1)
+            x = (((-37.807 * t) + 114.745) * t - 114.938) * t + 39;
         else x = (((-7278.029 * t) + 22213.034) * t - 22589.244) * t + 7655.239;
         return x > 1 ? 2 - x : x;
     }
@@ -63,7 +63,7 @@ export class Interpolator {
     /** @return {number} */
     static BounceInterpolator = function BounceInterpolator(t) {
         function bounce(t) {
-            return t * t * 8.0;
+            return t * t * 8;
         }
 
         t *= 1.1226;
@@ -76,8 +76,8 @@ export class Interpolator {
     /** @return {number} */
     static OvershootInterpolator = function OvershootInterpolator(t) {
         const mTension = 2;
-        t -= 1.0;
-        return t * t * ((mTension + 1) * t + mTension) + 1.0;
+        t -= 1;
+        return t * t * ((mTension + 1) * t + mTension) + 1;
     }
     // Anticipate "ia"
     /** @return {number} */
@@ -98,8 +98,8 @@ export class Interpolator {
             return t * t * ((s + 1) * t + s);
         }
 
-        if (t < 0.5) return 0.5 * a(t * 2.0, mTension);
-        else return 0.5 * (o(t * 2.0 - 2.0, mTension) + 2.0);
+        if (t < 0.5) return 0.5 * a(t * 2, mTension);
+        else return 0.5 * (o(t * 2 - 2, mTension) + 2);
     }
 }
 // 105

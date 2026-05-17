@@ -16,7 +16,7 @@ export class Model {
 
         // State of the model
         this.state = State.run;
-        this.scale = 1.0;
+        this.scale = 1;
 
         // Helper
         this.labels = false;
@@ -241,7 +241,7 @@ export class Model {
         let inter = undefined;
 
         // Segment from last to current
-        const EPSILON = 1.0;
+        const EPSILON = 1;
         let last = face.points[face.points.length - 1];
         let dLast = Face.distance2dLineToPoint(a, b, last); // Positive if on the right of the segment a,b
         // Discard if on the line but not on Segment
@@ -551,15 +551,15 @@ export class Model {
 
     // Rotate around axis Segment, by angle, the list of Points
     rotate(s, angle, list = this.points) {
-        const angleRd = angle * Math.PI / 180.0;
+        const angleRd = angle * Math.PI / 180;
         const ax = s.p1.x, ay = s.p1.y, az = s.p1.z;
         let nx = s.p2.x - ax, ny = s.p2.y - ay, nz = s.p2.z - az;
-        const n = 1.0 / Math.sqrt(nx * nx + ny * ny + nz * nz);
+        const n = 1 / Math.sqrt(nx * nx + ny * ny + nz * nz);
         nx *= n;
         ny *= n;
         nz *= n;
         const sin = Math.sin(angleRd), cos = Math.cos(angleRd);
-        const c1 = 1.0 - cos;
+        const c1 = 1 - cos;
         const c11 = c1 * nx * nx + cos, c12 = c1 * nx * ny - nz * sin, c13 = c1 * nx * nz + ny * sin;
         const c21 = c1 * ny * nx + nz * sin, c22 = c1 * ny * ny + cos, c23 = c1 * ny * nz - nx * sin;
         const c31 = c1 * nz * nx - ny * sin, c32 = c1 * nz * ny + nx * sin, c33 = c1 * nz * nz + cos;
@@ -633,7 +633,7 @@ export class Model {
 
     // Checks segments and selects segments with anormal length
     checkSegments() {
-        const max = 1.0;
+        const max = 1;
         for (let i = 0; i < this.segments.length; i++) {
             const s = this.segments[i];
             const lg3d = Segment.length3d(s) / this.scale;
@@ -702,9 +702,7 @@ export class Model {
     moveOnSegment(s, p) {
         const A = s.p1, B = s.p2;
         const abx = B.x - A.x, aby = B.y - A.y, abz = B.z - A.z;
-        const t = Math.min(1, Math.max(0,
-            (abx*(p.x-A.x) + aby*(p.y-A.y) + abz*(p.z-A.z)) /
-            (abx*abx + aby*aby + abz*abz) || 0));
+        const t = (abx*(p.x-A.x) + aby*(p.y-A.y) + abz*(p.z-A.z)) / (abx*abx + aby*aby + abz*abz);
         p.x = A.x + abx * t;
         p.y = A.y + aby * t;
         p.z = A.z + abz * t;
@@ -727,16 +725,16 @@ export class Model {
         if (dz === 0 || faces.length === 0) {
             this.faces.forEach(function (face) {face.offset = 0;});
         } else {
-            faces.forEach(function (face) {face.offset += dz / 10.0;});
+            faces.forEach(function (face) {face.offset += dz / 10;});
         }
     }
 
     // 2d Boundary [xMin, yMin, xMax, yMax]
     get2DBounds() {
-        let xMax = -100.0;
-        let xMin = 100.0;
-        let yMax = -100.0;
-        let yMin = 100.0;
+        let xMax = -100;
+        let xMin = 100;
+        let yMax = -100;
+        let yMin = 100;
         this.points.forEach(function (p) {
             xMin = Math.min(xMin, p.xf);
             xMax = Math.max(xMax, p.xf);
@@ -758,8 +756,8 @@ export class Model {
 
     // 3D Boundary View [xMin, yMin, xMax, yMax]
     get3DBounds() {
-        let xMax = -200.0, xMin = 200.0;
-        let yMax = -200.0, yMin = 200.0;
+        let xMax = -200, xMin = 200;
+        let yMax = -200, yMin = 200;
         this.points.forEach(function (p) {
             xMin = Math.min(xMin, p.x);
             xMax = Math.max(xMax, p.x);

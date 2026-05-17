@@ -166,8 +166,8 @@ export class Command {
         if (tokenList[idx] === 'd' || tokenList[idx] === 'define') {
             // Define a sheet by N points x,y CCW
             idx++;
-            const width = this.isNumber(tokenList[idx]) ? parseFloat(tokenList[idx++]) : 200;
-            const height = this.isNumber(tokenList[idx]) ? parseFloat(tokenList[idx++]) : 200;
+            const width = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 200;
+            const height = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 200;
             this.model.init(width, height);
         }
 
@@ -309,6 +309,7 @@ export class Command {
             const s = this.model.segments[tokenList[idx++]];
             const p = this.model.points[tokenList[idx++]];
             this.glues.push({type: 's', s, p});
+            this.applyGlues();
         } else if (tokenList[idx] === 'glueClear') {
             idx++;
             this.glues = [];

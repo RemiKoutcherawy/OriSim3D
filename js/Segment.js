@@ -110,10 +110,10 @@ export class Segment {
         const a2 = Segment.CCWFlat(a, b, c);
 
         // Intersection
-        if (a1 * a2 <= 0.0) {
+        if (a1 * a2 <= 0) {
             const a3 = Segment.CCWFlat(c, d, a);
             const a4 = a3 + a2 - a1;
-            if (a3 * a4 <= 0.0) {
+            if (a3 * a4 <= 0) {
                 if (a3 - a4 === 0) {
                     return collinear(a, b, c, d);
                 } else {
@@ -186,19 +186,19 @@ export class Segment {
         // Check for degeneration of segments into points
         if (a < EPSILON && e < EPSILON) {
             // Both degenerate into points
-            // s = t = 0.0;
+            // s = t = 0;
             closest = {p: A, q: C};
         } else {
             if (a < EPSILON) {
                 // AB segment degenerate into point
-                s = 0.0;
+                s = 0;
                 t = f / e; // s=0 => t=(b*s+f)/e = f/e
                 t = t < 0 ? 0 : t > 1 ? 1 : t;
             } else {
                 const c = Vector3.dot(AB, CA);
                 if (e < EPSILON) {
                     // CD segment degenerate into point
-                    t = 0.0;
+                    t = 0;
                     s = -c / a; // t=0 => s=(b*t-c)/a = -c/a
                     s = s < 0 ? 0 : s > 1 ? 1 : s;
                 } else {
@@ -206,7 +206,7 @@ export class Segment {
                     const b = Vector3.dot(AB, CD); // Delayed computation of b
                     const denominator = a * e - b * b; // Denominator of cramer system
                     // Segments not parallel, compute closest
-                    if (denominator !== 0.0) {
+                    if (denominator !== 0) {
                         s = (b * f - c * e) / denominator
                         s = s < 0 ? 0 : s > 1 ? 1 : s;
                     } else {
@@ -216,12 +216,12 @@ export class Segment {
                     // Compute the closest on CD using s
                     t = (b * s + f) / e;
                     // if t in [0,1] done, else clamp t and recompute s
-                    if (t < 0.0) {
+                    if (t < 0) {
                         t = 0;
                         s = -c / a;
                         s = s < 0 ? 0 : s > 1 ? 1 : s;
-                    } else if (t > 1.0) {
-                        t = 1.0;
+                    } else if (t > 1) {
+                        t = 1;
                         s = (b - c) / a;
                         s = s < 0 ? 0 : s > 1 ? 1 : s;
                     }

@@ -58,12 +58,12 @@ export class View3d {
     `;
 
     // Current rotation angle (x-axis, y-axis degrees)
-    angleX = 0.0;
-    angleY = 0.0;
-    angleZ = 0.0;
-    translationX = 0.0;
-    translationY = 0.0;
-    scale = 1.0;
+    angleX = 0;
+    angleY = 0;
+    angleZ = 0;
+    translationX = 0;
+    translationY = 0;
+    scale = 1;
 
     // Projection and model view matrix
     projection = new Float32Array(16);
@@ -233,7 +233,7 @@ export class View3d {
         const fov = 40;
         const near = 50;
         const far = 1200;
-        this.projection = mat4.perspective(new Float32Array(16), fov, ratio, near, far);
+        this.projection = Mat4.perspective(new Float32Array(16), fov, ratio, near, far);
         // Set projection matrix
         const uProjectionMatrix = gl.getUniformLocation(gl.program, 'uProjectionMatrix');
         gl.uniformMatrix4fv(uProjectionMatrix, false, this.projection);
@@ -360,15 +360,15 @@ export class View3d {
     // Model view matrix
     initModelView() {
         // Rotation around X axis
-        let ex = mat4.create();
-        mat4.translate(ex, ex, [this.translationX, this.translationY, -700]);   // recul en view space
-        ex = mat4.rotateX(ex, ex, this.angleX * Math.PI / 180);
+        let ex = Mat4.create();
+        Mat4.translate(ex, ex, [this.translationX, this.translationY, -700]);   // recul en view space
+        ex = Mat4.rotateX(ex, ex, this.angleX * Math.PI / 180);
         // Rotation around Y axis
-        ex = mat4.rotateY(ex, ex, this.angleY * Math.PI / 180);
+        ex = Mat4.rotateY(ex, ex, this.angleY * Math.PI / 180);
         // Rotation around Z axis
-        let mv = mat4.rotateZ(ex, ex, this.angleZ * Math.PI / 180);
+        let mv = Mat4.rotateZ(ex, ex, this.angleZ * Math.PI / 180);
         // Scale ModelView
-        this.modelView = mat4.scale(mv, mv, [this.scale, this.scale, this.scale]);
+        this.modelView = Mat4.scale(mv, mv, [this.scale, this.scale, this.scale]);
 
         // Set Model View Matrix in Shader
         const uModelViewMatrix = this.gl.getUniformLocation(this.gl.program, 'uModelViewMatrix');
@@ -378,18 +378,18 @@ export class View3d {
         if (this.model.overlay) {
             this.overlay.width = this.overlay.clientWidth;
             this.overlay.height = this.overlay.clientHeight;
-            const scale = mat4.scale(new Float32Array(16), mat4.create(), [this.overlay.width / 2.0, -this.overlay.height / 2.0, 1.0]);
-            const translation = mat4.fromTranslation(new Float32Array(16), [1, -1, 0]);
-            const overlay = mat4.multiply(new Float32Array(16), scale, translation);
+            const scale = Mat4.scale(new Float32Array(16), Mat4.create(), [this.overlay.width / 2, -this.overlay.height / 2, 1]);
+            const translation = Mat4.fromTranslation(new Float32Array(16), [1, -1, 0]);
+            const overlay = Mat4.multiply(new Float32Array(16), scale, translation);
 
             // canvasView = overlay * projection * modelView
             // gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-            const projection = mat4.multiply(new Float32Array(16), this.projection, this.modelView,);
-            this.canvasView = mat4.multiply(new Float32Array(16), overlay, projection);
+            const projection = Mat4.multiply(new Float32Array(16), this.projection, this.modelView,);
+            this.canvasView = Mat4.multiply(new Float32Array(16), overlay, projection);
 
             // Set xCanvas, yCanvas to model points
             for (let p of this.model.points) {
-                const v = mat4.applyMatrix4(this.canvasView, [p.x, p.y, p.z]);
+                const v = Mat4.applyMatrix4(this.canvasView, [p.x, p.y, p.z]);
                 p.xCanvas = v[0];
                 p.yCanvas = v[1];
             }
@@ -553,8 +553,8 @@ class Label {
 
 // 571 lines of code
 
-class mat4 extends Float32Array {
-    static EPSILON = 0.000001;
+class Mat4 extends Float32Array {
+    static EPSILON = 0.00001;
 
     static create() {
         return new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
@@ -640,7 +640,7 @@ class mat4 extends Float32Array {
         const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
         const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
 
-        if (len < mat4.EPSILON) {
+        if (len < Mat4.EPSILON) {
             return null;
         }
 
@@ -821,7 +821,7 @@ class mat4 extends Float32Array {
     }
 
     static perspective(out, fov, aspect, near, far) {
-        const f = 1.0 / Math.tan(fov * Math.PI / 360);
+        const f = 1 / Math.tan(fov * Math.PI / 360);
         const nf = 1 / (near - far);
         out[0] = f / aspect;
         out[1] = 0;
