@@ -27,22 +27,8 @@ export class Command {
         this.view3d = view3d;
     }
 
-    // Proxy for view3d properties if view3d is defined
-    get angleX() { return this.view3d?.angleX; }
-    set angleX(v) { if (this.view3d) this.view3d.angleX = v; }
-    get angleY() { return this.view3d?.angleY; }
-    set angleY(v) { if (this.view3d) this.view3d.angleY = v; }
-    get angleZ() { return this.view3d?.angleZ; }
-    set angleZ(v) { if (this.view3d) this.view3d.angleZ = v; }
-    get translationX() { return this.view3d?.translationX; }
-    set translationX(v) { if (this.view3d) this.view3d.translationX = v; }
-    get translationY() { return this.view3d?.translationY; }
-    set translationY(v) { if (this.view3d) this.view3d.translationY = v; }
-    get scaleView() { return this.view3d?.scale; }
-    set scaleView(v) { if (this.view3d) this.view3d.scale = v; }
-
     initModelView() {
-        this.view3d?.initModelView?.();
+        this.view3d.initModelView();
     }
 
     // The main entry point executes a string of commands
@@ -327,17 +313,17 @@ export class Command {
         else if (tokenList[idx] === 'tx') {
             // "tx: TurnX angle"
             idx++;
-            this.angleX += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
+            this.view3d.angleX += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
             this.initModelView();
         } else if (tokenList[idx] === 'ty') {
             // "ty: TurnY angle"
             idx++;
-            this.angleY += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
+            this.view3d.angleY += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
             this.initModelView();
         } else if (tokenList[idx] === 'tz') {
             // "tz: TurnZ angle"
             idx++;
-            this.angleZ += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
+            this.view3d.angleZ += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
             this.initModelView();
         } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
             // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
@@ -348,9 +334,9 @@ export class Command {
             // Animation
             const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
             const b = scale * (this.tni / a - this.tpi);
-            this.translationX += x * b;
-            this.translationY += y * b;
-            this.scaleView *= a;
+            this.view3d.translationX += x * b;
+            this.view3d.translationY += y * b;
+            this.view3d.scale *= a;
             this.initModelView();
         } else if (tokenList[idx] === 'fit') { // OK
             // Zoom fit 3d: fit
@@ -364,9 +350,10 @@ export class Command {
             }
             const a = ((1 + this.tni * (this.scale - 1)) / (1 + this.tpi * (this.scale - 1)));
             const b = this.scale * (this.tni / a - this.tpi);
-            this.translationX += this.deltaX * b;
-            this.translationY += this.deltaY * b;
-            this.scaleView *= a;
+            this.view3d.translationX += this.deltaX * b;
+            this.view3d.translationY += this.deltaY * b;
+            this.view3d.scale *= a;
+            this.view3d.resetModelView();
             this.initModelView();
         }
 

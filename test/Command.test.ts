@@ -253,7 +253,7 @@ Deno.test('Command', async (t) => {
     });
 
     await t.step('command turn 180', () => {
-        const viewReset = {angleX:0, angleY:0, angleZ:0};
+        const viewReset = {angleX:0, angleY:0, angleZ:0, translationX:0, translationY:0, scale:1};
         const cdeReset = new Command(model, viewReset);
         cdeReset.command('d 200 200').anim();
         cdeReset.command('tx 180').anim();
