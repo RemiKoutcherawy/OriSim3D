@@ -120,8 +120,7 @@ export class Command {
         else if (this.model.state === State.anim) {
             // Compute tn varying from 0 to 1
             const t = performance.now();
-            let tn = (t - this.tStart) / this.duration;
-            tn = (tn > 1) ? 1 : tn;
+            let tn = Math.min((t - this.tStart) / this.duration, 1);
             this.tni = this.interpolator(tn);
             // Execute commands after t xxx up to end of line
             let iBeginAnim = this.iToken;
@@ -151,12 +150,10 @@ export class Command {
     doneInstructions(idxBefore, idxAfter) {
         // Keep track of commands done
         let doneCommands = this.tokenTodo.slice(idxBefore, idxAfter).join(' ');
-        if (doneCommands !== '' && doneCommands !== '\n') {
-            if (doneCommands !== 'undo') {
-                this.instructions.push(doneCommands);
-            } else {
-                this.instructions.pop();
-            }
+        if (doneCommands === 'undo') {
+            this.instructions.pop();
+        } else if (doneCommands !== '' && doneCommands !== '\n') {
+            this.instructions.push(doneCommands);
         }
     }
 
@@ -395,14 +392,14 @@ export class Command {
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.points.forEach(function(p){
-                p.select = (list.indexOf(p) !== -1) ? 1 : 0;
+                p.select = list.includes(p) ? 1 : 0;
             });
         } else if (tokenList[idx] === 'selectSegments' || tokenList[idx] === 'ss') {
             idx++;
             list = this.listSegments(tokenList, idx);
             idx += list.length;
             this.model.segments.forEach(function(s){
-                s.select = (list.indexOf(s) !== -1) ? 1 : 0;
+                s.select = list.includes(s) ? 1 : 0;
             });
         } else if (tokenList[idx] === 'labels') {
             idx++;
