@@ -156,8 +156,7 @@ export class View3d {
         gl.uniform1i(uSamplerFront, 0);
 
         const imageFront = new Image();
-        const scope = this;
-        imageFront.onload = function () {
+        imageFront.onload = () => {
             gl.activeTexture(gl.TEXTURE0);
             // Flip the image Y coordinate
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
@@ -168,8 +167,8 @@ export class View3d {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageFront);
             // Textures dimensions
-            scope.wTexFront = imageFront.width;
-            scope.hTexFront = imageFront.height;
+            this.wTexFront = imageFront.width;
+            this.hTexFront = imageFront.height;
         };
         // Require CORS
         // imageFront.src = './textures/front.jpg';
@@ -189,7 +188,7 @@ export class View3d {
         gl.uniform1i(uSamplerBack, 1);
 
         const imageBack = new Image();
-        imageBack.onload = function () {
+        imageBack.onload = () => {
             gl.activeTexture(gl.TEXTURE1);
             // Flip the image Y coordinate
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
@@ -200,14 +199,12 @@ export class View3d {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageBack);
             // Textures dimensions
-            scope.wTexBack = imageBack.width;
-            scope.hTexBack = imageBack.height;
-
+            this.wTexBack = imageBack.width;
+            this.hTexBack = imageBack.height;
             // Recompute texture coords
-            scope.initBuffers();
-
+            this.initBuffers();
             // First Render
-            scope.render();
+            this.render();
         };
         // Require CORS
         // imageBack.src = './textures/back.jpg';
