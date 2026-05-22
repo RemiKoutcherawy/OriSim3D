@@ -269,8 +269,12 @@ export class Helper {
                     const p2 = this.currentCanvas === '2d' ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
                     const inter = Segment.intersectionFlat(first, current, p1, p2);
                     if (inter) {
-                        const ratio = Math.sqrt((inter.xf - p1.xf) ** 2 + (inter.yf - p1.yf) ** 2) / Math.sqrt((p2.xf - p1.xf) ** 2 + (p2.yf - p1.yf) ** 2);
-                        this.command.command(`split ${i} ${ratio}`);
+                        const ratio = Math.sqrt((inter.xf - p1.xf) ** 2 + (inter.yf - p1.yf) ** 2)
+                            / Math.sqrt((p2.xf - p1.xf) ** 2 + (p2.yf - p1.yf) ** 2);
+                        s.p1.z = s.p1.z === 0? 0.1 : s.p1.z;
+                        s.p2.z = s.p2.z === 0? 0.1 : s.p2.z;
+                        const t = this.currentCanvas === '2d' ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z);
+                        this.command.command(`split ${i} ${t}`);
                     }
                 });
             }
