@@ -303,14 +303,28 @@ export class Command {
             list = this.listFaces(tokenList, idx);
             idx += list.length;
             this.model.offset(dz, list);
-        } else if (tokenList[idx] === 'glue') {
-            // Glue S p1 p2 p3... to S
+        } else if (tokenList[idx] === 'gluep') {
+            // Glue P p1 p2 p3... to Point
+            idx++;
+            const p = this.model.points[tokenList[idx++]];
+            const points = this.listPoints(tokenList, idx);
+            this.glues.push({type: 'p', p, points});
+            this.applyGlues();
+        }else if (tokenList[idx] === 'glues') {
+            // Glue S p1 p2 p3... to Segment
             idx++;
             const s = this.model.segments[tokenList[idx++]];
-            const p = this.model.points[tokenList[idx++]];
-            this.glues.push({type: 's', s, p});
+            const points = this.listPoints(tokenList, idx);
+            this.glues.push({type: 's', s, points});
             this.applyGlues();
-        } else if (tokenList[idx] === 'glueClear') {
+        }else if (tokenList[idx] === 'gluef') {
+            // Glue F p1 p2 p3... to Face
+            idx++;
+            const f = this.model.faces[tokenList[idx++]];
+            const points = this.listPoints(tokenList, idx);
+            this.glues.push({type: 'f', f, points});
+            this.applyGlues();
+        } else if (tokenList[idx] === 'unglue') {
             idx++;
             this.glues = [];
         }
@@ -438,7 +452,13 @@ export class Command {
     }
     applyGlues() {
         for (const g of this.glues) {
-            this.model.moveOnSegment(g.s, g.p);
+            if (g.type === 'p'){
+                this.model.moveOnPoint(g.p, g.points);
+            } else if (g.type === 's'){
+                this.model.moveOnSegment(g.s, g.points);
+            } else if (g.type === 'f'){
+                this.model.moveOnFace(g.f, g.points);
+            }
         }
     }
     // Make a list from the following points numbers @testOK
