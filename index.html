@@ -4,7 +4,7 @@
   <title>Origami</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta charset="utf-8">
-  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" >
   <style>
     #canvas2d{position:absolute;width:50%;height:100%;left:0;top:0;border:1px solid black}
     #canvas3d{position:absolute;width:50%;height:100%;left:50%;top:0;border:1px solid black}
@@ -22,18 +22,61 @@
   <canvas id="canvas3d"></canvas>
   <canvas id="overlay"></canvas>
 </div>
-<button id="burger" onclick="const n=document.getElementById('nav');n.style.display=n.style.display==='block'?'none':'block'" aria-label="Menu" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+<button id="burger" aria-label="Menu" aria-expanded="false">
   <span></span><span></span><span></span>
 </button>
 <div id="nav">
-  <button onclick="load('cocotte.txt')">Cocotte</button>
-  <button onclick="load('boat.txt')">Bateau</button>
+  <button type="button" data-model="cocotte.txt">Cocotte</button>
+  <button type="button" data-model="boat.txt">Bateau</button>
 </div>
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
 <img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>
-<!-- Main program -->
 <script type="module">
+  // Navigation
+  document.getElementById('burger').addEventListener('click', toggleNav);
+  function toggleNav() {
+    const nav = document.getElementById('nav');
+    const burger = document.getElementById('burger');
+    const isExpanded = nav.style.display === 'block';
+    nav.style.display = isExpanded ? 'none' : 'block';
+    burger.ariaExpanded = !isExpanded;
+  }
+  document.addEventListener('click', e => {
+    const nav = document.getElementById('nav');
+    if (!document.getElementById('burger').contains(e.target)) nav.style.display = 'none';
+  });
+  document.getElementById('burger').addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.click();
+    }
+  });
+  document.addEventListener('click', e => {
+    const nav = document.getElementById('nav');
+    if (!document.getElementById('burger').contains(e.target)) {
+      nav.style.display = 'none';
+      document.getElementById('burger').setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const nav = document.getElementById('nav');
+      nav.style.display = 'none';
+      document.getElementById('burger').setAttribute('aria-expanded', 'false');
+    }
+  });
+  // Models loading
+  document.querySelectorAll('#nav button').forEach(button => {
+    button.addEventListener('click', () => {
+      const modelId = button.dataset.model;
+      const nav = document.getElementById('nav');
+      nav.style.display = 'none';
+      document.getElementById('burger').ariaExpanded = 'false';
+      globalThis._cmd.command(document.getElementById(modelId).textContent);
+    });
+  });
+  // Main program
   import {Model} from "./js/Model.js";
   import {View2d} from "./js/View2d.js";
   import {View3d} from "./js/View3d.js";
@@ -79,22 +122,18 @@
       globalThis.addEventListener("load", () => { command.command(commandText) });
     }
   }
-</script>
-<script>
   function load(id) {
-    document.getElementById('nav').style.display = 'none';
+    const nav = document.getElementById('nav');
+    nav.style.display = 'none';
+    document.getElementById('burger').setAttribute('aria-expanded', 'false');
     globalThis._cmd.command(document.getElementById(id).textContent);
   }
-  document.addEventListener('click', e => {
-    const nav = document.getElementById('nav');
-    if (!document.getElementById('burger').contains(e.target)) nav.style.display = 'none';
-  });
 </script>
 <!-- Inline model -->
 <div id="test.txt" hidden="hidden">
   d 200 200
   lines // overlay labels
-  c 0 1 c 0 3 c 0 2 c 1 3
+  c2d 0 1 c2d 0 3 c2d 0 2 c2d 1 3
   o -1 3 4 6 2
   split 0 0.5
   t 1000 ty 180
@@ -213,7 +252,7 @@
   t 200 r 15 -180 4 5 14 8 21 25 26 32 33 27 28 30 29  r 9 -180 1 2 11 12 16 18 19 22 34 a 33 mop 33 30 29;
   t 200 fit
   // Open rotate around 3
-  t 1000 r 36 135 32 14 33 27 28 4 5 30 29  r 36 -135 31 13 34  a 9 12 0 1 2 3 mop 12 11 mop 9 10 mos 60 3 mos 25 0 mos 23 1 mos 64 2
+  t 1000 r 36 135 32 14 33 27 28 4 5 30 29  r 36 -135 31 13 34  a 9 12 0 1 2 3 gluep 12 11 gluep 9 10 glues 60 3 glues 25 0 glues 23 1 glues 64 2
   t 200 fit
   // Show
   iao
