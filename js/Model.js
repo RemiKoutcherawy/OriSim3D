@@ -154,7 +154,7 @@ export class Model {
         // Split face
         let left = [];
         let right = [];
-        let lastInter = undefined;
+        let lastInter;
 
         // Segment from last to current
         // 9 cases: left <0, on 0, right >0
@@ -169,9 +169,8 @@ export class Model {
         // Begin with the last point
         let last = face.points[face.points.length - 1];
         let dLast = Face.planeToPointSignedDistance(plane, last);
-        for (let n = 0; n < face.points.length; n++) {
+        for (const current of face.points) {
             // Segment from previous to current
-            const current = face.points[n];
             const dCurrent = Face.planeToPointSignedDistance(plane, current);
             // last and current on the same side // 1, 2
             if (dLast * dCurrent > epsilon) {
@@ -201,8 +200,8 @@ export class Model {
 
         // Modify initial face and add new face if not degenerated
         // Discard degenerated polygons artifacts
-        left = Face.area3d(left) !== 0 ? left : undefined;
-        right = Face.area3d(right) !== 0 ? right : undefined;
+        left = Face.area3d(left) === 0 ? undefined : left;
+        right = Face.area3d(right) === 0 ? undefined : right;
         if (left && right) {
             face.points = left;
             const newFace = this.addFace(right);
@@ -238,7 +237,7 @@ export class Model {
 
     splitFaceBySegment2d(face, a, b) {
         const left = [], right = [];
-        let inter = undefined;
+        let inter;
 
         // Segment from last to current
         const EPSILON = 1;
@@ -249,9 +248,8 @@ export class Model {
             && Segment.intersectionFlat(a, b, last, face.points[0]) === undefined) {
             return;
         }
-        for (let n = 0; n < face.points.length; n++) {
+        for (const current of face.points) {
             // Segment from previous to current
-            const current = face.points[n];
             const dCurrent = Face.distance2dLineToPoint(a, b, current);
             if (dLast < -EPSILON) { // Last on the left
                 if (dCurrent < -EPSILON) { // Current on the left
@@ -379,9 +377,8 @@ export class Model {
         Point.align3dFrom2d(a, b, p);
         // Add the point p to both faces.
         const listFaces = this.searchFacesWithAB(a, b);
-        for (let i = 0; i < listFaces.length; i++) {
-            const face = listFaces[i];
-            if (face.points.indexOf(p) === -1) {
+        for (const face of listFaces) {
+            if (face.points.includes(p)) {
                 const pts = face.points;
                 for (let i = 0; i < pts.length; i++) {
                     if (
@@ -523,8 +520,8 @@ export class Model {
     // Split faces by a plane between two segments [ap] [pc].
     bisector3dPoints(a, p, c) {
         // Project [a] on [p c] to get a symmetric point
-        const ap = Math.sqrt((p.x - a.x) * (p.x - a.x) + (p.y - a.y) * (p.y - a.y) + (p.z - a.z) * (p.z - a.z));
-        const cp = Math.sqrt((p.x - c.x) * (p.x - c.x) + (p.y - c.y) * (p.y - c.y) + (p.z - c.z) * (p.z - c.z));
+        const ap = Math.hypot(p.x - a.x, p.y - a.y, p.z - a.z);
+        const cp = Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
         const k = ap / cp;
         // e is on pc symmetric of a
         const e = new Vector3(p.x + k * (c.x - p.x), p.y + k * (c.y - p.y), p.z + k * (c.z - p.z));
@@ -554,7 +551,7 @@ export class Model {
         const angleRd = angle * Math.PI / 180;
         const ax = s.p1.x, ay = s.p1.y, az = s.p1.z;
         let nx = s.p2.x - ax, ny = s.p2.y - ay, nz = s.p2.z - az;
-        const n = 1 / Math.sqrt(nx * nx + ny * ny + nz * nz);
+        const n = 1 / Math.hypot(nx, ny, nz);
         nx *= n;
         ny *= n;
         nz *= n;
@@ -661,19 +658,20 @@ export class Model {
             try {
                 const { Segment } = require('./Segment.js');
                 const list = Segment.incidentFaces(this, seg);
-                if (list && list.length) return list;
+                if (list?.length) return list;
             } catch (e) {
+                console.error(e);
                 // In Deno or ES modules environment, fall back to static import usage below
-                if (typeof Segment !== 'undefined' && Segment.incidentFaces) {
+                if (Segment?.incidentFaces) {
                     const list = Segment.incidentFaces(this, seg);
-                    if (list && list.length) return list;
+                    if (list?.length) return list;
                 }
             }
         }
         // Legacy fallback: faces that contain both vertices (not necessarily adjacent)
         const faces = [];
         this.faces.forEach((f) => {
-            if (f.points.indexOf(b) !== -1 && f.points.indexOf(a) !== -1) {
+            if (f.points.includes(b) && f.points.includes(a)) {
                 faces.push(f);
             }
         });
@@ -720,7 +718,7 @@ export class Model {
             z: AB.x*AC.y - AB.y*AC.x
         };
         const NN = N.x*N.x + N.y*N.y + N.z*N.z;
-        if (NN === 0) return;
+        if (NN <= 0.1) return;
         points.forEach(p => {
             const t = ((p.x-A.x)*N.x + (p.y-A.y)*N.y + (p.z-A.z)*N.z) / NN;
             p.x -= t*N.x;
@@ -789,50 +787,43 @@ export class Model {
 
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
-        // Cache model for replacer
-        const model = this;
+        // Non-serialized / UI-only fields
+        const exclude = new Set(['labels', 'textures', 'overlay', 'lines']);
+        const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
-        function replacer(key, value) {
-            if (value instanceof Segment) {
-                return {'p1': model.points.indexOf(value.p1), 'p2': model.points.indexOf(value.p2)};
-            } else if (value instanceof Face) {
-                return value.points.map((point) => model.points.indexOf(point));
-            } else {
-                // Non-serialized / UI-only fields
-                const EXCLUDE = new Set([
-                    'labels','textures','overlay','lines'
-                ]);
-                if (EXCLUDE.has(key)) return undefined;
-            }
+        const replacer = (key, value) => {
+            if (value instanceof Segment)
+                return { p1: pointIndex.get(value.p1), p2: pointIndex.get(value.p2) };
+            if (value instanceof Face)
+                return value.points.map((p) => pointIndex.get(p));
+            if (exclude.has(key))
+                return undefined;
             return value;
-        }
+        };
         return JSON.stringify(this, replacer);
     }
 
     // Deserialize the model, revive objects, and return a new model
     deserialize(json) {
-        // Define a reviver to convert points objects into Points instances, and indexes into instances
-        function reviver(key, value) {
-            if (key === 'points') {
-                return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
-            } else if (key === 'segments') {
-                return value.map((segment) => new Segment(this.points[segment.p1], this.points[segment.p2]));
-            } else if (key === 'faces') {
-                return value.map((facePoints) => {
-                    return new Face(facePoints.map((index) => this.points[index]));
-                });
-            }
-            return value;
+        return JSON.parse(json, this.reviver);
+    }
+    // Define a reviver to convert points objects into Points instances, and indexes into instance
+    reviver(key, value) {
+        if (key === 'points') {
+            return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
+        } else if (key === 'segments') {
+            return value.map((segment) => new Segment(this.points[segment.p1], this.points[segment.p2]));
+        } else if (key === 'faces') {
+            return value.map((facePoints) => {
+                return new Face(facePoints.map((index) => this.points[index]));
+            });
         }
-
-        const obj = JSON.parse(json, reviver);
-        return obj;
+        return value;
     }
 
     // Get a segment from two points
     getSegment(p1, p2) {
-        for (let i = 0; i < this.segments.length; i++) {
-            const s = this.segments[i];
+        for (const s of this.segments) {
             if ((s.p1 === p1 && s.p2 === p2) || (s.p1 === p2 && s.p2 === p1)) {
                 return s;
             }
