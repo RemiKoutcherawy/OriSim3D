@@ -652,17 +652,8 @@ export class Model {
     searchFacesWithAB(a, b) {
         const seg = this.getSegment(a, b);
         if (seg) {
-            try {
-                const list = Segment.incidentFaces(this, seg);
-                if (list?.length) return list;
-            } catch (e) {
-                console.error(e);
-                // In Deno or ES modules environment, fall back to static import usage below
-                if (Segment?.incidentFaces) {
-                    const list = Segment.incidentFaces(this, seg);
-                    if (list?.length) return list;
-                }
-            }
+            const list = Segment.incidentFaces(this, seg);
+            if (list?.length) return list;
         }
         // Legacy fallback: faces that contain both vertices (not necessarily adjacent)
         const faces = [];

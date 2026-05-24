@@ -264,11 +264,11 @@ export class Command {
             idx += list.length;
             this.model.moveOnPoint(p0, list);
         } else if (tokenList[idx] === 'mos' || tokenList[idx] === 'moveOnSegment') {
-            // Move point on the segment
+            // Move points on the segment
             idx++;
             const s = this.model.segments[tokenList[idx++]];
-            const p = this.model.points[tokenList[idx++]];
-            this.model.moveOnSegment(s, p);
+            list = this.listPoints(tokenList, idx);
+            this.model.moveOnSegment(s, list);
         } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
             // Move n points by dx,dy,dz in 3D with animation: move dx dy dz p1 p2 p3...
             idx++;
@@ -307,22 +307,22 @@ export class Command {
             // Glue P p1 p2 p3... to Point
             idx++;
             const p = this.model.points[tokenList[idx++]];
-            const points = this.listPoints(tokenList, idx);
-            this.glues.push({type: 'p', p, points});
+            list = this.listPoints(tokenList, idx);
+            this.glues.push({type: 'p', p, list});
             this.applyGlues();
         }else if (tokenList[idx] === 'glues') {
             // Glue S p1 p2 p3... to Segment
             idx++;
             const s = this.model.segments[tokenList[idx++]];
-            const points = this.listPoints(tokenList, idx);
-            this.glues.push({type: 's', s, points});
+            list = this.listPoints(tokenList, idx);
+            this.glues.push({type: 's', s, list});
             this.applyGlues();
         }else if (tokenList[idx] === 'gluef') {
             // Glue F p1 p2 p3... to Face
             idx++;
             const f = this.model.faces[tokenList[idx++]];
-            const points = this.listPoints(tokenList, idx);
-            this.glues.push({type: 'f', f, points});
+            list = this.listPoints(tokenList, idx);
+            this.glues.push({type: 'f', f, list});
             this.applyGlues();
         } else if (tokenList[idx] === 'unglue') {
             idx++;
@@ -354,21 +354,30 @@ export class Command {
             this.view3d.translationX += x * b;
             this.view3d.translationY += y * b;
             this.view3d.scale *= a;
-        } else if (tokenList[idx] === 'fit') { // OK
-            // Zoom fit 3d: fit
+        } else if (tokenList[idx] === 'fit') {
             idx++;
-            if (this.tpi === 0) {
-                let bounds = this.model.get3DBounds();
-                const w = 400;
-                this.scale = w / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
-                this.deltaX = -(bounds.xMin + bounds.xMax) / 2;
-                this.deltaY = -(bounds.yMin + bounds.yMax) / 2;
+            const bounds = this.model.get3DBounds();
+            const w = 400;
+            const scale = w / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
+            const deltaX = -(bounds.xMin + bounds.xMax) / 2;
+            const deltaY = -(bounds.yMin + bounds.yMax) / 2;
+            if (this.tpi === 0 && this.tni === 1) {
+                // Sans animation: application directe
+                this.view3d.translationX = deltaX * scale;
+                this.view3d.translationY = deltaY * scale;
+                this.view3d.scale = scale;
+            } else {
+                if (this.tpi === 0) {
+                    this.scale = scale;
+                    this.deltaX = deltaX;
+                    this.deltaY = deltaY;
+                }
+                const a = (1 + this.tni*(this.scale-1)) / (1 + this.tpi*(this.scale-1));
+                const b = this.scale * (this.tni/a - this.tpi);
+                this.view3d.translationX += this.deltaX * b;
+                this.view3d.translationY += this.deltaY * b;
+                this.view3d.scale *= a;
             }
-            const a = ((1 + this.tni * (this.scale - 1)) / (1 + this.tpi * (this.scale - 1)));
-            const b = this.scale * (this.tni / a - this.tpi);
-            this.view3d.translationX += this.deltaX * b;
-            this.view3d.translationY += this.deltaY * b;
-            this.view3d.scale *= a;
         }
 
         // Interpolator

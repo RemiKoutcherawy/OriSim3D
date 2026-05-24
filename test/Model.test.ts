@@ -450,13 +450,11 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         model.splitBy2d(model.points[0], model.points[2]);
         model.splitBy2d(model.points[1], model.points[3]);
-        const s = model.segments[4]; // -200, -200 to 0, 0
+        const s = model.segments[1]; // 200, 0 to 200, 200
         const p = model.points[4]; // 0,0
-        p.x = 10;
-        p.y = 10;
         // Move p on s
         model.moveOnSegment(s, [p]);
-        assertEquals(Math.round(p.x), 0, 'Got:' + p.x);
+        assertEquals(Math.round(p.x), 200, 'Got:' + p.x);
         assertEquals(Math.round(p.y), 0, 'Got:' + p.y);
         assertEquals(Math.round(p.z), 0, 'Got:' + p.z);
     });
