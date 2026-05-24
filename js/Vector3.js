@@ -40,7 +40,7 @@ export class Vector3 {
     }
 
     static length3d(v) {
-        return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+        return Math.hypot(v.x, v.y, v.z);
     }
 
     static normalize(v) {

@@ -27,64 +27,29 @@
 <label for="commandArea">Commandes</label>
 <textarea id="commandArea">d 200 200</textarea>
 
-<button id="burger" aria-label="Menu" aria-expanded="false">
+<button id="burger" onclick="const n=document.getElementById('nav');n.style.display=n.style.display==='block'?'none':'block'"
+        aria-label="Menu" aria-expanded="false">
   <span></span><span></span><span></span>
 </button>
 <div id="nav">
-  <button type="button" data-model="test.txt">Test</button>
-  <button type="button" data-model="boat.txt">Bateau</button>
-  <button type="button" data-model="cocotte.txt">Cocotte</button>
+  <button type="button" onclick="load('test.txt')">Test</button>
+  <button type="button" onclick="load('boat.txt')">Bateau</button>
+  <button type="button" onclick="load('cocotte.txt')">Cocotte</button>
 
 </div>
 <!-- Inlined textures -->
-<img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
-<img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>
+<!--<img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>-->
+<!--<img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>-->
+<script>
+  function load(id) {
+    const nav = document.getElementById('nav');
+    nav.style.display = 'none';
+    document.getElementById('burger').setAttribute('aria-expanded', 'false');
+    globalThis._cmd.command(document.getElementById(id).textContent);
+  }
+</script>
 <!-- Main program -->
 <script type="module">
-  // Navigation
-  document.getElementById('burger').addEventListener('click', toggleNav);
-  function toggleNav() {
-    const nav = document.getElementById('nav');
-    const burger = document.getElementById('burger');
-    const isExpanded = nav.style.display === 'block';
-    nav.style.display = isExpanded ? 'none' : 'block';
-    burger.ariaExpanded = !isExpanded;
-  }
-  document.addEventListener('click', e => {
-    const nav = document.getElementById('nav');
-    if (!document.getElementById('burger').contains(e.target)) nav.style.display = 'none';
-  });
-  document.getElementById('burger').addEventListener('keydown', function(event) {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      this.click();
-    }
-  });
-  document.addEventListener('click', e => {
-    const nav = document.getElementById('nav');
-    if (!document.getElementById('burger').contains(e.target)) {
-      nav.style.display = 'none';
-      document.getElementById('burger').setAttribute('aria-expanded', 'false');
-    }
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      const nav = document.getElementById('nav');
-      nav.style.display = 'none';
-      document.getElementById('burger').setAttribute('aria-expanded', 'false');
-    }
-  });
-  // Models loading
-  document.querySelectorAll('#nav button').forEach(button => {
-    button.addEventListener('click', () => {
-      const modelId = button.dataset.model;
-      const nav = document.getElementById('nav');
-      nav.style.display = 'none';
-      document.getElementById('burger').ariaExpanded = 'false';
-      globalThis._cmd.command(document.getElementById(modelId).textContent);
-    });
-  });
-  // Main program
   import {Model} from "./js/Model.js";
   import {View2d} from "./js/View2d.js";
   import {View3d} from "./js/View3d.js";
