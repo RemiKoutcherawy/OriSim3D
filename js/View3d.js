@@ -148,70 +148,67 @@ export class View3d {
     initTextures() {
         const gl = this.gl;
         // Create a texture object Front
+        const texture = gl.createTexture();
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
         // Placeholder One-Pixel Color Blue 70ACF3
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
         const uSamplerFront = gl.getUniformLocation(gl.program, 'uSamplerFront');
         gl.uniform1i(uSamplerFront, 0);
-
         const imageFront = new Image();
-        imageFront.onload = () => {
-            gl.activeTexture(gl.TEXTURE0);
-            // Flip the image Y coordinate
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-            gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
-            // One of the dimensions is not a power of 2, so set the filtering to render it.
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageFront);
-            // Textures dimensions
-            this.wTexFront = imageFront.width;
-            this.hTexFront = imageFront.height;
-        };
-        // Require CORS
-        // imageFront.src = './textures/front.jpg';
-        // Does not require CORS, use if image is inlined in HTML
-        if (window.document.getElementById('front')) {
-            imageFront.src = window.document.getElementById('front').src;
+        const imageElement = globalThis.document.getElementById('front');
+        if (imageElement && imageElement.src) {
+            imageFront.onload = () => {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageFront);
+                this.wTexFront = imageFront.width;
+                this.hTexFront = imageFront.height;
+            };
+            imageFront.src = imageElement.src;
+        } else {
+            this.wTexFront = 1;
+            this.hTexFront = 1;
         }
 
         // Create a texture object Back
         const textureBack = gl.createTexture();
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, textureBack);
-
-        // Placeholder one-pixel Color Yellow #FDEC43
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFD, 0xEC, 0x43, 0xFF]));
+        // Placeholder one-pixel Color Pink #FBD3DE
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFB, 0xD3, 0xDE, 0xFF]));
         const uSamplerBack = gl.getUniformLocation(gl.program, 'uSamplerBack');
         gl.uniform1i(uSamplerBack, 1);
-
         const imageBack = new Image();
-        imageBack.onload = () => {
-            gl.activeTexture(gl.TEXTURE1);
-            // Flip the image Y coordinate
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-            gl.bindTexture(gl.TEXTURE_2D, textureBack);
-            // One of the dimensions is not a power of 2, so set the filtering to render it.
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageBack);
-            // Textures dimensions
-            this.wTexBack = imageBack.width;
-            this.hTexBack = imageBack.height;
-            // Recompute texture coords
-            this.initBuffers();
-            // First Render
-            this.render();
-        };
-        // Require CORS
-        // imageBack.src = './textures/back.jpg';
-        // Does not require CORS if image is inlined
-        if (window.document.getElementById('back')) {
-            imageBack.src = window.document.getElementById('back').src;
+        const imageBackElement = globalThis.document.getElementById('back');
+        if (imageBackElement && imageBackElement.src) {
+            imageBack.onload = () => {
+                gl.activeTexture(gl.TEXTURE1);
+                // Flip the image Y coordinate
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+                gl.bindTexture(gl.TEXTURE_2D, textureBack);
+                // One of the dimensions is not a power of 2, so set the filtering to render it.
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageBack);
+                // Textures dimensions
+                this.wTexBack = imageBack.width;
+                this.hTexBack = imageBack.height;
+            }
+            imageBack.src = imageBackElement.src;
+        } else {
+                this.wTexBack = 1;
+                this.hTexBack = 1;
         }
+        // Recompute texture coords
+        this.initBuffers();
+        // First Render
+        this.render();
     }
 
     // Perspective and background
