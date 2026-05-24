@@ -14,6 +14,7 @@ export class Command {
     tni = 1;
     // Goal for fit
     scale = 1; deltaX = 0; deltaY = 0;
+    scaleStart = 1; txStart = 0; tyStart = 0;
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
@@ -169,6 +170,14 @@ export class Command {
             const width = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 200;
             const height = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 200;
             this.model.init(width, height);
+            if (this.view3d) {
+                this.view3d.angleX = 0;
+                this.view3d.angleY = 0;
+                this.view3d.angleZ = 0;
+                this.view3d.scale = 1;
+                this.view3d.translationX = 0;
+                this.view3d.translationY = 0;
+            }
         }
 
         // Origami splits
@@ -356,28 +365,22 @@ export class Command {
             this.view3d.scale *= a;
         } else if (tokenList[idx] === 'fit') {
             idx++;
-            const bounds = this.model.get3DBounds();
-            const w = 400;
-            const scale = w / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
-            const deltaX = -(bounds.xMin + bounds.xMax) / 2;
-            const deltaY = -(bounds.yMin + bounds.yMax) / 2;
-            if (this.tpi === 0 && this.tni === 1) {
-                // Sans animation: application directe
-                this.view3d.translationX = deltaX * scale;
-                this.view3d.translationY = deltaY * scale;
-                this.view3d.scale = scale;
-            } else {
-                if (this.tpi === 0) {
-                    this.scale = scale;
-                    this.deltaX = deltaX;
-                    this.deltaY = deltaY;
-                }
-                const a = (1 + this.tni*(this.scale-1)) / (1 + this.tpi*(this.scale-1));
-                const b = this.scale * (this.tni/a - this.tpi);
-                this.view3d.translationX += this.deltaX * b;
-                this.view3d.translationY += this.deltaY * b;
-                this.view3d.scale *= a;
+            if (this.tpi === 0) {
+                const bounds = this.model.get3DBounds();
+                const w = 400;
+                this.scale = w / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
+                this.deltaX = -(bounds.xMin + bounds.xMax) / 2;
+                this.deltaY = -(bounds.yMin + bounds.yMax) / 2;
+                this.scaleStart = this.view3d.scale;
+                this.txStart = this.view3d.translationX;
+                this.tyStart = this.view3d.translationY;
             }
+            const targetTx = this.deltaX * this.scale;
+            const targetTy = this.deltaY * this.scale;
+            const targetScale = this.scale;
+            this.view3d.translationX = this.txStart + (targetTx - this.txStart) * this.tni;
+            this.view3d.translationY = this.tyStart + (targetTy - this.tyStart) * this.tni;
+            this.view3d.scale = this.scaleStart + (targetScale - this.scaleStart) * this.tni;
         }
 
         // Interpolator
