@@ -18,13 +18,13 @@ export class Interpolator {
     /** @return {number} */
     static SpringOvershootInterpolator = function SpringOvershootInterpolator(t) {
         if (t < 0.1825)
-            return (((-237.110 * t) + 61.775) * t + 3.664) * t;
+            return (((-237.11 * t) + 61.775) * t + 3.664) * t;
         if (t < 0.425)
             return (((74.243 * t) - 72.681) * t + 21.007) * t - 0.579;
         if (t < 0.6875)
             return (((-16.378 * t) + 28.574) * t - 15.913) * t + 3.779;
         if (t < 1)
-            return (((5.120 * t) - 12.800) * t + 10.468) * t - 1.788;
+            return (((5.12 * t) - 12.800) * t + 10.468) * t - 1.788;
         return (((-176.823 * t) + 562.753) * t - 594.598) * t + 209.669;
     }
     // Model of a spring with bounce "isb"
@@ -39,7 +39,7 @@ export class Interpolator {
         else if (t < 0.75)
             x = (((5.892 * t) - 10.432) * t + 5.498) * t + 0.257;
         else if (t < 1)
-            x = (((1.520 * t) - 2.480) * t + 0.835) * t + 1.125;
+            x = (((1.52 * t) - 2.480) * t + 0.835) * t + 1.125;
         else x = (((-299.289 * t) + 945.190) * t - 991.734) * t + 346.834;
         return x > 1 ? 2 - x : x;
     }
@@ -62,15 +62,14 @@ export class Interpolator {
     // Bounce at the end "ib"
     /** @return {number} */
     static BounceInterpolator = function BounceInterpolator(t) {
-        function bounce(t) {
-            return t * t * 8;
-        }
-
         t *= 1.1226;
-        if (t < 0.3535) return bounce(t);
-        else if (t < 0.7408) return bounce(t - 0.54719) + 0.7;
-        else if (t < 0.9644) return bounce(t - 0.8526) + 0.9;
-        else return bounce(t - 1.0435) + 0.95;
+        if (t < 0.3535) return Interpolator.bounce(t);
+        else if (t < 0.7408) return Interpolator.bounce(t - 0.54719) + 0.7;
+        else if (t < 0.9644) return Interpolator.bounce(t - 0.8526) + 0.9;
+        else return Interpolator.bounce(t - 1.0435) + 0.95;
+    }
+    static bounce = function bounce(t) {
+        return t * t * 8;
     }
     // Overshoot "io"
     /** @return {number} */
@@ -85,21 +84,21 @@ export class Interpolator {
         const mTension = 0; // 2
         return t * t * ((mTension + 1) * t - mTension);
     }
+    static #a(t, s) {
+        return t * t * ((s + 1) * t - s);
+    }
+
+    static #o(t, s) {
+        return t * t * ((s + 1) * t + s);
+    }
+
     // Anticipate Overshoot "iao"
     /** @return {number} */
     static AnticipateOvershootInterpolator = function AnticipateOvershootInterpolator(t) {
         const mTension = 1.5;
 
-        function a(t, s) {
-            return t * t * ((s + 1) * t - s);
-        }
-
-        function o(t, s) {
-            return t * t * ((s + 1) * t + s);
-        }
-
-        if (t < 0.5) return 0.5 * a(t * 2, mTension);
-        else return 0.5 * (o(t * 2 - 2, mTension) + 2);
+        if (t < 0.5) return 0.5 * Interpolator.#a(t * 2, mTension);
+        else return 0.5 * (Interpolator.#o(t * 2 - 2, mTension) + 2);
     }
 }
 // 105

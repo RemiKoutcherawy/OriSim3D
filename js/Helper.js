@@ -93,12 +93,10 @@ export class Helper {
         if (this.firstPoint) {
             this.firstPoint.hover = true;
             // From Point with selected segment(s)
-            const segments = this.model.segments.filter(s => s.select === 1);
-            if (segments.length >= 1) {
-                // The first selected segment
-                const s = segments[0];
+            const s = this.model.segments.find(s => s.select === 1);
+            if (s) {
                 // Deselect other segments
-                segments.filter(sg => (sg.select === 1)).forEach(sg => {
+                this.model.segments.filter(sg => sg.select === 1).forEach(sg => {
                     if (sg !== s) {
                         sg.select = 0;
                     }
@@ -163,7 +161,8 @@ export class Helper {
         if (this.firstPoint) {
             // To Point
             if (points.length !== 0 && this.label === undefined) {
-                if (this.firstPoint === points[0]) {
+                const p = points[0];
+                if (this.firstPoint === p) {
                     // To the same point select
                     points.forEach((p) => {
                         p.select = (p.select + 1) % 3;
@@ -178,10 +177,11 @@ export class Helper {
                 }
                 // To another point
                 else if (points.length > 0) {
+                    const p = points[0];
                     const aIndex = this.model.indexOf(this.firstPoint);
-                    const bIndex = this.model.indexOf(points[0]);
+                    const bIndex = this.model.indexOf(p);
                     // Two points on an existing segment
-                    if (this.model.getSegment(this.firstPoint, points[0])) {
+                    if (this.model.getSegment(this.firstPoint, p)) {
                         if (this.currentCanvas === '2d') {
                             this.command.command(`across2d ${aIndex} ${bIndex}`);
                         } else {
@@ -211,8 +211,8 @@ export class Helper {
             }
             // To face or nothing checks if rotating
             else if (this.label) {
-                const segments = this.model.segments.filter(s => s.select === 1);
-                const aIndex = this.model.indexOf(segments[0]);
+                const s = this.model.segments.find(s => s.select === 1);
+                const aIndex = this.model.indexOf(s);
                 const selected = this.model.points.filter(s => s.select === 1);
                 const bIndex = selected.map(p => this.model.points.indexOf(p));
                 const adjust = this.model.points.filter(s => s.select === 2);
@@ -227,29 +227,34 @@ export class Helper {
         // From segment
         else if (this.firstSegment) {
             // To same segment select
-            if (segments.length !== 0 && segments[0] === this.firstSegment) {
-                segments.forEach((s) => s.select = (s.select + 1) % 3);
-                let liste = segments.map(s => (this.model.indexOf(s) + '[' + Math.round(Segment.length2d(s) * 10) / 10 + ',' + Math.round(Segment.length3d(s) * 10) / 10)+ ']').join(' ');
-                if (this.commandArea) this.commandArea.addLine(`segments n[l2d,l3d] ${liste}`);
-            }
-            // To point crease perpendicular from segment to point
-            else if (points.length !== 0) {
-                const aIndex = this.model.indexOf(this.firstSegment);
-                const bIndex = this.model.indexOf(points[0]);
-                if (this.currentCanvas === '2d') {
-                    this.command.command(`perpendicular2d ${aIndex} ${bIndex}`);
-                } else {
-                    this.command.command(`perpendicular3d ${aIndex} ${bIndex}`);
+            if (segments.length !== 0) {
+                const s = segments[0];
+                if (s === this.firstSegment) {
+                    segments.forEach((s) => s.select = (s.select + 1) % 3);
+                    let liste = segments.map(s => (this.model.indexOf(s) + '[' + Math.round(Segment.length2d(s) * 10) / 10 + ',' + Math.round(Segment.length3d(s) * 10) / 10) + ']').join(' ');
+                    if (this.commandArea) this.commandArea.addLine(`segments n[l2d,l3d] ${liste}`);
                 }
-            }
-            // To another segment crease bisector
-            else if (segments.length !== 0) {
-                const aIndex = this.model.indexOf(this.firstSegment);
-                const bIndex = this.model.indexOf(segments[0]);
-                if (this.currentCanvas === '2d') {
-                    this.command.command(`bisector2d ${aIndex} ${bIndex}`);
-                } else {
-                    this.command.command(`bisector3d ${aIndex} ${bIndex}`);
+                // To point crease perpendicular from segment to point
+                else if (points.length !== 0) {
+                    const p = points[0];
+                    const aIndex = this.model.indexOf(this.firstSegment);
+                    const bIndex = this.model.indexOf(p);
+                    if (this.currentCanvas === '2d') {
+                        this.command.command(`perpendicular2d ${aIndex} ${bIndex}`);
+                    } else {
+                        this.command.command(`perpendicular3d ${aIndex} ${bIndex}`);
+                    }
+                }
+                // To another segment crease bisector
+                else if (segments.length !== 0) {
+                    const s = segments[0];
+                    const aIndex = this.model.indexOf(this.firstSegment);
+                    const bIndex = this.model.indexOf(s);
+                    if (this.currentCanvas === '2d') {
+                        this.command.command(`bisector2d ${aIndex} ${bIndex}`);
+                    } else {
+                        this.command.command(`bisector3d ${aIndex} ${bIndex}`);
+                    }
                 }
             }
         }
@@ -420,19 +425,17 @@ export class Helper {
 
     doubleClick() {
         if (this.touchTime === 0) {
-            this.touchTime = new Date().getTime();
+            this.touchTime = Date.now();
+        } else if (((Date.now()) - this.touchTime) < 400) {
+            this.view3d.angleX = 0;
+            this.view3d.angleY = 0;
+            this.view3d.angleZ = 0;
+            this.view3d.translationX = 0;
+            this.view3d.translationY = 0;
+            this.view3d.scale = 1;
+            this.command.command(`fit`);
         } else {
-            if (((new Date().getTime()) - this.touchTime) < 400) {
-                this.view3d.angleX = 0;
-                this.view3d.angleY = 0;
-                this.view3d.angleZ = 0;
-                this.view3d.translationX = 0;
-                this.view3d.translationY = 0;
-                this.view3d.scale = 1;
-                this.command.command(`fit`);
-            } else {
-                this.touchTime = new Date().getTime();
-            }
+            this.touchTime = Date.now();
         }
     }
 

@@ -16,21 +16,31 @@ export class Segment {
     static incidentFaces(model, segment) {
         if (!model || !segment) return [];
         const faces = [];
-        if (model.faces) {
-            for (const face of model.faces) {
-                const pts = face.points || [];
-                for (let i = 0; i < pts.length; i++) {
-                    const a = pts[i];
-                    const b = pts[(i + 1) % pts.length];
-                    if ((a === segment.p1 && b === segment.p2) || (a === segment.p2 && b === segment.p1)) {
-                        if (!faces.includes(face)) faces.push(face);
-                        break;
-                    }
+        if (!model.faces) return faces;
+        for (const face of model.faces) {
+            if (this.#faceContainsSegment(face, segment)) {
+                if (!faces.includes(face)) {
+                    faces.push(face);
                 }
                 if (faces.length === 2) break;
             }
         }
         return faces;
+    }
+
+    /**
+     * Check if a face contains the given segment (in any order)
+     */
+    static #faceContainsSegment(face, segment) {
+        const pts = face.points || [];
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i];
+            const b = pts[(i + 1) % pts.length];
+            if ((a === segment.p1 && b === segment.p2) || (a === segment.p2 && b === segment.p1)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // 2d distance from Segment to Point
@@ -116,10 +126,9 @@ export class Segment {
             if (a3 * a4 <= 0) {
                 if (a3 - a4 === 0) {
                     return collinear(a, b, c, d);
-                } else {
-                    const t = a3 / (a3 - a4);
-                    return new Point(a.xf + t * (b.xf - a.xf), a.yf + t * (b.yf - a.yf));
                 }
+                const t = a3 / (a3 - a4);
+                return new Point(a.xf + t * (b.xf - a.xf), a.yf + t * (b.yf - a.yf));
             }
         }
         return undefined;

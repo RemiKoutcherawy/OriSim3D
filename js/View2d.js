@@ -12,7 +12,7 @@ export class View2d {
     }
 
     getFaceVerticesCCW(face) {
-        return face && face.points ? face.points : [];
+        return face?.points ?? [];
     }
 
     // Fit to show all the model in the view

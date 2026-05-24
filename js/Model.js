@@ -269,11 +269,10 @@ export class Model {
                     inter = Segment.intersectionFlat(a, b, last, current);
                     if (inter === undefined) {
                         return;
-                    } else {
-                        // Origami
-                        Point.align3dFrom2d(last, current, inter);
-                        inter = this.addIntersectionPoint(inter, left, right, last, current);
                     }
+                    // Origami
+                    Point.align3dFrom2d(last, current, inter);
+                    inter = this.addIntersectionPoint(inter, left, right, last, current);
                     right.push(current);
                 }
             } else if (Math.abs(dLast) <= EPSILON) { // Last on the line
@@ -298,12 +297,11 @@ export class Model {
                     inter = Segment.intersectionFlat(a, b, last, current);
                     if (inter === undefined) {
                         return;
-                    } else {
-                        // Origami
-                        Point.align3dFrom2d(last, current, inter);
-                        // Add intersection to both sides
-                        inter = this.addIntersectionPoint(inter, left, right, last, current);
                     }
+                    // Origami
+                    Point.align3dFrom2d(last, current, inter);
+                    // Add intersection to both sides
+                    inter = this.addIntersectionPoint(inter, left, right, last, current);
                     left.push(current);
                 } else if (Math.abs(dCurrent) <= EPSILON) { // Current on the line
                     if (
@@ -311,10 +309,9 @@ export class Model {
                             undefined
                     ) {
                         return;
-                    } else {
-                        left.push(current);
-                        right.push(current);
                     }
+                    left.push(current);
+                    right.push(current);
                 } else if (dCurrent > EPSILON) { // Current on right
                     right.push(current);
                 }
@@ -698,7 +695,9 @@ export class Model {
     // Move on a segment s the following points.
     moveOnSegment(s, points) {
         const A = s.p1, B = s.p2;
-        const abx = B.x - A.x, aby = B.y - A.y, abz = B.z - A.z;
+        const abx = B.x - A.x;
+        const aby = B.y - A.y;
+        const abz = B.z - A.z;
         points.forEach(function (p) {
             const t = (abx * (p.x - A.x) + aby * (p.y - A.y) + abz * (p.z - A.z)) / (abx * abx + aby * aby + abz * abz);
             p.x = A.x + abx * t;
@@ -728,7 +727,7 @@ export class Model {
 
     // Move given or all points to z = 0
     flat(points) {
-        points = points ? points : this.points;
+        points = points ?? this.points;
         points.forEach((point) => point.z = 0)
     }
 

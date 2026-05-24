@@ -29,7 +29,7 @@ Deno.test("distance2d - calculates 2D distance from a point to a segment", async
   await t.step("Apart and aligned on XY", () => {
     p3 = new Point(110, 110);
     const d = Segment.distance2d(p1.xf, p1.yf, p2.xf, p2.yf, p3.xf, p3.yf);
-    assertEquals(d, Math.sqrt(10 * 10 + 10 * 10), "distanceToSegment");
+    assertEquals(d, Math.hypot(10, 10), "distanceToSegment");
   });
   await t.step("3,4,5 (9+16=25)", () => {
     p3 = new Point(-30, -40);
