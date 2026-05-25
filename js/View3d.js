@@ -22,7 +22,6 @@ export class View3d {
         gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
         vTexCoordsFront = aTexCoordsFront;
         vTexCoordsBack  = aTexCoordsBack;
-        highp vec3 ambientLight = vec3(0.1, 0.1, 0.1);
         highp vec3 directionalVector =  normalize(vec3(0.1, 0.1, 0.75)); // normalize(vec3(0.85, 0.8, 0.75));
         highp vec4 normal = normalize(uModelViewMatrix * vec4(aVertexNormal, 0.0));
         float directional = dot(normal.xyz, directionalVector);
@@ -117,12 +116,16 @@ export class View3d {
         const vxShader = gl.createShader(gl.VERTEX_SHADER);
         gl.shaderSource(vxShader, this.VERTEX_SHADER);
         gl.compileShader(vxShader);
-
+        if (!gl.getShaderParameter(vxShader, gl.COMPILE_STATUS)) {
+            console.error(gl.getShaderInfoLog(vxShader));
+        }
         // Fragment
         const fgShader = gl.createShader(gl.FRAGMENT_SHADER);
         gl.shaderSource(fgShader, this.FRAGMENT_SHADER);
         gl.compileShader(fgShader);
-
+        if (!gl.getShaderParameter(vxShader, gl.COMPILE_STATUS)) {
+            console.error(gl.getShaderInfoLog(vxShader));
+        }
         // Create the shader program
         const program = gl.createProgram();
         gl.attachShader(program, vxShader);
@@ -148,9 +151,9 @@ export class View3d {
     initTextures() {
         const gl = this.gl;
         // Create a texture object Front
-        const texture = gl.createTexture();
+        const textureFront = gl.createTexture();
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+        gl.bindTexture(gl.TEXTURE_2D, textureFront);
         // Placeholder One-Pixel Color Blue 70ACF3
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
         const uSamplerFront = gl.getUniformLocation(gl.program, 'uSamplerFront');
@@ -160,7 +163,7 @@ export class View3d {
         if (imageElement && imageElement.src) {
             imageFront.onload = () => {
                 gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.bindTexture(gl.TEXTURE_2D, textureFront);
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -344,7 +347,8 @@ export class View3d {
                 }
             }
             // n.normalize();
-            const sq = Math.sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            const sq = Math.hypot(n[0], n[1], n[2]);
+            if (sq < 1e-6) return [0, 0, 1];
             n[0] /= sq;
             n[1] /= sq;
             n[2] /= sq;
@@ -407,8 +411,10 @@ export class View3d {
             // Segments drawElements and not drawArrays because normals imply 3 vertices per triangle
             const uLine = gl.getUniformLocation(gl.program, 'uLine');
             gl.uniform1i(uLine, 1); // Draw lines in black
+            gl.disable(gl.DEPTH_TEST);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
             gl.drawElements(gl.LINES, this.lin.length, gl.UNSIGNED_SHORT, 0);
+            gl.enable(gl.DEPTH_TEST);
             gl.uniform1i(uLine, 0); // Back to normal
         }
 
@@ -547,7 +553,7 @@ class Label {
 
 // 571 lines of code
 
-class Mat4 extends Float32Array {
+class Mat4 {
     static EPSILON = 0.00001;
 
     static create() {
