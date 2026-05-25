@@ -73,11 +73,11 @@ export class Helper {
 
     // Logic begins here
     down(points, segments, faces, x, y) {
-        if (points.length !== 0) {
+        if (points.length > 0) {
             this.firstPoint = points[0];
-        } else if (segments.length !== 0) {
+        } else if (segments.length > 0) {
             this.firstSegment = segments[0];
-        } else if (faces.length !== 0) {
+        } else if (faces.length > 0) {
             this.firstFace = faces[0];
         } else {
             this.firstPoint = undefined;
@@ -160,7 +160,7 @@ export class Helper {
         // From a point
         if (this.firstPoint) {
             // To Point
-            if (points.length !== 0 && this.label === undefined) {
+            if (points.length > 0 && this.label === undefined) {
                 const p = points[0];
                 if (this.firstPoint === p) {
                     // To the same point select
@@ -199,7 +199,7 @@ export class Helper {
                 }
             }
             // To segment
-            else if (segments.length !== 0 && this.label === undefined) {
+            else if (segments.length > 0 && this.label === undefined) {
                 // Crease perpendicular from segment to point
                 const aIndex = this.model.indexOf(segments[0]);
                 const bIndex = this.model.indexOf(this.firstPoint);
@@ -227,7 +227,7 @@ export class Helper {
         // From segment
         else if (this.firstSegment) {
             // To same segment select
-            if (segments.length !== 0) {
+            if (segments.length > 0) {
                 const s = segments[0];
                 if (s === this.firstSegment) {
                     segments.forEach((s) => s.select = (s.select + 1) % 3);
@@ -235,7 +235,7 @@ export class Helper {
                     if (this.commandArea) this.commandArea.addLine(`segments n[l2d,l3d] ${liste}`);
                 }
                 // To point crease perpendicular from segment to point
-                else if (points.length !== 0) {
+                else if (points.length > 0) {
                     const p = points[0];
                     const aIndex = this.model.indexOf(this.firstSegment);
                     const bIndex = this.model.indexOf(p);
@@ -246,7 +246,7 @@ export class Helper {
                     }
                 }
                 // To another segment crease bisector
-                else if (segments.length !== 0) {
+                else if (segments.length > 0) {
                     const s = segments[0];
                     const aIndex = this.model.indexOf(this.firstSegment);
                     const bIndex = this.model.indexOf(s);
@@ -260,7 +260,7 @@ export class Helper {
         }
         // From face
         else if (this.firstFace) {
-            if (faces.length !== 0 && this.firstFace === faces[0]) {
+            if (faces.length > 0 && this.firstFace === faces[0]) {
                 // To the same face
                 this.model.click2d3d(points, segments, faces);
                 let liste = faces.map(f => this.model.indexOf(f) + ':' + f.offset).join(' ');
@@ -391,7 +391,7 @@ export class Helper {
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
             this.view3d.angleY += dx;
-        } else if ((event.buttons & 2) !== 0) {
+        } else if ((event.buttons & 2) > 0) {
             // Translation
             const dx = (xCanvas - this.currentX);
             const dy = (yCanvas - this.currentY);

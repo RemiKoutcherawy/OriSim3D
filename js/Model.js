@@ -57,22 +57,22 @@ export class Model {
         this.segments.forEach((s) => s.hover = false);
         this.faces.forEach((f) => f.hover = false);
         // Hover
-        if (points.length !== 0) {
+        if (points.length > 0) {
             points.forEach((p) => p.hover = true);
-        } else if (segments.length !== 0) {
+        } else if (segments.length > 0) {
             segments.forEach((s) => s.hover = true);
-        } else if (faces.length !== 0) {
+        } else if (faces.length > 0) {
             faces.forEach((f) => f.hover = true);
         }
     }
 
     // Handle click2d3d on points, segments, faces 2d and 3d
     click2d3d(points, segments, faces) {
-        if (points.length !== 0) {
+        if (points.length > 0) {
             points.forEach((p) => p.select = (p.select + 1) % 3);
-        } else if (segments.length !== 0) {
+        } else if (segments.length > 0) {
             segments.forEach((s) => s.select = (s.select + 1) % 3);
-        } else if (faces.length !== 0) {
+        } else if (faces.length > 0) {
             faces.forEach((f) => f.select = (f.select + 1) % 3);
         }
     }
@@ -600,7 +600,7 @@ export class Model {
                 }
             }
             // Set Point with an average position taking all segments
-            if (segments.length !== 0) {
+            if (segments.length > 0) {
                 point.x = pm.x / segments.length;
                 point.y = pm.y / segments.length;
                 point.z = pm.z / segments.length;

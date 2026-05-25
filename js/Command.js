@@ -125,7 +125,7 @@ export class Command {
             this.tni = this.interpolator(tn);
             // Execute commands after t xxx up to end of line
             let iBeginAnim = this.iToken;
-            while (this.tokenTodo[this.iToken] !== '\n' && this.iToken < this.tokenTodo.length) {
+            while (this.iToken < this.tokenTodo.length && this.tokenTodo[this.iToken] !== '\n') {
                 this.execute(this.iToken);
             }
             // t preceding (tpi) is now to t now (tni)
@@ -184,71 +184,71 @@ export class Command {
         else if (tokenList[idx] === 'by3d') {
             // Split by two points in 3d: by3d p1 p2
             idx++;
-            let p1 = this.model.points[tokenList[idx++]];
-            let p2 = this.model.points[tokenList[idx++]];
+            let p1 = this.model.points[Number(tokenList[idx++])];
+            let p2 = this.model.points[Number(tokenList[idx++])];
             this.model.splitBy3d(p1, p2);
         } else if (tokenList[idx] === 'by2d') {
             // Split by two points in 2d on the crease pattern: by 2d p1 p2
             idx++;
-            let p1 = this.model.points[tokenList[idx++]];
-            let p2 = this.model.points[tokenList[idx++]];
+            let p1 = this.model.points[Number(tokenList[idx++])];
+            let p2 = this.model.points[Number(tokenList[idx++])];
             this.model.splitBy2d(p1, p2);
         } else if (tokenList[idx] === 'c' ||tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d' || tokenList[idx] === 'cross3d') {
             // Split across two points in 3d: c3d p1 p2;
             idx++;
-            let p1 = this.model.points[tokenList[idx++]];
-            let p2 = this.model.points[tokenList[idx++]];
+            let p1 = this.model.points[Number(tokenList[idx++])];
+            let p2 = this.model.points[Number(tokenList[idx++])];
             this.model.splitCross3d(p1, p2);
         } else if (tokenList[idx] === 'c2d' || tokenList[idx] === 'across2d') {
             // Split across two points on 2d the crease pattern: c2d p1 p2;
             idx++;
-            let p1 = this.model.points[tokenList[idx++]];
-            let p2 = this.model.points[tokenList[idx++]];
+            let p1 = this.model.points[Number(tokenList[idx++])];
+            let p2 = this.model.points[Number(tokenList[idx++])];
             this.model.splitCross2d(p1, p2);
         } else if (tokenList[idx] === 'p2d' || tokenList[idx] === 'perpendicular2d') {
             // Split perpendicular to segment by point in 2d: p s1 p1;
             idx++;
-            const s = this.model.segments[tokenList[idx++]];
-            let p = this.model.points[tokenList[idx++]];
+            const s = this.model.segments[Number(tokenList[idx++])];
+            let p = this.model.points[Number(tokenList[idx++])];
             this.model.splitPerpendicular2d(s, p);
         } else if (tokenList[idx] === 'p3d' || tokenList[idx] === 'perpendicular3d') {
             // Split perpendicular to segment by point in 3d: p s1 p1;
             idx++;
-            const s = this.model.segments[tokenList[idx++]];
-            let p = this.model.points[tokenList[idx++]];
+            const s = this.model.segments[Number(tokenList[idx++])];
+            let p = this.model.points[Number(tokenList[idx++])];
             this.model.splitPerpendicular3d(s, p);
         } else if (tokenList[idx] === 'bisector2d') {
             // Split by a line passing between segments: s2d s1 s2;
             idx++;
-            const s1 = this.model.segments[tokenList[idx++]];
-            const s2 = this.model.segments[tokenList[idx++]];
+            const s1 = this.model.segments[Number(tokenList[idx++])];
+            const s2 = this.model.segments[Number(tokenList[idx++])];
             this.model.bisector2d(s1, s2);
         } else if (tokenList[idx] === 'bisector3d') {
             // Split by a plane passing between segments: s1 s2;
             idx++;
-            const s1 = this.model.segments[tokenList[idx++]];
-            const s2 = this.model.segments[tokenList[idx++]];
+            const s1 = this.model.segments[Number(tokenList[idx++])];
+            const s2 = this.model.segments[Number(tokenList[idx++])];
             this.model.bisector3d(s1.p1, s1.p2, s2.p1, s2.p2);
         } else if (tokenList[idx] === 'bisector2dPoints') {
             // Split by a line bisector of 3 points A B C. B is in the middle
             idx++;
-            let a = this.model.points[tokenList[idx++]];
-            let b = this.model.points[tokenList[idx++]];
-            let c = this.model.points[tokenList[idx++]];
+            let a = this.model.points[Number(tokenList[idx++])];
+            let b = this.model.points[Number(tokenList[idx++])];
+            let c = this.model.points[Number(tokenList[idx++])];
             this.model.bisector2dPoints(a, b, c);
         }  else if (tokenList[idx] === 'bisector3dPoints') {
             // Split by a plane bisector of 3 points A B C. B is in the middle
             idx++;
-            let a = this.model.points[tokenList[idx++]];
-            let b = this.model.points[tokenList[idx++]];
-            let c = this.model.points[tokenList[idx++]];
+            let a = this.model.points[Number(tokenList[idx++])];
+            let b = this.model.points[Number(tokenList[idx++])];
+            let c = this.model.points[Number(tokenList[idx++])];
             this.model.bisector3dPoints(a, b, c);
         }
         // Segment split
         else if (tokenList[idx] === 'split'|| tokenList[idx] === 'splitSegment2d') { // "s: split segment factor"
             // Split segment by ratio
             idx++;
-            const s = this.model.segments[tokenList[idx++]];
+            const s = this.model.segments[Number(tokenList[idx++])];
             const k = Number.parseFloat(tokenList[idx++]);
             if (k >= 0 && k <= 1) {
                 this.model.splitSegmentByRatio2d(s, k);
@@ -259,8 +259,8 @@ export class Command {
         else if (tokenList[idx] === 'r' || tokenList[idx] === 'rotate') {
             // Rotate around 'Seg' with 'Angle' all 'Points' with animation: r s1 angle p1 p2 p3...
             idx++;
-            const s = this.model.segments[tokenList[idx++]];
-            const angle = tokenList[idx++] * (this.tni - this.tpi);
+            const s = this.model.segments[Number(tokenList[idx++])];
+            const angle = Number(tokenList[idx++]) * (this.tni - this.tpi);
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.rotate(s, angle, list);
@@ -268,22 +268,22 @@ export class Command {
         } else if (tokenList[idx] === 'mop' || tokenList[idx] === 'moveOnPoint') {
             // Move all points on first
             idx++;
-            let p0 = this.model.points[tokenList[idx++]];
+            let p0 = this.model.points[Number(tokenList[idx++])];
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.moveOnPoint(p0, list);
         } else if (tokenList[idx] === 'mos' || tokenList[idx] === 'moveOnSegment') {
             // Move points on the segment
             idx++;
-            const s = this.model.segments[tokenList[idx++]];
+            const s = this.model.segments[Number(tokenList[idx++])];
             list = this.listPoints(tokenList, idx);
             this.model.moveOnSegment(s, list);
         } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
             // Move n points by dx,dy,dz in 3D with animation: move dx dy dz p1 p2 p3...
             idx++;
-            const dx = tokenList[idx++] * (this.tni - this.tpi);
-            const dy = tokenList[idx++] * (this.tni - this.tpi);
-            const dz = tokenList[idx++] * (this.tni - this.tpi);
+            const dx = Number(tokenList[idx++]) * (this.tni - this.tpi);
+            const dy = Number(tokenList[idx++]) * (this.tni - this.tpi);
+            const dz = Number(tokenList[idx++]) * (this.tni - this.tpi);
             list = this.listPoints(tokenList, idx);
             idx += list.length;
             this.model.movePoints(dx, dy, dz, list);
@@ -315,23 +315,23 @@ export class Command {
         } else if (tokenList[idx] === 'gluep') {
             // Glue P p1 p2 p3... to Point
             idx++;
-            const p = this.model.points[tokenList[idx++]];
+            const p = this.model.points[Number(tokenList[idx++])];
             list = this.listPoints(tokenList, idx);
-            this.glues.push({type: 'p', p, list});
+            this.glues.push({ type: 'p', p, points: list });
             this.applyGlues();
         }else if (tokenList[idx] === 'glues') {
             // Glue S p1 p2 p3... to Segment
             idx++;
-            const s = this.model.segments[tokenList[idx++]];
+            const s = this.model.segments[Number(tokenList[idx++])];
             list = this.listPoints(tokenList, idx);
-            this.glues.push({type: 's', s, list});
+            this.glues.push({type: 's', s, points: list});
             this.applyGlues();
         }else if (tokenList[idx] === 'gluef') {
             // Glue F p1 p2 p3... to Face
             idx++;
-            const f = this.model.faces[tokenList[idx++]];
+            const f = this.model.faces[Number(tokenList[idx++])];
             list = this.listPoints(tokenList, idx);
-            this.glues.push({type: 'f', f, list});
+            this.glues.push({type: 'f', f, points: list});
             this.applyGlues();
         } else if (tokenList[idx] === 'unglue') {
             idx++;
