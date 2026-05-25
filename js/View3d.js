@@ -88,6 +88,7 @@ export class View3d {
     ftxBuffer = null;
     btxBuffer = null;
     linBuffer = null;
+    vao = null;
 
     constructor(model, canvas3d, overlay = null) {
         // Instance variables
@@ -239,6 +240,10 @@ export class View3d {
     // Buffers
     initBuffers() {
         const gl = this.gl;
+        if (!this.vao) {
+            this.vao = gl.createVertexArray();
+        }
+        gl.bindVertexArray(this.vao);
         this.vtx = []; // vertex coords
         this.ftx = []; // front texture coords
         this.btx = []; // back texture coords
@@ -330,6 +335,8 @@ export class View3d {
 
         // uniform flag for lines
         gl.uniform1i(gl.getUniformLocation(gl.program, 'uLine'), 0);
+        // Unbind VAO after setup
+        gl.bindVertexArray(null);
 
         // Compute Face normal in [3]
         function normal(pts) {
@@ -400,6 +407,7 @@ export class View3d {
 
         // Faces with texture shader
         gl.useProgram(gl.program);
+        gl.bindVertexArray(this.vao);
 
         // Clear and draw triangles
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
