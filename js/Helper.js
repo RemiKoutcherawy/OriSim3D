@@ -33,57 +33,43 @@ export class Helper {
 
     // init properties
     out() {
-        this.firstX = undefined;
-        this.firstY = undefined;
-        this.currentX = undefined;
-        this.currentY = undefined;
-        this.firstPoint = undefined;
-        this.firstSegment = undefined;
-        this.firstFace = undefined;
-        this.currentCanvas = undefined;
-        this.label = undefined;
+        this.firstX = this.firstY = this.currentX = this.currentY = undefined;
+        this.firstPoint = this.firstSegment = this.firstFace = this.currentCanvas = this.label = undefined;
     }
 
     // Draw only if a point, segment, or face is selected
     draw() {
-        const context = this.currentCanvas === '2d' ? this.canvas2d.getContext('2d') : this.overlay.getContext('2d');
-        if (this.firstPoint || this.firstSegment || this.firstFace) {
-            context.lineWidth = 4;
-            context.lineCap = 'round';
-            context.strokeStyle = 'green';
+        if (!this.firstPoint && !this.firstSegment && !this.firstFace) {
+            return;
+        }
+        const context = (this.currentCanvas === '2d' ? this.canvas2d : this.overlay).getContext('2d');
+        context.lineWidth = 4;
+        context.lineCap = 'round';
+        context.strokeStyle = 'green';
+        context.beginPath();
+        context.moveTo(this.firstX, this.firstY);
+        context.lineTo(this.currentX, this.currentY);
+        context.stroke();
+        if (this.label) {
+            // Circle
+            const radius = 18;
+            context.fillStyle = 'skyblue';
             context.beginPath();
-            context.moveTo(this.firstX, this.firstY);
-            context.lineTo(this.currentX, this.currentY);
+            context.arc(this.currentX, this.currentY - 16, radius, 0, 2 * Math.PI);
             context.stroke();
-            if (this.label) {
-                // Circle
-                const radius = 18;
-                context.fillStyle = 'skyblue';
-                context.beginPath();
-                context.arc(this.currentX, this.currentY - 16, radius, 0, 2 * Math.PI);
-                context.stroke();
-                context.fill();
-                // Text
-                context.fillStyle = 'black';
-                context.font = '20px serif';
-                context.fillText(this.label, this.currentX - 10, this.currentY - 8);
-            }
+            context.fill();
+            // Text
+            context.fillStyle = 'black';
+            context.font = '20px serif';
+            context.fillText(this.label, this.currentX - 10, this.currentY - 8);
         }
     }
 
     // Logic begins here
     down(points, segments, faces, x, y) {
-        if (points.length > 0) {
-            this.firstPoint = points[0];
-        } else if (segments.length > 0) {
-            this.firstSegment = segments[0];
-        } else if (faces.length > 0) {
-            this.firstFace = faces[0];
-        } else {
-            this.firstPoint = undefined;
-            this.firstSegment = undefined;
-            this.firstFace = undefined;
-        }
+        this.firstPoint = points[0];
+        this.firstSegment = !this.firstPoint ? segments[0] : undefined;
+        this.firstFace = !this.firstPoint && !this.firstSegment ? faces[0] : undefined;
         this.firstX = this.currentX = x;
         this.firstY = this.currentY = y;
     }
@@ -96,14 +82,9 @@ export class Helper {
             const s = this.model.segments.find(s => s.select === 1);
             if (s) {
                 // Deselect other segments
-                this.model.segments.filter(sg => sg.select === 1).forEach(sg => {
-                    if (sg !== s) {
-                        sg.select = 0;
-                    }
-                });
+                this.model.segments.filter(sg => sg.select === 1 && sg !== s).forEach(sg => sg.select = 0);
                 // The point we move from
                 const p = this.firstPoint;
-                // Select it
                 p.select = 1;
                 let distToFirst, distToCurrent;
                 if (this.currentCanvas === '2d') {
@@ -113,22 +94,9 @@ export class Helper {
                     distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
                 } else {
                     // Get projected coordinates for points
-                    const pIdx = this.view3d.indexMap.get(p);
-                    const p1Idx = this.view3d.indexMap.get(s.p1);
-                    const p2Idx = this.view3d.indexMap.get(s.p2);
-
-                    if (pIdx !== undefined && p1Idx !== undefined && p2Idx !== undefined) {
-                        const pProj = [p.xCanvas, p.yCanvas];
-                        const p1Proj = [s.p1.xCanvas, s.p1.yCanvas];
-                        const p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
-
-                        if (pProj && p1Proj && p2Proj) {
-                            // Signed distance from the first point to segment.
-                            distToFirst = (pProj[0] - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (pProj[1] - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-                            // Signed distance from current point to segment. Which to cos(angle) * distToFirst.
-                            distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-                        }
-                    }
+                    const pProj = [p.xCanvas, p.yCanvas], p1Proj = [s.p1.xCanvas, s.p1.yCanvas], p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
+                    distToFirst = (pProj[0] - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (pProj[1] - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
+                    distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
                 }
                 // Clamp ratio = distToCurrent/distToFirst
                 let ratio = Math.abs(distToCurrent / distToFirst);
@@ -142,15 +110,6 @@ export class Helper {
             }
         } else if (this.firstSegment) {
             this.firstSegment.hover = true;
-        } else if (this.firstFace) {
-            // Offset face positive if the mouse moves right
-            if ((x - this.currentX) > 0) {
-                this.model.faces.filter(f => f.select === 1).forEach(f => f.offset += 1);
-            }
-            // Offset face negative if the mouse moves left
-            else if ((x - this.currentX) < 0) {
-                this.model.faces.filter(f => f.select === 1).forEach(f => f.offset -= 1);
-            }
         }
         this.currentX = x;
         this.currentY = y;
@@ -274,10 +233,8 @@ export class Helper {
                     const p2 = this.currentCanvas === '2d' ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
                     const inter = Segment.intersectionFlat(first, current, p1, p2);
                     if (inter) {
-                        const ratio = Math.sqrt((inter.xf - p1.xf) ** 2 + (inter.yf - p1.yf) ** 2)
-                            / Math.sqrt((p2.xf - p1.xf) ** 2 + (p2.yf - p1.yf) ** 2);
-                        s.p1.z = s.p1.z === 0? 0.1 : s.p1.z;
-                        s.p2.z = s.p2.z === 0? 0.1 : s.p2.z;
+                        const ratio = Math.sqrt((inter.xf - p1.xf) ** 2 + (inter.yf - p1.yf) ** 2) / Math.sqrt((p2.xf - p1.xf) ** 2 + (p2.yf - p1.yf) ** 2);
+                        s.p1.z ||= 0.1; s.p2.z ||= 0.1;
                         const t = this.currentCanvas === '2d' ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z);
                         this.command.command(`split ${i} ${t}`);
                     }
@@ -405,9 +362,22 @@ export class Helper {
 
     // Up on 3d overlay
     up3d(event) {
-        const {xCanvas, yCanvas} = this.eventCanvas3d(event);
-        const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
-        this.up(points, segments, faces);
+        const {points, segments, faces, xCanvas, yCanvas} = this.search3d(...Object.values(this.eventCanvas3d(event)));
+        if (this.firstPoint && points.length === 0 && !segments.length && this.currentX !== this.firstX) {
+            let dx = (xCanvas - this.firstX) / this.view3d.scale, dy = (this.firstY - yCanvas) / this.view3d.scale, v = this.view3d,
+                r = d => d * Math.PI / 180;
+            const cz = Math.cos(r(v.angleZ)), sz = Math.sin(r(v.angleZ));
+            [dx, dy] = [dx * cz - dy * sz, dx * sz + dy * cz];
+            const mx = dx * Math.cos(r(v.angleY)), my = dy * Math.sin(r(v.angleY)),
+                mz = dx * Math.sin(r(v.angleY)) - dy * Math.sin(r(v.angleX)),
+                sel = this.model.points.filter(pt => pt.select === 1),
+                ids = sel.map(pt => this.model.points.indexOf(pt)).join(' ');
+            this.command.command(`move ${mx} ${my} ${mz} ${ids}`);
+            this.command.command(`adjust ${ids}`);
+            this.out();
+        } else {
+            this.up(points, segments, faces);
+        }
         this.currentCanvas = undefined;
         if (points.length === 0 && segments.length === 0 && faces.length === 0) {
             this.doubleClick();
@@ -424,21 +394,12 @@ export class Helper {
     }
 
     doubleClick() {
-        if (this.touchTime === 0) {
-            this.touchTime = Date.now();
-        } else if (((Date.now()) - this.touchTime) < 400) {
-            this.view3d.angleX = 0;
-            this.view3d.angleY = 0;
-            this.view3d.angleZ = 0;
-            this.view3d.translationX = 0;
-            this.view3d.translationY = 0;
+        if (Date.now() - this.touchTime < 400) {
+            this.view3d.angleX = this.view3d.angleY = this.view3d.angleZ = 0;
+            this.view3d.translationX = this.view3d.translationY = 0;
             this.view3d.scale = 1;
-            this.command.command(`fit`);
-        } else {
-            this.touchTime = Date.now();
+            this.command.command('fit');
         }
+        this.touchTime = Date.now();
     }
-
 }
-
-// 469
