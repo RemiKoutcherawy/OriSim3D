@@ -2,6 +2,7 @@
 import { Point } from "../js/Point.js";
 import { Segment } from "../js/Segment.js";
 import { Vector3 } from "../js/Vector3.js";
+import { Face } from "../js/Face.js";
 import { assertEquals } from "jsr:@std/assert";
 
 Deno.test("distance2d - calculates 2D distance from a point to a segment", async (t) => {
@@ -434,3 +435,23 @@ Deno.test("Segment.length2d", async (t) => {
       assertEquals(length, 5, "Length should be 5");
     });
   });
+
+Deno.test("Segment.incidentFaces", () => {
+    const p1 = new Point(0, 0, 0, 0, 0);
+    const p2 = new Point(10, 0, 10, 0, 0);
+    const p3 = new Point(10, 10, 10, 10, 0);
+    const p4 = new Point(0, 10, 0, 10, 0);
+    const p5 = new Point(10, -10, 10, -10, 0);
+    const p6 = new Point(0, -10, 0, -10, 0);
+
+    const s1 = new Segment(p1, p2);
+
+    const f1 = new Face([p1, p2, p3, p4]);
+    const f2 = new Face([p1, p2, p5, p6]);
+
+    const model = { faces: [f1, f2] };
+    const incident = Segment.incidentFaces(model, s1);
+    assertEquals(incident.length, 2);
+    assertEquals(incident.includes(f1), true);
+    assertEquals(incident.includes(f2), true);
+});
