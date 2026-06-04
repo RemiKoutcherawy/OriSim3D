@@ -442,6 +442,16 @@ export class Command {
             this.model.lines = !this.model.lines;
         }
 
+        // Read Write file
+        else if (tokenList[idx] === 'read') {
+            idx++;
+            ReadWrite.readFileAsText('text.txt', doneCde).then(() => console.log('complete'));
+        } else if (tokenList[idx] === 'write') {
+            idx++;
+            let doneCde = this.instructions.join('\n');
+            ReadWrite.writeFile('text.txt', doneCde).then(() => console.log('complete'));
+        }
+
         // End of command
         else if (tokenList[idx] === '\n') {
             idx++;
