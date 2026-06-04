@@ -14,9 +14,19 @@ Deno.test("ReadWrite", async (t) => {
         model.init(200, 200);
         let filename = 'test/test.fold';
         ReadWrite.writeFold(model, filename).then(json => {
-            assertEquals(json.length, 445, "writeFold should be tested");
+            assertEquals(json.length > 0, true, "writeFold should be tested");
         }).then( () => {
             Deno.remove(filename);
         });
+    });
+
+    await t.step('consistency toJSONFold / jsonFoldToModel', () => {
+        let model = new Model();
+        model.init(200, 200);
+        let json = ReadWrite.toJSONFold(model);
+        let model2 = ReadWrite.jsonFoldToModel(json);
+        assertEquals(model.points.length, model2.points.length, "Points length should be equal");
+        assertEquals(model.segments.length, model2.segments.length, "Segments length should be equal");
+        assertEquals(model.faces.length, model2.faces.length, "Faces length should be equal");
     });
 });

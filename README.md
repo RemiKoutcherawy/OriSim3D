@@ -3,7 +3,7 @@ Origami simulation
 
 Test and Coverage
 ```bash
-deno test --coverage=cov_profile test
+deno test --allow-read --allow-write --coverage=cov_profile test
 deno coverage cov_profile
 open cov_profile/html/index.html
 ```

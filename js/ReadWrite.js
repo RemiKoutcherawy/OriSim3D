@@ -28,7 +28,7 @@ export class ReadWrite {
         if (typeof Deno !== "undefined") {
             return await Deno.readTextFile(file);
         }
-        return new Promise<string>((resolve, reject) => {
+        return new Promise<String>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
             reader.onabort = () => reject(new Error("abort"));
@@ -108,7 +108,7 @@ export class ReadWrite {
         // Cosmetic
         let reg = /\[[\n\s]*(-?\d+),[\n\s]*(-?\d+)[\n\s]*]/mg;
         json = json.replaceAll(reg, (match, g1, g2) => `[${g1},${g2}]`);
-        reg = /\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*\]/g;
+        reg = /\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*]/g;
         // More cosmetics
         json = json.replaceAll(reg, (match) => {
             return match.replaceAll(/[\n\s]*/g, '');
@@ -159,43 +159,6 @@ export class ReadWrite {
                 return value;
             }
         }
-    }
-
-    // Read with fs or fetch return text or null
-    static async readFileAsTextPolyfill(filename) {
-        let text = null;
-        if (typeof process === 'object') {
-            await import('fs')
-                .then(fs => {
-                    text = fs.readFileSync('./'+filename, 'utf-8');
-                })
-                .catch(e => console.log("Error reading with readFileSync:" + filename + ' ' + e));
-        } else if (typeof fetch !== 'undefined') {
-            await fetch('../' + filename)
-                .then((r) => r.text())
-                .then(r => text = r)
-                .catch(e => console.log("Error reading with fetch:" + filename + ' ' + e));
-        } else if (typeof XMLHttpRequest !== 'undefined') {
-            const request = new XMLHttpRequest();
-            request.onreadystatechange = function () {
-                if (request.readyState === XMLHttpRequest.DONE && request.status === 200) {
-                    const type = request.getResponseHeader("Content-Type");
-                    if (type.match(/^text/)) { // Make sure response is text
-                        text = request.responseText;
-                    }
-                } else if (request.readyState !== XMLHttpRequest.OPENED) {
-                    console.log("Error ? state:" + request.readyState + " status:" + request.status);
-                }
-            };
-            // XMLHttpRequest.open(method, url, async)
-            // Here async = false ! => Warning from Firefox, Chrome,
-            request.open('GET', filename, false);
-            request.send(null);
-        }
-        if (text === null) {
-            console.log("Error reading in ReadWrite.js: " + filename);
-        }
-        return text;
     }
 
     static async writeFile(filename, text) {
