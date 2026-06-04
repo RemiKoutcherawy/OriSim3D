@@ -108,7 +108,7 @@ export class ReadWrite {
         // Cosmetic
         let reg = /\[[\n\s]*(-?\d+),[\n\s]*(-?\d+)[\n\s]*]/mg;
         json = json.replaceAll(reg, (match, g1, g2) => `[${g1},${g2}]`);
-        reg = /\[(:?[\n\s]*(-?\d+),?)+[\n\s]*]/mg;
+        reg = /\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*\]/g;
         // More cosmetics
         json = json.replaceAll(reg, (match) => {
             return match.replaceAll(/[\n\s]*/g, '');
