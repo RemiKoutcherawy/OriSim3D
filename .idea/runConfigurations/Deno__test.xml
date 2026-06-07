@@ -1,5 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Deno: test" type="DenoConfigurationType" nameIsGenerated="true" exePath="$USER_HOME$/.deno/bin/deno" inputPath="$USER_HOME$/git/OriSim3D/test" programParameters="test" workingDirectory="$USER_HOME$/git/OriSim3D">
+  <configuration default="false" name="Deno: test" type="DenoConfigurationType" nameIsGenerated="true" exePath="$USER_HOME$/.deno/bin/deno" inputPath="$PROJECT_DIR$/test" programParameters="test">
+    <option name="applicationArguments" value="--allow-read --allow-write" />
     <method v="2" />
   </configuration>
 </component>
