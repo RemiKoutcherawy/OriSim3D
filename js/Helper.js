@@ -100,6 +100,7 @@ export class Helper {
                 }
                 // Clamp ratio = distToCurrent/distToFirst
                 let ratio = Math.abs(distToCurrent / distToFirst);
+                ratio = Math.round(ratio / 100) * 100;
                 // Angle in degrees
                 let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
                 // Round to step 10
@@ -233,10 +234,11 @@ export class Helper {
                     const p2 = this.currentCanvas === '2d' ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
                     const inter = Segment.intersectionFlat(first, current, p1, p2);
                     if (inter) {
-                        const ratio = Math.sqrt((inter.xf - p1.xf) ** 2 + (inter.yf - p1.yf) ** 2) / Math.sqrt((p2.xf - p1.xf) ** 2 + (p2.yf - p1.yf) ** 2);
+                        let ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
                         s.p1.z ||= 0.1; s.p2.z ||= 0.1;
-                        const t = this.currentCanvas === '2d' ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z);
-                        this.command.command(`split S${i} ${t}`);
+                        let t = this.currentCanvas === '2d' ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z);
+                        t = Math.round(t * 100) / 100;
+                        this.command.command(`split s${i} ${t}`);
                     }
                 });
             }
@@ -368,10 +370,14 @@ export class Helper {
                 r = d => d * Math.PI / 180;
             const cz = Math.cos(r(v.angleZ)), sz = Math.sin(r(v.angleZ));
             [dx, dy] = [dx * cz - dy * sz, dx * sz + dy * cz];
-            const mx = dx * Math.cos(r(v.angleY)), my = dy * Math.sin(r(v.angleY)),
+            let mx = dx * Math.cos(r(v.angleY)), my = dy * Math.sin(r(v.angleY)),
                 mz = dx * Math.sin(r(v.angleY)) - dy * Math.sin(r(v.angleX)),
                 sel = this.model.points.filter(pt => pt.select === 1),
                 pts = sel.map(pt => 'P'+this.model.points.indexOf(pt)).join(' ');
+            // Round to 0.01
+            mx = Math.round(mx * 100) / 100;
+            my = Math.round(my * 100) / 100;
+            mz = Math.round(mz * 100) / 100;
             this.command.command(`move ${mx} ${my} ${mz} ${pts}`);
             this.command.command(`adjust ${pts}`);
             this.out();
