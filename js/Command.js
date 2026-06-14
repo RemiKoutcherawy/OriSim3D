@@ -323,6 +323,14 @@ export class Command {
             const faces = this.listObjects(tokenList, idx, 'F');
             idx += faces.length;
             this.model.offset(dz, faces);
+        } else if (tokenList[idx] === 'glue') {
+            // Glues on Segment a list of points.
+            idx++;
+            const s = this.listObjects(tokenList, idx, 'S')[0];
+            idx++;
+            const pts = this.listObjects(tokenList, idx, 'P');
+            idx += pts.length;
+            pts.forEach(p => this.model.gluePointToSegment(p, s));
         }
 
         // View3D turn, zoom and move
@@ -455,6 +463,8 @@ export class Command {
                 idx++;
             }
         }
+        // Glues
+        this.model.applyGlue();
 
         // Keep state after executing
         this.pushUndo();
@@ -462,22 +472,18 @@ export class Command {
     }
     listObjects(tokenList, iStart, prefix) {
         const list = [];
+        prefix = prefix.toLowerCase();
         while (iStart < tokenList.length) {
-            const token = tokenList[iStart++];
+            const token = tokenList[iStart];
             if (token === '\n') break;
-            if (!token.startsWith(prefix)) break;
-            let n = Number(token.slice(1));
-            if(/^\d+$/.test(token)) break;
-            if (prefix === 'P' && this.model.points[n] !== undefined) {
-                list.push(this.model.points[n]);
-            }
-            else if (token.startsWith('S') && this.model.segments[n] !== undefined) {
-                list.push(this.model.segments[n]);
-            }
-            else if (token.startsWith('F') && this.model.faces[n] !== undefined) {
-                list.push(this.model.faces[n]);
-            }
+            if (token.length === 0 || token[0].toLowerCase() !== prefix) break;
+            const n = Number(token.slice(1));
+            if (isNaN(n)) break;
+            if (prefix === 'p' && this.model.points[n]) list.push(this.model.points[n]);
+            else if (prefix === 's' && this.model.segments[n]) list.push(this.model.segments[n]);
+            else if (prefix === 'f' && this.model.faces[n]) list.push(this.model.faces[n]);
             else break;
+            iStart++;
         }
         return list;
     }

@@ -18,6 +18,9 @@ export class Model {
         this.state = State.run;
         this.scale = 1;
 
+        // Glues points to segments
+        this.glues = [];
+
         // Helper
         this.labels = false;
         this.textures = false;
@@ -123,7 +126,7 @@ export class Model {
         return segment;
     }
 
-    // Get the face containing points
+    // Get the face-containing points
     getFace(points) {
         for (const f of this.faces) {
             if (f.points === points) {
@@ -639,6 +642,29 @@ export class Model {
         }
     }
 
+    gluePointToSegment(point, segment) {
+        const A = segment.p1, B = segment.p2;
+        const abx = B.x - A.x, aby = B.y - A.y, abz = B.z - A.z;
+        const ab2 = abx * abx + aby * aby + abz * abz;
+        if (ab2 < 1) return;
+        const t = ((point.x - A.x) * abx + (point.y - A.y) * aby + (point.z - A.z) * abz) / ab2;
+        const existing = this.glues.findIndex(g => g.point === point && g.segment === segment);
+        if (existing >= 0) {
+            this.glues[existing].t = t;
+        } else {
+            this.glues.push({point, segment, t});
+        }
+    }
+
+    applyGlue() {
+        for (const g of this.glues) {
+            const A = g.segment.p1, B = g.segment.p2;
+            g.point.x = A.x + g.t * (B.x - A.x);
+            g.point.y = A.y + g.t * (B.y - A.y);
+            g.point.z = A.z + g.t * (B.z - A.z);
+        }
+    }
+
     // Search all segments containing Point a
     searchSegmentsOnePoint(a) {
         const list = [];
@@ -777,7 +803,7 @@ export class Model {
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Non-serialized / UI-only fields
-        const exclude = new Set(['labels', 'textures', 'overlay', 'lines']);
+        const exclude = new Set(['labels', 'textures', 'overlay', 'lines', 'glues']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {

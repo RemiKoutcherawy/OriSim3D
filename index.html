@@ -99,60 +99,60 @@
 <div id="test.txt" hidden="hidden">
   d 200 200
   lines // overlay labels
-  c2d P0 P1 c2d P0 P3 c2d P0 P2 c2d P1 P3
+  c2d p0 p1 c2d p0 p3 c2d p0 p2 c2d p1 p3
   o -1 F3 F4 F6 F2
-  split S0 0.5
+  split s0 0.5
   t 1000 ty 180
 </div>
 <div id="cocotte.txt" hidden="hidden">
   // Cocotte
   define 200 200
   // Define crease pattern
-  c3d P0 P1 c3d P0 P3 c3d P0 P2 c3d P1 P3 c3d P0 P8 c3d P8 P3
-  c3d P0 P4 c3d P4 P1 c3d P6 P0 c3d P6 P1 c3d P6 P2 c3d P6 P3
+  c3d p0 p1 c3d p0 p3 c3d p0 p2 c3d p1 p3 c3d p0 p8 c3d p8 p3
+  c3d p0 p4 c3d p4 p1 c3d p6 p0 c3d p6 p1 c3d p6 p2 c3d p6 p3
   // Movements with Accelerate Decelerate Interpolator (iad)
   iad
   t 100 ty 180
   // Fold one corner
   offset 1 F13 F14 F30 F31
-  t 100 r S54 -180 P3 P17 P19
+  t 100 r s54 -180 p3 p17 p19
   t 100 ty 180
   // Fold from top
-  t 100 rotate S27 165 P5 P22 P2
+  t 100 rotate s27 165 p5 p22 p2
   // Lift up top right corner
-  t 100 r S53 -90 P22 a P2 P18
+  t 100 r s53 -90 p22 a p2 p18
   // Fold from right
-  t 100 r S45 165 P7 P12 P1 a P2 P18
+  t 100 r s45 165 p7 p12 p1 a p2 p18
   // Flatten leg
-  t 100 r S53 60 P22 a P2 P18
+  t 100 r s53 60 p22 a p2 p18
   // Lay leg flat
-  t 100 r S53 30 P22 P2 P18
+  t 100 r s53 30 p22 p2 p18
   // Lift up bottom right corner
-  t 100 r S50 -90 P12 a P1 P24
+  t 100 r s50 -90 p12 a p1 p24
   // Fold from bottom
-  t 100 r S23 165 P0 P21 P4 a P1 P24
+  t 100 r s23 165 p0 p21 p4 a p1 p24
   // Flatten leg
-  t 100 r S51 -60 P12 a P1 P24
+  t 100 r s51 -60 p12 a p1 p24
   // Lay leg flat
-  t 100 r S51 130 P12 P1 P24
+  t 100 r s51 130 p12 p1 p24
   // Lift bottom left corner
-  t 100 r S48 -90 P21 a P0 P9
+  t 100 r s48 -90 p21 a p0 p9
   // Fold from left
-  t 100 r S37 -165 P8 a P0 P9
+  t 100 r s37 -165 p8 a p0 p9
   // Flatten leg
-  t 100 r S48 -60 P9 a P0 P9
+  t 100 r s48 -60 p9 a p0 p9
   // Lay leg flat
-  t 100 r S48 -80 P21 P9 P0
+  t 100 r s48 -80 p21 p9 p0
   // Fold along median
-  t 100 r S28 -90 P19 P5 P22 P2 P14 P15 P18 P23 P7 r S38 -90 P3
-  t 100 r S28 -80 P19 P5 P22 P2 P14 P15 P18 P23 P7 a P3
+  t 100 r s28 -90 p19 p5 p22 p2 p14 p15 p18 p23 p7 r s38 -90 p3
+  t 100 r s28 -80 p19 p5 p22 p2 p14 p15 p18 p23 p7 a p3
   // Open front leg
-  t 100 r S28 10 P9 P10 P21 P20 P8
+  t 100 r s28 10 p9 p10 p21 p20 p8
   // Pretty
-  r S50 -5 P12
+  r s50 -5 p12
   offset // Remove offset for all faces
-  r S55 5 P17 a P3 r S55 -5 P19 a P3 // Beak
-  a P12
+  r s55 5 p17 a p3 r s55 -5 p19 a p3 // Beak
+  a p12
   // Show
   t 100 tz -45
   iao
@@ -166,59 +166,59 @@
   define 210 300
   textures
   // Fold top on bottom
-  across2d P1 P2
+  across2d p1 p2
   offset -1 F0
-  t 200 r S6 -180 P2 P3
+  t 200 r s6 -180 p2 p3
   // t 200 fit
   // Crease edges at 45°
-  across3d P4 P5
-  bisector3d S7 S9
-  bisector3d S6 S9
+  across3d p4 p5
+  bisector3d s7 s9
+  bisector3d s6 s9
   // Fold corners
   offset -1 3 0
-  t 200 rotate S13 -180 P4
-  t 200 rotate S17 180 P5
+  t 200 rotate s13 -180 p4
+  t 200 rotate s17 180 p5
   // Crease bottom and top
-  by3d P9 P12
-  by3d P10 P11
+  by3d p9 p12
+  by3d p10 p11
   // Fold back
   offset -2 F5 F6
-  t 200 rotate S24 180 P3 P8 P2
+  t 200 rotate s24 180 p3 p8 p2
   // Crease on 2D
-  bisector2d S3 S24 bisector2d S23 S16
+  bisector2d s3 s24 bisector2d s23 s16
   // Fold corners
-  t 200 rotate S27 -180 P3 rotate S29 180 P2
+  t 200 rotate s27 -180 p3 rotate s29 180 p2
   // Fold front
   offset 2 F8 F9
-  t 200 rotate S25 180 P0 P1 P7
+  t 200 rotate s25 180 p0 p1 p7
   // Crease on 2D
-  bisector2d S25 S12 bisector2d S1 S21
+  bisector2d s25 s12 bisector2d s1 s21
   // Fold corners
-  t 200 rotate S31 180 P0
-  t 200 rotate S33 -180 P1
+  t 200 rotate s31 180 p0
+  t 200 rotate s33 -180 p1
   // Crease top
-  by3d P15 P16
+  by3d p15 p16
   // Open
-  t 200 r S15 -180 P4 P5 P8 P14 P21 P25 P26  r S9 180 P1 P2 P11 P12 P16 P18 P19 P22
+  t 200 r s15 -180 p4 p5 p8 p14 p21 p25 p26  r s9 180 p1 p2 p11 p12 p16 p18 p19 p22
   // t 200 fit
   // Turn on left
   t 200 tz 45
   // Crease diagonal
-  perpendicular3d S13 P15
+  perpendicular3d s13 p15
   t 200 ty 45
   // Rotate triangle in front
-  t 400 r S53 180 P11 P12 P1 P2
+  t 400 r s53 180 p11 p12 p1 p2
   // Rotate triangle in back
-  t 400 r S53 -180 P9 P10 P0 P3
+  t 400 r s53 -180 p9 p10 p0 p3
   t 200 ty -45
   t 200 fit
   // Turn on right
   t 200 tz -45
   // Close Fixme
-  t 200 r S15 -180 P4 P5 P14 P8 P21 P25 P26 P32 P33 P27 P28 P30 P29  r S9 -180 P1 P2 P11 P12 P16 P18 P19 P22 P34 a P33 mop P33 P30 P29;
+  t 200 r s15 -180 p4 p5 p14 p8 p21 p25 p26 p32 p33 p27 p28 p30 p29  r s9 -180 p1 p2 p11 p12 p16 p18 p19 p22 p34 a p33 mop p33 p30 p29;
   t 200 fit
   // Open rotate around 3
-  t 1000 r S36 135 P32 P14 P33 P27 P28 P4 P5 P30 P29  r S36 -135 P31 P13 P34  a P9 P12 P0 P1 P2 P3 mop 12 11 mop P9 P10 mop P60 P3 mop P25 P0 mop P23 P1 mop P64 P2
+  t 1000 r s36 135 p32 p14 p33 p27 p28 p4 p5 p30 p29  r s36 -135 p31 p13 p34  a p9 p12 p0 p1 p2 p3 mop 12 11 mop p9 p10 mop p60 p3 mop p25 p0 mop p23 p1 mop p64 p2
   t 200 fit
   // Show
   iao

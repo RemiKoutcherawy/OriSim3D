@@ -22,7 +22,7 @@ Deno.test('Command', async (t) => {
     });
 
     await t.step('listObjects P', () => {
-        const tokens = cde.tokenize('P0 P1 \n');
+        const tokens = cde.tokenize('P0 p1 pX p2\n');
         const list = cde.listObjects(tokens, 0, 'P');
         assertEquals(list.length, 2);
         // The second point should be (200,-200)
