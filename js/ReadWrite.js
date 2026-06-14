@@ -14,10 +14,10 @@ export class ReadWrite {
                 resolve(e.target.files[0])
             };
             input.onabort = () => {
-                reject("abort")
-            };
+                reject(new Error("abort"))
+            }
             input.oncancel = () => {
-                reject("cancel")
+                reject(new Error("cancel"))
             };
             input.click();
         });
