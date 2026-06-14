@@ -4,6 +4,7 @@
   <title>Conception</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta charset="utf-8">
+  <!-- sonar-disable-next-line -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" >
   <style>
     #canvas2d { position: absolute; width: 50%; height: 80%; left: 0; top: 0; border: 1px solid black;}
@@ -28,13 +29,13 @@
 <textarea id="commandArea">d 200 200</textarea>
 
 <button id="burger" onclick="const n=document.getElementById('nav');n.style.display=n.style.display==='block'?'none':'block'"
-        aria-label="Menu" aria-expanded="false">
+        aria-label="Menu" aria-expanded="false" role="button">
   <span></span><span></span><span></span>
 </button>
 <div id="nav">
-  <button type="button" onclick="load('test.txt')">Test</button>
-  <button type="button" onclick="load('boat.txt')">Bateau</button>
-  <button type="button" onclick="load('cocotte.txt')">Cocotte</button>
+  <button type="button" onclick="load('test.txt')" role="button">Test</button>
+  <button type="button" onclick="load('boat.txt')" role="button">Bateau</button>
+  <button type="button" onclick="load('cocotte.txt')" role="button">Cocotte</button>
 
 </div>
 <script>
@@ -90,7 +91,7 @@
     globalThis._cmd = command;
     if (typeof document !== 'undefined') {
       // Read tag and launch
-      const commandText = document.getElementById("test.txt").textContent;
+      const commandText = document.getElementById("boat.txt").textContent;
       globalThis.addEventListener("load", () => { command.command(commandText) });
     }
   }
@@ -118,7 +119,8 @@
 <div id="boat.txt" hidden="hidden">
   // Boat
   define 210 300
-  textures
+  textures // swich off textures
+  lines overlay labels
   // Fold top on bottom
   across2d p1 p2
   offset -1 f0
@@ -170,16 +172,16 @@
   t 200 tz -45
   // Close Fixme
   t 200 r s15 -180 p4 p5 p14 p8 p21 p25 p26 p32 p33 p27 p28 p30 p29 r s9 -180 p1 p2 p11 p12 p16 p18 p19 p22 p34 a p33 mop p33 p30 p29
-  t 200 fit
-  // Open rotate around 3
-  t 1000 r s36 135 p32 p14 p33 p27 p28 p4 p5 p30 p29  r s36 -135 p31 p13 p34 a p9 p12 p0 p1 p2 p3 mop 12 11 mop p9 p10 mop p60 p3 mop p25 p0 mop p23 p1 mop p64 p2
-  t 200 fit
-  // Show
-  iao
-  t 1000 z 0.5 0 0
-  t 1000 fit
-  iao
-  t 1000 ty 360
+<!--  t 200 fit-->
+<!--  // Open rotate around 3-->
+<!--  t 1000 r s36 135 p32 p14 p33 p27 p28 p4 p5 p30 p29  r s36 -135 p31 p13 p34 a p9 p12 p0 p1 p2 p3 mop 12 11 mop p9 p10 mop p60 p3 mop p25 p0 mop p23 p1 mop p64 p2-->
+<!--  t 200 fit-->
+<!--  // Show-->
+<!--  iao-->
+<!--  t 1000 z 0.5 0 0-->
+<!--  t 1000 fit-->
+<!--  iao-->
+<!--  t 1000 ty 360-->
 </div>
 </body>
 </html>

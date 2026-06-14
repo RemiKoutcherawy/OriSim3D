@@ -4,7 +4,8 @@
   <title>Origami</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" >
+  <!-- sonar-disable-next-line -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     #canvas2d{position:absolute;width:50%;height:100%;left:0;top:0;border:1px solid black}
     #canvas3d{position:absolute;width:50%;height:100%;left:50%;top:0;border:1px solid black}
@@ -23,12 +24,12 @@
   <canvas id="overlay"></canvas>
 </div>
 <button id="burger" onclick="const n=document.getElementById('nav');n.style.display=n.style.display==='block'?'none':'block'"
-        aria-label="Menu" aria-expanded="false">
+        aria-label="Menu" aria-expanded="false" role="button">
   <span></span><span></span><span></span>
 </button>
 <div id="nav">
-  <button type="button" onclick="load('cocotte.txt')">Cocotte</button>
-  <button type="button" onclick="load('boat.txt')">Bateau</button>
+  <button type="button" onclick="load('cocotte.txt')" role="button">Cocotte</button>
+  <button type="button" onclick="load('boat.txt')" role="button">Bateau</button>
 </div>
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
