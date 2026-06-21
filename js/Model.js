@@ -803,14 +803,21 @@ export class Model {
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Non-serialized / UI-only fields
-        const exclude = new Set(['labels', 'textures', 'overlay', 'lines', 'glues']);
+        const exclude = new Set(['labels', 'textures', 'overlay', 'lines']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
+        const segmentIndex = new Map(this.segments.map((s, i) => [s, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {
+            if (key === 'glues')
+                return value.map((g) => ({
+                    point: pointIndex.get(g.point),
+                    segment: segmentIndex.get(g.segment),
+                    t: g.t,
+                }));
             if (value instanceof Segment)
                 return { p1: pointIndex.get(value.p1), p2: pointIndex.get(value.p2) };
             if (value instanceof Face)
-                return value.points.map((p) => pointIndex.get(p));
+                return { points: value.points.map((p) => pointIndex.get(p)), offset: value.offset };
             if (exclude.has(key))
                 return undefined;
             return value;
@@ -824,14 +831,22 @@ export class Model {
     }
     // Define a reviver to convert points objects into Points instances, and indexes into instance
     reviver(key, value) {
-        if (key === 'points') {
+        if (key === 'points' && Array.isArray(value) && value.every((p) => p !== null && typeof p === 'object')) {
             return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
         } else if (key === 'segments') {
             return value.map((segment) => new Segment(this.points[segment.p1], this.points[segment.p2]));
         } else if (key === 'faces') {
-            return value.map((facePoints) => {
-                return new Face(facePoints.map((index) => this.points[index]));
+            return value.map((face) => {
+                const newFace = new Face(face.points.map((index) => this.points[index]));
+                newFace.offset = face.offset;
+                return newFace;
             });
+        } else if (key === 'glues') {
+            return value.map((g) => ({
+                point: this.points[g.point],
+                segment: this.segments[g.segment],
+                t: g.t,
+            }));
         }
         return value;
     }
