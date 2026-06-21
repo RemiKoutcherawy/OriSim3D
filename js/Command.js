@@ -193,7 +193,7 @@ export class Command {
             if(pts.length !== 2) console.log('by2d needs 2 points', pts.length, tokenList.slice(idx,idx+3).join(' '))
             idx += pts.length;
             this.model.splitBy2d(pts[0], pts[1]);
-        } else if (tokenList[idx] === 'c' ||tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d' || tokenList[idx] === 'cross3d') {
+        } else if (tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d' || tokenList[idx] === 'cross3d') {
             // Split across two points in 3d: c3d p1 p2;
             idx++;
             const pts = this.listObjects(tokenList, idx, 'P');

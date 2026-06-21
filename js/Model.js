@@ -648,17 +648,6 @@ export class Model {
         const ab2 = abx * abx + aby * aby + abz * abz;
         if (ab2 < 1) return;
         const ratio = ((point.x - A.x) * abx + (point.y - A.y) * aby + (point.z - A.z) * abz) / ab2;
-        if( this.indexOf(point) === 3) {
-            console.log('A:'+this.indexOf(A)+' B:'+this.indexOf(B)+' p:'+this.indexOf(point));
-            console.log('Glue p3 (point.x - A.x):'+Math.round(point.x - A.x)+' (point.y - A.y):'+Math.round(point.y - A.y)+' (point.z - A.z):'+Math.round(point.z - A.z));
-            console.log('Glue p3 abx:'+Math.round(abx)+' aby:'+Math.round(aby)+' abz:'+Math.round(abz));
-            console.log('Glue p3 ab2:'+Math.round(ab2)+' ratio:'+Math.round(ratio*100)/100);
-            // ratio should be 90 / 210
-            // Glue p3 (point.x - A.x):90 (point.y - A.y):0 (point.z - A.z):0
-            // Glue p3 abx:210 aby:0 abz:0
-            // Glue p3 ab2:44100 ratio:0.43
-            // 90*210 / 44100 = 0.428
-        }
         const existing = this.glues.findIndex(g => g.point === point && g.segment === segment);
         if (existing >= 0) {
             this.glues[existing].ratio = ratio;
@@ -669,7 +658,6 @@ export class Model {
 
     applyGlue() {
         for (const g of this.glues) {
-            if( this.indexOf(g.point) === 3) console.log("applyGlue p3 t:"+g.ratio+ " on "+this.indexOf(g.segment));
             const A = g.segment.p1, B = g.segment.p2;
             g.point.x = A.x + g.ratio * (B.x - A.x);
             g.point.y = A.y + g.ratio * (B.y - A.y);

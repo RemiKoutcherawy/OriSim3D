@@ -132,7 +132,7 @@ export class Helper {
                             this.view3d.initModelView();
                         }
                     });
-                    let liste = points.map(p => 'P'+this.model.indexOf(p) + '[' + Math.round(p.x * 10) / 10 + ',' + Math.round(p.y * 10) / 10 + ',' + Math.round(p.z * 10) / 10 + ']').join(' ');
+                    let liste = points.map(p => 'p'+this.model.indexOf(p) + '[' + Math.round(p.x * 10) / 10 + ',' + Math.round(p.y * 10) / 10 + ',' + Math.round(p.z * 10) / 10 + ']').join(' ');
                     if (this.commandArea) this.commandArea.addLine(`points ${liste}`);
                 }
                 // To another point
@@ -174,9 +174,9 @@ export class Helper {
                 const s = this.model.segments.find(s => s.select === 1);
                 const aIndex = this.model.indexOf(s);
                 const selected = this.model.points.filter(s => s.select === 1);
-                const bIndex = selected.map(p => 'P'+this.model.points.indexOf(p));
+                const bIndex = selected.map(p => 'p'+this.model.points.indexOf(p));
                 const adjust = this.model.points.filter(s => s.select === 2);
-                const cIndex = adjust.map(p => 'P'+this.model.points.indexOf(p));
+                const cIndex = adjust.map(p => 'p'+this.model.points.indexOf(p));
                 if (adjust.length === 0) {
                     this.command.command(`t 1000 rotate S${aIndex} ${this.label} ${bIndex.join(' ')}`);
                 } else {
@@ -373,7 +373,7 @@ export class Helper {
             let mx = dx * Math.cos(r(v.angleY)), my = dy * Math.sin(r(v.angleY)),
                 mz = dx * Math.sin(r(v.angleY)) - dy * Math.sin(r(v.angleX)),
                 sel = this.model.points.filter(pt => pt.select === 1),
-                pts = sel.map(pt => 'P'+this.model.points.indexOf(pt)).join(' ');
+                pts = sel.map(pt => 'p'+this.model.points.indexOf(pt)).join(' ');
             // Round to 0.01
             mx = Math.round(mx * 100) / 100;
             my = Math.round(my * 100) / 100;
