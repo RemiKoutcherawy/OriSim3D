@@ -183,8 +183,8 @@ export class View3d {
         const textureBack = gl.createTexture();
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, textureBack);
-        // Placeholder one-pixel Color Pink #FBD3DE
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFB, 0xD3, 0xDE, 0xFF]));
+        // Placeholder one-pixel Color Yellow #FFFF00FF ou FFFF00A8 Pink #FBD3DE
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFF, 0xFF, 0x00, 0xA8]));
         const uSamplerBack = gl.getUniformLocation(gl.program, 'uSamplerBack');
         gl.uniform1i(uSamplerBack, 1);
         const imageBack = new Image();
