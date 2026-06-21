@@ -701,52 +701,6 @@ export class Model {
         });
     }
 
-    // Move on a point 'p0' all following list of points
-    moveOnPoint(p0, points) {
-        points.forEach(function (p) {
-            p.x = p0.x;
-            p.y = p0.y;
-            p.z = p0.z;
-        });
-    }
-    // Move on a segment s the following points.
-    moveOnSegment(s, points) {
-        const A = s.p1, B = s.p2;
-        const abx = B.x - A.x;
-        const aby = B.y - A.y;
-        const abz = B.z - A.z;
-        points.forEach(function (p) {
-            const t = (abx * (p.x - A.x) + aby * (p.y - A.y) + abz * (p.z - A.z)) / (abx * abx + aby * aby + abz * abz);
-            p.x = A.x + abx * t;
-            p.y = A.y + aby * t;
-            p.z = A.z + abz * t;
-        });
-    }
-    // Move on a face the following points.
-    moveOnFace(face, points) {
-        const A = face.points[0], B = face.points[1], C = face.points[2];
-        const AB = {x: B.x-A.x, y: B.y-A.y, z: B.z-A.z};
-        const AC = {x: C.x-A.x, y: C.y-A.y, z: C.z-A.z};
-        const N = {
-            x: AB.y*AC.z - AB.z*AC.y,
-            y: AB.z*AC.x - AB.x*AC.z,
-            z: AB.x*AC.y - AB.y*AC.x
-        };
-        const NN = N.x*N.x + N.y*N.y + N.z*N.z;
-        if (NN <= 0.1) return;
-        points.forEach(p => {
-            const t = ((p.x-A.x)*N.x + (p.y-A.y)*N.y + (p.z-A.z)*N.z) / NN;
-            p.x -= t*N.x;
-            p.y -= t*N.y;
-            p.z -= t*N.z;
-        });
-    }
-
-    // Move given or all points to z = 0
-    flat(points) {
-        points = points ?? this.points;
-        points.forEach((point) => point.z = 0)
-    }
 
     // Turn the model around axis by angle
     turn(axe, angle) {

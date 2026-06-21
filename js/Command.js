@@ -276,19 +276,6 @@ export class Command {
             const pts = this.listObjects(tokenList, idx, 'P');
             idx += pts.length;
             this.model.rotate(s, angle, pts);
-        }  else if (tokenList[idx] === 'mop' || tokenList[idx] === 'moveOnPoint') {
-            // Move all points on first
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'P');
-            idx += pts.length;
-            this.model.moveOnPoint(pts[0], pts);
-        } else if (tokenList[idx] === 'mos' || tokenList[idx] === 'moveOnSegment') {
-            // Move points on the segment
-            idx++;
-            const s = this.model.segments[Number(tokenList[idx++])];
-            const pts = this.listObjects(tokenList, idx, 'P');
-            idx += pts.length;
-            this.model.moveOnSegment(s, pts);
         } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
             // Move n points by dx,dy,dz in 3D with animation: move dx dy dz p1 p2 p3...
             idx++;
@@ -298,12 +285,6 @@ export class Command {
             const pts = this.listObjects(tokenList, idx, 'P');
             idx += pts.length;
             this.model.movePoints(dx, dy, dz, pts);
-        } else if (tokenList[idx] === 'flat') {
-            // Set z = 0 for p1 p2 p3... Should be removed
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'P');
-            this.model.flat(pts);
-            idx += pts.length;
         } else if (tokenList[idx] === 'a' || tokenList[idx] === 'adjust') {
             // Adjust points in 3D to equal 2D length of segments: a p1 p2 p3...
             idx++;
@@ -478,7 +459,7 @@ export class Command {
             if (token === '\n') break;
             if (token.length === 0 || token[0].toLowerCase() !== prefix) break;
             const n = Number(token.slice(1));
-            if (isNaN(n)) break;
+            if (Number.isNaN(n)) break;
             if (prefix === 'p' && this.model.points[n]) list.push(this.model.points[n]);
             else if (prefix === 's' && this.model.segments[n]) list.push(this.model.segments[n]);
             else if (prefix === 'f' && this.model.faces[n]) list.push(this.model.faces[n]);

@@ -440,28 +440,6 @@ Deno.test("Model", async (t) => {
         assertEquals(Math.round(p0.y), -196, 'Got:' + p0.y);
         assertEquals(Math.round(p0.z), 6, 'Got:' + p0.z);
     });
-    await t.step("moveOnPoint", () => {
-        const model = new Model().init(200, 200);
-        const p0 = model.points[0]; // -200,-200
-        const p = {x: 0, y: 50, z: 100};
-        // Move on p0 point p
-        model.moveOnPoint(p0, [p]); // p is on p0
-        assertEquals(Math.round(p.x), -200, 'Got:' + p.x);
-        assertEquals(Math.round(p.y), -200, 'Got:' + p.y);
-        assertEquals(Math.round(p.z), 0, 'Got:' + p.z);
-    });
-    await t.step("moveOnSegment", () => {
-        const model = new Model().init(200, 200);
-        model.splitBy2d(model.points[0], model.points[2]);
-        model.splitBy2d(model.points[1], model.points[3]);
-        const s = model.segments[1]; // 200, 0 to 200, 200
-        const p = model.points[4]; // 0,0
-        // Move p on s
-        model.moveOnSegment(s, [p]);
-        assertEquals(Math.round(p.x), 200, 'Got:' + p.x);
-        assertEquals(Math.round(p.y), 0, 'Got:' + p.y);
-        assertEquals(Math.round(p.z), 0, 'Got:' + p.z);
-    });
     await t.step("split Segment", async (t) => {
         await t.step("splitSegmentOnPoint2d", () => {
             const model = new Model().init(200, 200);
@@ -481,23 +459,6 @@ Deno.test("Model", async (t) => {
             assertEquals(model.points.length, 5, 'Model should have 5 points');
             assertEquals(model.segments.length, 5, 'Model should have 5 segments');
         });
-    });
-    await t.step("flat", () => {
-        const model = new Model().init(200, 200);
-        const p0 = model.points[0];
-        const p1 = model.points[1];
-        model.movePoints(0, 0, 3, [p0, p1]);
-
-        // Move flat points p0, p1
-        model.flat([p1]);
-        assertEquals(Math.round(p1.x), 200, 'Got:' + p1.x);
-        assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);
-        assertEquals(Math.round(p1.z), 0, 'Got:' + p1.z);
-        model.movePoints(0, 0, 3, [p0, p1]);
-        model.flat();
-        assertEquals(Math.round(p1.x), 200, 'Got:' + p1.x);
-        assertEquals(Math.round(p1.y), -200, 'Got:' + p1.y);
-        assertEquals(Math.round(p1.z), 0, 'Got:' + p1.z);
     });
     await t.step('Turn', () => {
         const model = new Model().init(200, 200);
