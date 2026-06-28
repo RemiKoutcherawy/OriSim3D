@@ -312,6 +312,7 @@ export class Command {
             const pts = this.listObjects(tokenList, idx, 'p');
             idx += pts.length;
             pts.forEach(p => this.model.gluePointToSegment(p, s));
+            pts.forEach(p => p.hidden = true);
         }
 
         // View3D turn, zoom and move

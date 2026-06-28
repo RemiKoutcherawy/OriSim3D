@@ -12,6 +12,8 @@ export class Point {
         // xCanvas projected point in overlay
         this.xCanvas = null;
         this.yCanvas = null;
+        // hide labels when glued
+        this.hidden = false;
     }
 
     // Adjust point i 2d coords on segment ab

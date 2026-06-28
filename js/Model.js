@@ -757,7 +757,7 @@ export class Model {
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Non-serialized / UI-only fields
-        const exclude = new Set(['labels', 'textures', 'overlay', 'lines']);
+        const exclude = new Set(['labels', 'textures', 'overlay', 'lines', 'hidden']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         const segmentIndex = new Map(this.segments.map((s, i) => [s, i]));
         // Define a replacer function to convert instances into indexes in JSON

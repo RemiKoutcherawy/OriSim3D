@@ -191,8 +191,8 @@ export class Helper {
                 const s = segments[0];
                 if (s === this.firstSegment) {
                     segments.forEach((s) => s.select = (s.select + 1) % 3);
-                    let liste = segments.map(s => ('S'+this.model.indexOf(s) + '[' + Math.round(Segment.length2d(s) * 10) / 10 + ',' + Math.round(Segment.length3d(s) * 10) / 10) + ']').join(' ');
-                    if (this.commandArea) this.commandArea.addLine(`segments n[l2d,l3d] ${liste}`);
+                    let liste = segments.map(s => ('s'+this.model.indexOf(s) + '[' + Math.round(Segment.length2d(s) * 10) / 10 + ';' + Math.round(Segment.length3d(s) * 10) / 10) + ']').join(' ');
+                    if (this.commandArea) this.commandArea.addLine(`segments ${liste}`);
                 }
                 // To point crease perpendicular from segment to point
                 else if (points.length > 0) {

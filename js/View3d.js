@@ -499,6 +499,7 @@ export class View3d {
         this.labels = [];
         // Points
         for (let p of this.model.points) {
+            if (p.hidden) {continue;}
             const txt = String(this.model.points.indexOf(p));
             const oneLabel = new Label(p.xCanvas, p.yCanvas);
             this.labels.push(oneLabel);
