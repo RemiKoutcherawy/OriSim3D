@@ -143,17 +143,17 @@ export class Helper {
                     // Two points on an existing segment
                     if (this.model.getSegment(this.firstPoint, p)) {
                         if (this.currentCanvas === '2d') {
-                            this.command.command(`across2d P${aIndex} P${bIndex}`);
+                            this.command.command(`across2d p${aIndex} p${bIndex}`);
                         } else {
-                            this.command.command(`across3d P${aIndex} P${bIndex}`);
+                            this.command.command(`across3d p${aIndex} p${bIndex}`);
                         }
                     }
                     // Two points but not on segment
                     else {
                         if (this.currentCanvas === '2d') {
-                            this.command.command(`by2d P${aIndex} P${bIndex}`);
+                            this.command.command(`by2d p${aIndex} p${bIndex}`);
                         } else {
-                            this.command.command(`by3d P${aIndex} P${bIndex}`);
+                            this.command.command(`by3d p${aIndex} p${bIndex}`);
                         }
                     }
                 }
@@ -164,9 +164,9 @@ export class Helper {
                 const aIndex = this.model.indexOf(segments[0]);
                 const bIndex = this.model.indexOf(this.firstPoint);
                 if (this.currentCanvas === '2d') {
-                    this.command.command(`perpendicular2d S${aIndex} P${bIndex}`);
+                    this.command.command(`p2d s${aIndex} p${bIndex}`);
                 } else {
-                    this.command.command(`perpendicular3d S${aIndex} P${bIndex}`);
+                    this.command.command(`p3d s${aIndex} p${bIndex}`);
                 }
             }
             // To face or nothing checks if rotating
@@ -178,9 +178,9 @@ export class Helper {
                 const adjust = this.model.points.filter(s => s.select === 2);
                 const cIndex = adjust.map(p => 'p'+this.model.points.indexOf(p));
                 if (adjust.length === 0) {
-                    this.command.command(`t 1000 rotate S${aIndex} ${this.label} ${bIndex.join(' ')}`);
+                    this.command.command(`t 1000 r s${aIndex} ${this.label} ${bIndex.join(' ')}`);
                 } else {
-                    this.command.command(`t 1000 rotate S${aIndex} ${this.label} ${bIndex.join(' ')} a ${cIndex.join(' ')}`);
+                    this.command.command(`t 1000 r s${aIndex} ${this.label} ${bIndex.join(' ')} a ${cIndex.join(' ')}`);
                 }
             }
         }
@@ -200,9 +200,9 @@ export class Helper {
                     const aIndex = this.model.indexOf(this.firstSegment);
                     const bIndex = this.model.indexOf(p);
                     if (this.currentCanvas === '2d') {
-                        this.command.command(`perpendicular2d S${aIndex} P${bIndex}`);
+                        this.command.command(`p2d s${aIndex} p${bIndex}`);
                     } else {
-                        this.command.command(`perpendicular3d S${aIndex} P${bIndex}`);
+                        this.command.command(`p3d s${aIndex} p${bIndex}`);
                     }
                 }
                 // To another segment crease bisector
@@ -211,9 +211,9 @@ export class Helper {
                     const aIndex = this.model.indexOf(this.firstSegment);
                     const bIndex = this.model.indexOf(s);
                     if (this.currentCanvas === '2d') {
-                        this.command.command(`bisector2d S${aIndex} S${bIndex}`);
+                        this.command.command(`bisector2d s${aIndex} s${bIndex}`);
                     } else {
-                        this.command.command(`bisector3d S${aIndex} S${bIndex}`);
+                        this.command.command(`bisector3d s${aIndex} s${bIndex}`);
                     }
                 }
             }
@@ -227,17 +227,18 @@ export class Helper {
                 if (this.commandArea) this.commandArea.addLine(`offsets ${liste}`);
             } else {
                 // To another face or nothing: split segments on crease pattern.
-                const first = {xf: this.firstX, yf: this.currentCanvas === '2d' ? -this.firstY : this.firstY};
-                const current = {xf: this.currentX, yf: this.currentCanvas === '2d' ? -this.currentY : this.currentY};
+                const is2d = this.currentCanvas === '2d';
+                const ySign = is2d ? -1 : 1;
+                const first = {xf: this.firstX, yf: ySign * this.firstY};
+                const current = {xf: this.currentX, yf: ySign * this.currentY};
                 this.model.segments.forEach((s, i) => {
-                    const p1 = this.currentCanvas === '2d' ? s.p1 : {xf: s.p1.xCanvas, yf: s.p1.yCanvas};
-                    const p2 = this.currentCanvas === '2d' ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
+                    const p1 = is2d ? s.p1 : {xf: s.p1.xCanvas, yf: s.p1.yCanvas};
+                    const p2 = is2d ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
                     const inter = Segment.intersectionFlat(first, current, p1, p2);
                     if (inter) {
-                        let ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
+                        const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
                         s.p1.z ||= 0.1; s.p2.z ||= 0.1;
-                        let t = this.currentCanvas === '2d' ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z);
-                        t = Math.round(t * 100) / 100;
+                        const t = Math.round((is2d ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z)) * 100) / 100;
                         this.command.command(`split s${i} ${t}`);
                     }
                 });
