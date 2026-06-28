@@ -50,6 +50,9 @@ export class Command {
             this.model.state = State.undo;
             // return early, no need to tokenize
             return this;
+        } else if (cde === 'run') {
+            this.model.state = State.run;
+            return this;
         }
         // Tokenize and push
         this.tokenTodo.push(...this.tokenize(cde));
@@ -176,6 +179,10 @@ export class Command {
                 this.view3d.translationX = 0;
                 this.view3d.translationY = 0;
             }
+        }
+        else if (tokenList[idx] === 'pause') {
+            idx++;
+            this.model.state = State.pause;
         }
 
         // Origami splits
@@ -436,7 +443,7 @@ export class Command {
 
         // Unexpected end
         else {
-            console.log('Unexpected end of command', tokenList[idx]);
+            console.log('Unexpected end of command', tokenList.slice(idx,idx+3).join(' '));
             // Ignore until the next command after '\n'
             while (tokenList[idx] !== '\n' && idx < tokenList.length) {
                 idx++;
