@@ -307,7 +307,7 @@ export class Command {
         } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
             // Offset by dz a list of faces: o dz f1 f2...
             idx++;
-            const dz = Number.parseFloat(tokenList[idx++]) * 10;
+            const dz = Number.parseFloat(tokenList[idx++]) / 10;
             const faces = this.listObjects(tokenList, idx, 'f');
             idx += faces.length;
             this.model.offset(dz, faces);
@@ -320,6 +320,10 @@ export class Command {
             idx += pts.length;
             pts.forEach(p => this.model.gluePointToSegment(p, s));
             pts.forEach(p => p.hidden = true);
+        } else if (tokenList[idx] === 'unglue') {
+            idx++;
+            this.glues = [];
+            this.model.segments.forEach(s => s.hidden = false);
         }
 
         // View3D turn, zoom and move

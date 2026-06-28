@@ -648,17 +648,17 @@ export class Model {
         const ab2 = abx * abx + aby * aby + abz * abz;
         if (ab2 < 1) return;
         const ratio = ((point.x - A.x) * abx + (point.y - A.y) * aby + (point.z - A.z) * abz) / ab2;
-        const existing = this.glues.findIndex(g => g.point === point && g.segment === segment);
+        const existing = this.glues.findIndex(g => g.point === point && g.a === A && g.b === B);
         if (existing >= 0) {
             this.glues[existing].ratio = ratio;
         } else {
-            this.glues.push({point, segment, ratio});
+            this.glues.push({point, a: A, b: B, ratio});
         }
     }
 
     applyGlue() {
         for (const g of this.glues) {
-            const A = g.segment.p1, B = g.segment.p2;
+            const A = g.a, B = g.b;
             g.point.x = A.x + g.ratio * (B.x - A.x);
             g.point.y = A.y + g.ratio * (B.y - A.y);
             g.point.z = A.z + g.ratio * (B.z - A.z);
