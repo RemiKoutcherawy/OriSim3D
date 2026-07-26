@@ -12,7 +12,7 @@ export class Point {
         // xCanvas projected point in overlay
         this.xCanvas = null;
         this.yCanvas = null;
-        // hide labels when glued
+        // hide labels
         this.hidden = false;
     }
 

@@ -18,9 +18,6 @@ export class Model {
         this.state = State.run;
         this.scale = 1;
 
-        // Glues points to segments
-        this.glues = [];
-
         // Helper
         this.labels = false;
         this.textures = false;
@@ -642,29 +639,6 @@ export class Model {
         }
     }
 
-    gluePointToSegment(point, segment) {
-        const A = segment.p1, B = segment.p2;
-        const abx = B.x - A.x, aby = B.y - A.y, abz = B.z - A.z;
-        const ab2 = abx * abx + aby * aby + abz * abz;
-        if (ab2 < 1) return;
-        const ratio = ((point.x - A.x) * abx + (point.y - A.y) * aby + (point.z - A.z) * abz) / ab2;
-        const existing = this.glues.findIndex(g => g.point === point && g.a === A && g.b === B);
-        if (existing >= 0) {
-            this.glues[existing].ratio = ratio;
-        } else {
-            this.glues.push({point, a: A, b: B, ratio});
-        }
-    }
-
-    applyGlue() {
-        for (const g of this.glues) {
-            const A = g.a, B = g.b;
-            g.point.x = A.x + g.ratio * (B.x - A.x);
-            g.point.y = A.y + g.ratio * (B.y - A.y);
-            g.point.z = A.z + g.ratio * (B.z - A.z);
-        }
-    }
-
     // Search all segments containing Point a
     searchSegmentsOnePoint(a) {
         const list = [];
@@ -759,15 +733,8 @@ export class Model {
         // Non-serialized / UI-only fields
         const exclude = new Set(['labels', 'textures', 'overlay', 'lines', 'hidden']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
-        const segmentIndex = new Map(this.segments.map((s, i) => [s, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {
-            if (key === 'glues')
-                return value.map((g) => ({
-                    point: pointIndex.get(g.point),
-                    segment: segmentIndex.get(g.segment),
-                    ratio: g.ratio,
-                }));
             if (value instanceof Segment)
                 return { p1: pointIndex.get(value.p1), p2: pointIndex.get(value.p2) };
             if (value instanceof Face)
@@ -795,12 +762,6 @@ export class Model {
                 newFace.offset = face.offset;
                 return newFace;
             });
-        } else if (key === 'glues') {
-            return value.map((g) => ({
-                point: this.points[g.point],
-                segment: this.segments[g.segment],
-                ratio: g.ratio,
-            }));
         }
         return value;
     }

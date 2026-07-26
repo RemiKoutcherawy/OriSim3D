@@ -61,8 +61,7 @@
 <div id="nav">
   <button type="button" onclick="load('test.txt')">Test</button>
   <button type="button" onclick="load('boat.txt')">Bateau</button>
-  <button type="button" onclick="load('cocotte.txt')">Cocotte</button>
-
+<!--  <button type="button" onclick="load('cocotte.txt')">Cocotte</button>-->
 </div>
 <script>
   function load(id) {
@@ -131,10 +130,15 @@
 <!-- Inline model -->
 <div id="test.txt" hidden="hidden">
   d 200 200
-  lines overlay labels
+  // lines overlay labels
   c2d p0 p1 c2d p0 p3 c2d p0 p2 c2d p1 p3
-  o -1 f3 f4 f6 f2
-  split s5 0.5
+  o -1 f0 f1 f5 f7
+  t 500 r s9 -180 p2 p3 p5
+  t 200 r s8 -90 p3 a p6
+  t 200 r s8 -90 p3 a p6
+  t 500 r s8 180 p3
+  t 500 r s8 180 p2 a p8
+  t 500 r s8 -180 p2
 </div>
 <div id="boat.txt" hidden="hidden">
   // Boat
@@ -158,31 +162,30 @@
   t 200 r s24 180 p3 p8 p2
   b2d s3 s24 b2d s23 s16
   t 200 r s27 -180 p3 r s29 180 p2
-  glue s24 p3 glue s23 p2
   // Fold front
   offset 2 f8 f9
   t 200 r s25 180 p0 p1 p7
   b2d s25 s12 b2d s1 s21
   t 200 r s31 180 p0 r s33 -180 p1
-  glue s25 p0 glue s21 p1
   // Open
-  t 200 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18
-  t 200 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18
-  check
+  t 1000 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18   p1 p2
+  t 1000 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18   p1 p2
   // Crease
-  by3d p4 p13
+  perpendicular s13 p15
   // Lift
-  t 200 r s49 180 p11 p12 p16 p18
-  t 200 r s49 -180 p9 p10 p15 p17
+  t 500 r s35 180 p1 p2 p11 p12
+  t 500 r s35 -180 p0 p3 p9 p10
   check
-  // Open
-  t 200 r s13 -180 p4 p5 p14 p8 p2 p3 p20 p22
-  t 200 r s9 -180 p17 p21 p26
-  check
-  by3d p23 p26
-  // fix later
-  // t 200 r s10 90 p4 p5 p14 r s10 -90 p13 a p26 p23 p24 p25
-  check
+  <!--  // fix later-->
+  t 1000 r s9 -90 p1 p2 p5 p11 p12 p16 p27 p22 p18 p19 p23 p24  p28
+<!--  check-->
+<!--  // Open-->
+<!--  t 200 r s13 -180 p4 p5 p14 p8 p2 p3 p20 p22-->
+<!--  t 200 r s9 -180 p17 p21 p26-->
+<!--  check-->
+<!--  by3d p23 p26-->
+<!--  // fix later-->
+<!--  // t 200 r s10 90 p4 p5 p14 r s10 -90 p13 a p26 p23 p24 p25-->
 </div>
 </body>
 </html>

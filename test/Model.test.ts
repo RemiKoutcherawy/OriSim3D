@@ -15,7 +15,7 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         // Serialize
         const serialized = model.serialize();
-        assertEquals(serialized.length, 558, "serialized model length");
+        assertEquals(serialized.length, 547, "serialized model length");
 
         // Model change should not affect serialized
         model.addPoint(0, 0, 0, 0, 0);
@@ -29,7 +29,6 @@ Deno.test("Model", async (t) => {
         assertEquals(model.faces.length, 1, "deserialized   should have 1 face");
         assertEquals(model.faces[0].points.length, 4, "deserialized face 0 should have 4 points");
         assertEquals(model.faces[0].offset, 0, "deserialized face 0 should have offset 0");
-        assertEquals(model.glues, [], "deserialized glues should be empty");
         assertEquals(model.faces[0].points[0].xf, -200, "deserialized face 0 should have point 0 at xf 0");
     });
     await t.step("Model hover", async (t) => {

@@ -14,7 +14,6 @@ deno run --allow-net --allow-read jsr:@std/http/file-server
 open http://localhost:8000
 ```
 
-
 Work in progress, any help is welcome.
 
 ### Doc for developers
@@ -28,22 +27,15 @@ Work in progress, any help is welcome.
 
 ### Origami text commands :
 - define: width height : d 200 200
-- by3d: crease between two points in 3d (splits by a plane passing by the points): by3d p1 p2
-- by2d: crease between two points in 2d crease pattern (splits by a segment passing by the points): by2d p1 p2
-- across3d: crease across a face in 3d (splits by a plane across the face): across3d p1 p2
-- across2d: crease across a face in 2d crease pattern (splits by a line across the face): across2d p1 p2
-- perpendicular2d: crease perpendicular from a point to a segment : perpendicular2d p s
-- perpendicular3d: crease perpendicular from a point to a segment : perpendicular3d p s
-- bisector2d: crease bisector between two segments in 2d: bisector2d s1 s2
-- bisector3d: crease bisector between two segments in 3d: bisector3d s1 s2
-- bisector2dPoints: crease bisector of 3 points A B C. B is in the middle: bisector2dPoints p1 p2 p3
-- bisector3dPoints: crease bisector of 3 points A B C. B is in the middle: bisector3dPoints p1 p2 p3
-- splitSegment2d: split a segment in 2d by numerator denominator : splitSegment2d s n d
+- by: crease between two points
+- across: crease across a face
+- perpendicular: crease perpendicular from a point to a segment: perpendicular p1 s1
+- bisector: crease bisector between two segments: bisector s1 s2
+- splitSegment: split a segment in by 'ratio': split s1 ratio 0.5
 - rotate: rotate around 'Seg' with 'Angle' all 'Points': rotate s1 angle p1 p2 p3...
-- move : move points dx,dy,dz: move dx dy dz p1 p2 p3...
+- move: move points: move dx dy dz p1 p2 p3...
 - adjust: move points in 3D to equal 2D length of segments: adjust p1 p2 p3...
-- offset: offset by d a list of faces on faces
-- flat: set z to zero for all points in 3D
+- offset: offset by d a list of faces on faces: offset d p1 p2 p3...
 
 ### Helper interprets mouse moves to make commands
 - click selects point, segment, face, or marks them
@@ -53,8 +45,11 @@ Work in progress, any help is welcome.
 - swipe from left to right on 2D undo
 - swipe from right to left on 2D turns model
 
-### Commands in CommandArea 
+### Commands in the CommandArea 
 - ss selectSegments to select without a mouse
 - sp selectPoints to select without a mouse
 - labels
 - textures
+- overlay
+- undo ⌘+Z
+- check

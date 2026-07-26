@@ -100,7 +100,7 @@ export class Helper {
                 }
                 // Clamp ratio = distToCurrent/distToFirst
                 let ratio = Math.abs(distToCurrent / distToFirst);
-                ratio = Math.round(ratio / 100) * 100;
+                ratio = Math.round(ratio * 100) / 100;
                 // Angle in degrees
                 let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
                 // Round to step 10

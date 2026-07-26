@@ -186,8 +186,8 @@ export class Command {
         }
 
         // Origami splits
-        else if (tokenList[idx] === 'by3d') {
-            // Split by two points in 3d: by3d p1 p2
+        else if (tokenList[idx] === 'by' || tokenList[idx] === 'by3d') {
+            // Split by two points in 3d: by p1 p2
             idx++;
             const pts = this.listObjects(tokenList, idx, 'p');
             if(pts.length !== 2) console.log('by3d needs 2 points', pts.length, tokenList.slice(idx,idx+3).join(' '))
@@ -222,7 +222,7 @@ export class Command {
             const p = this.listObjects(tokenList, idx, 'p')[0];
             idx++;
             this.model.splitPerpendicular2d(s, p);
-        } else if (tokenList[idx] === 'p3d' || tokenList[idx] === 'perpendicular3d') {
+        } else if (tokenList[idx] === 'perpendicular' ||tokenList[idx] === 'p3d' || tokenList[idx] === 'perpendicular3d') {
             // Split perpendicular to segment by point in 3d: p s1 p1;
             idx++;
             const s = this.listObjects(tokenList, idx, 's')[0];
@@ -311,19 +311,6 @@ export class Command {
             const faces = this.listObjects(tokenList, idx, 'f');
             idx += faces.length;
             this.model.offset(dz, faces);
-        } else if (tokenList[idx] === 'glue') {
-            // Glues on Segment a list of points.
-            idx++;
-            const s = this.listObjects(tokenList, idx, 's')[0];
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            idx += pts.length;
-            pts.forEach(p => this.model.gluePointToSegment(p, s));
-            pts.forEach(p => p.hidden = true);
-        } else if (tokenList[idx] === 'unglue') {
-            idx++;
-            this.glues = [];
-            this.model.segments.forEach(s => s.hidden = false);
         }
 
         // View3D turn, zoom and move
@@ -332,11 +319,11 @@ export class Command {
             idx++;
             this.view3d.angleX += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
         } else if (tokenList[idx] === 'ty') {
-            // "ty: TurnY angle"
+            // "ty: Turn angle"
             idx++;
             this.view3d.angleY += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
         } else if (tokenList[idx] === 'tz') {
-            // "tz: TurnZ angle"
+            // "tz: Turn angle"
             idx++;
             this.view3d.angleZ += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
         } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
@@ -456,8 +443,6 @@ export class Command {
                 idx++;
             }
         }
-        // Glues
-        this.model.applyGlue();
 
         // Keep state after executing
         this.pushUndo();
