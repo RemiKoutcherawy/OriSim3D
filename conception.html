@@ -168,19 +168,25 @@
   b2d s25 s12 b2d s1 s21
   t 200 r s31 180 p0 r s33 -180 p1
   // Open
-  t 1000 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18   p1 p2
-  t 1000 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18   p1 p2
+  t 200 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18   p1 p2
+  t 200 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18   p1 p2
   // Crease
   perpendicular s13 p15
   // Lift
   t 500 r s35 180 p1 p2 p11 p12
   t 500 r s35 -180 p0 p3 p9 p10
   check
-  <!--  // fix later-->
-  t 1000 r s9 -90 p1 p2 p5 p11 p12 p16 p27 p22 p18 p19 p23 p24  p28
-<!--  check-->
-<!--  // Open-->
-<!--  t 200 r s13 -180 p4 p5 p14 p8 p2 p3 p20 p22-->
+  // Open
+  t 500 r s13 -90 p8 p4 p5 p20  p29 p30 p14 r s9 -90 p23 p18 p24 p16 p19 p1 p2 p12 p11 a p22 p27 p28
+  t 500 r s13 -90 p8 p4 p5 p20  p29 p30 p14 r s9 -90 p23 p18 p24 p16 p19 p1 p2 p12 p11 a p22 p27 p28
+  m 0 0 0.4 p22 p27 p28
+  by2d p24 p25 by2d p23 p26
+  check
+  // Open
+  // t 1000 r s10 90 p20 p14 p22 p4 p5 p28 p29
+  by2d p26 p32 // Bug
+
+  <!--  t 200 r s13 -180 p4 p5 p14 p8 p2 p3 p20 p22-->
 <!--  t 200 r s9 -180 p17 p21 p26-->
 <!--  check-->
 <!--  by3d p23 p26-->
