@@ -49,21 +49,21 @@ export class Segment {
         // Handle case where the segment degenerates in a single point.
         const l2 = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
         if (l2 === 0) {
-            return Math.sqrt((x - x1) * (x - x1) + (y - y1) * (y - y1));
+            return Math.hypot(x - x1, y - y1);
         }
         // Consider the line extending the segment, parameterized as v + t (w - v).
         // Find the projection of point p onto the line.
         // It falls where t = [(p-v) . (w-v)] / |w-v|^2
         const t = ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / l2;
         if (t < 0) {
-            return Math.sqrt((x - x1) * (x - x1) + (y - y1) * (y - y1));
+            return Math.hypot(x - x1, y - y1);
         }
         if (t > 1) {
-            return Math.sqrt((x - x2) * (x - x2) + (y - y2) * (y - y2));
+            return Math.hypot(x - x2, y - y2);
         }
         const projectionX = x1 + t * (x2 - x1);
         const projectionY = y1 + t * (y2 - y1);
-        return Math.sqrt((x - projectionX) * (x - projectionX) + (y - projectionY) * (y - projectionY));
+        return Math.hypot(x - projectionX, y - projectionY);
     }
 
     // Area counter clock wise, CCW, gives 2d signed distance between Point and Segment in 3d
@@ -245,15 +245,12 @@ export class Segment {
 
     // 3d length3d (x, y, z)
     static length3d(s) {
-        return Math.sqrt((s.p1.x - s.p2.x) * (s.p1.x - s.p2.x)
-            + (s.p1.y - s.p2.y) * (s.p1.y - s.p2.y)
-            + (s.p1.z - s.p2.z) * (s.p1.z - s.p2.z));
+        return Math.hypot(s.p1.x - s.p2.x, s.p1.y - s.p2.y, s.p1.z - s.p2.z);
     }
 
     // 2d length3d (xf, yf)
     static length2d(s) {
-        return Math.sqrt((s.p1.xf - s.p2.xf) * (s.p1.xf - s.p2.xf)
-            + (s.p1.yf - s.p2.yf) * (s.p1.yf - s.p2.yf));
+        return Math.hypot(s.p1.xf - s.p2.xf, s.p1.yf - s.p2.yf);
     }
 
     static project2d(s, p) {

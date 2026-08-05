@@ -22,7 +22,8 @@ export class Model {
         this.labels = false;
         this.textures = false;
         this.overlay = false; // show points segments and face
-        this.lines = false; // render lines on 3d
+        this.lines = false;   // render lines on 3d
+        this.snap = false;     // snap nearest points
     }
 
     // Initialize with 2d coordinates
@@ -674,7 +675,48 @@ export class Model {
             p.z += dz;
         });
     }
-
+    // Move on a point 'p0' all following list of points
+    moveOnPoint(p0, points) {
+        points.forEach(function (p) {
+            p.x = p0.x;
+            p.y = p0.y;
+            p.z = p0.z;
+        });
+    }
+    // Move on a segment s the following points.
+    moveOnSegment(s, points) {
+        const A = s.p1;
+        const B = s.p2;
+        const dx2d = B.xf - A.xf;
+        const dy2d = B.yf - A.yf;
+        const lengthAB = Math.hypot(dx2d, dy2d);
+        points.forEach(function (p) {
+            const cdx2d = p.xf - A.xf;
+            const cdy2d = p.yf - A.yf;
+            const distAC2d = Math.hypot(cdx2d, cdy2d);
+            const t = lengthAB === 0 ? 0 : distAC2d / lengthAB;
+            p.x = A.x + t * (B.x - A.x);
+            p.y = A.y + t * (B.y - A.y);
+            p.z = A.z + t * (B.z - A.z);
+        });
+    }
+    // snap align points near each other, and round coordinates
+    align() {
+        this.points.forEach((p, i) => {
+            if (Math.abs(p.z) <= 2) {p.z = 0}
+            p.x = Math.round(p.x * 100) / 100;
+            p.y = Math.round(p.y * 100) / 100;
+            p.z = Math.round(p.z * 100) / 100;
+            this.points.slice(i + 1).forEach((q) => {
+                const pq = Math.hypot(q.x - p.x, q.y - p.y, q.z - p.z);
+                if (pq !== 0 && pq < 1) {
+                    q.x = p.x;
+                    q.y = p.y;
+                    q.z = p.z;
+                }
+            });
+        });
+    }
 
     // Turn the model around axis by angle
     turn(axe, angle) {
@@ -731,7 +773,7 @@ export class Model {
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Non-serialized / UI-only fields
-        const exclude = new Set(['labels', 'textures', 'overlay', 'lines', 'hidden']);
+        const exclude = new Set(['labels', 'textures', 'overlay', 'lines', 'hidden', 'snap']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {

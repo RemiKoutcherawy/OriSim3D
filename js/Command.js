@@ -136,6 +136,9 @@ export class Command {
             if (tn >= 1) {
                 this.tni = 1;
                 this.tpi = 0;
+                if (this.model.snap) {
+                    this.model.align();
+                }
                 // Keep track of done
                 this.doneInstructions(this.idxBefore, this.iToken);
                 // No more animation State run for the next call
@@ -292,6 +295,20 @@ export class Command {
             const pts = this.listObjects(tokenList, idx, 'p');
             idx += pts.length;
             this.model.movePoints(dx, dy, dz, pts);
+        }  else if (tokenList[idx] === 'mop' || tokenList[idx] === 'moveOnPoint') {
+            // Move all points on first
+            idx++;
+            const pts = this.listObjects(tokenList, idx, 'P');
+            idx += pts.length;
+            this.model.moveOnPoint(pts[0], pts);
+        } else if (tokenList[idx] === 'mos' || tokenList[idx] === 'moveOnSegment') {
+            // Move points on the segment
+            idx++;
+            const s = this.listObjects(tokenList, idx, 's')[0];
+            idx++;
+            const pts = this.listObjects(tokenList, idx, 'p');
+            idx += pts.length;
+            this.model.moveOnSegment(s, pts);
         } else if (tokenList[idx] === 'a' || tokenList[idx] === 'adjust') {
             // Adjust points in 3D to equal 2D length of segments: a p1 p2 p3...
             idx++;
@@ -415,6 +432,9 @@ export class Command {
         } else if (tokenList[idx] === 'lines') {
             idx++;
             this.model.lines = !this.model.lines;
+        } else if (tokenList[idx] === 'snap') {
+            idx++;
+            this.model.snap = !this.model.snap;
         }
 
         // Read-Write file

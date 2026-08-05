@@ -130,7 +130,7 @@
 <!-- Inline model -->
 <div id="test.txt" hidden="hidden">
   d 200 200
-  // lines overlay labels
+  overlay labels
   c2d p0 p1 c2d p0 p3 c2d p0 p2 c2d p1 p3
   o -1 f0 f1 f5 f7
   t 500 r s9 -180 p2 p3 p5
@@ -141,57 +141,25 @@
   t 500 r s8 -180 p2
 </div>
 <div id="boat.txt" hidden="hidden">
-  // Boat
-  define 210 300
-  textures // swich off textures
-  lines overlay labels
-  // Fold top on bottom
-  c2d p1 p2
-  offset -1 f0
-  t 200 r s6 -180 p2 p3
-  t 200 fit
-  // Crease edges at 45°
-  c3d p4 p5
-  b3d s7 s9 b3d s6 s9
-  offset -1 f3 f0
-  t 200 r s13 -180 p4 r s17 180 p5
-  // Crease bottom and top
-  by3d p9 p12
-  // Fold back
-  offset -2 f5 f6
-  t 200 r s24 180 p3 p8 p2
-  b2d s3 s24 b2d s23 s16
-  t 200 r s27 -180 p3 r s29 180 p2
-  // Fold front
-  offset 2 f8 f9
-  t 200 r s25 180 p0 p1 p7
-  b2d s25 s12 b2d s1 s21
-  t 200 r s31 180 p0 r s33 -180 p1
+  d 200 200
+  snap overlay labels
+  across2d p0 p3
+  o -1 f0
+  t 100 r s6 -180 p2 p3
+  fit
+  across2d p0 p1
+  by3d p0 p6 by3d p1 p6
+  o -2 f2 f3 o -2 f6 f7
+  t 100 r s12 180 p4  r s14 180 p5
   // Open
-  t 200 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18   p1 p2
-  t 200 r s15 -90 p8 p5 p4 p14 r s9 90 p11 p12 p16 p18   p1 p2
-  // Crease
-  perpendicular s13 p15
-  // Lift
-  t 500 r s35 180 p1 p2 p11 p12
-  t 500 r s35 -180 p0 p3 p9 p10
+  o -1 f1
+  t 100 r s13 120 p4 p5 p8 r s9 -100 p1 p2
+  t 100 r s13 60 p4 p5 p8 r s9 -80 p1 p2
+  fit
+  by3d p4 p7
+  t 100 r s21 180 p1 p2
+  t 100 r s21 -180 p0 p3
   check
-  // Open
-  t 500 r s13 -90 p8 p4 p5 p20  p29 p30 p14 r s9 -90 p23 p18 p24 p16 p19 p1 p2 p12 p11 a p22 p27 p28
-  t 500 r s13 -90 p8 p4 p5 p20  p29 p30 p14 r s9 -90 p23 p18 p24 p16 p19 p1 p2 p12 p11 a p22 p27 p28
-  m 0 0 0.4 p22 p27 p28
-  by2d p24 p25 by2d p23 p26
-  check
-  // Open
-  // t 1000 r s10 90 p20 p14 p22 p4 p5 p28 p29
-  by2d p26 p32 // Bug
-
-  <!--  t 200 r s13 -180 p4 p5 p14 p8 p2 p3 p20 p22-->
-<!--  t 200 r s9 -180 p17 p21 p26-->
-<!--  check-->
-<!--  by3d p23 p26-->
-<!--  // fix later-->
-<!--  // t 200 r s10 90 p4 p5 p14 r s10 -90 p13 a p26 p23 p24 p25-->
 </div>
 </body>
 </html>

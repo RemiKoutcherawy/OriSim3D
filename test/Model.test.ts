@@ -439,6 +439,33 @@ Deno.test("Model", async (t) => {
         assertEquals(Math.round(p0.y), -196, 'Got:' + p0.y);
         assertEquals(Math.round(p0.z), 6, 'Got:' + p0.z);
     });
+    await t.step("moveOnPoint", () => {
+        const model = new Model().init(200, 200);
+        const p0 = model.points[0];
+        const p1 = model.points[1];
+        model.moveOnPoint(p0, [p1]);
+        assertEquals(p1.x, -200, 'p.x should be -200');
+        assertEquals(p1.y, -200, 'p.y should be -200');
+        assertEquals(p1.z, 0, 'p.z should be 0');
+    });
+    await t.step("moveOnSegment", () => {
+        const model = new Model().init(200, 200);
+        const p0 = model.points[0];
+        const p1 = model.points[1];
+        const segment = new Segment(p0, p1);
+        const p = new Point(-200, -200, -200, -200, 100);
+        model.moveOnSegment(segment, [p]); // p is on p0 -200,-200
+        assertEquals(p.x, -200, 'p.x should be -200');
+        assertEquals(p.y, -200, 'p.y should be -200');
+        assertEquals(p.z, 0, 'p.z should be 0');
+        const p2 = model.points[2];
+        const diag = new Segment(p0, p2);
+        const p3 = new Point(0, -200, 100, 100, 50);
+        model.moveOnSegment(diag, [p3]);
+        const d3d = Math.round(Math.hypot(p3.x-p0.x, p3.y-p0.y, p3.z-p0.z));
+        const d2d = Math.hypot(p3.xf-p0.xf, p3.yf-p0.yf);
+        assertEquals(d3d, d2d, 'Distances should be equal');
+    });
     await t.step("split Segment", async (t) => {
         await t.step("splitSegmentOnPoint2d", () => {
             const model = new Model().init(200, 200);

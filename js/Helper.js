@@ -380,7 +380,7 @@ export class Helper {
             my = Math.round(my * 100) / 100;
             mz = Math.round(mz * 100) / 100;
             this.command.command(`move ${mx} ${my} ${mz} ${pts}`);
-            this.command.command(`adjust ${pts}`);
+            // this.command.command(`adjust ${pts}`);
             this.out();
         } else {
             this.up(points, segments, faces);
@@ -394,7 +394,7 @@ export class Helper {
     // Mouse wheel on 3d overlay
     wheel(event) {
         // deltaY => up or down zoom view
-        this.view3d.scale = event.scale !== undefined ? event.scale / 10 : this.view3d.scale + event.deltaY / 3000;
+        this.view3d.scale = event.scale !== undefined ? event.scale / 10 : this.view3d.scale + event.deltaY / 300;
         this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 3); // 0.2 < scale < 3
         this.view3d.initModelView();
         this.view3d.initPerspective();
