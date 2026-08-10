@@ -97,8 +97,8 @@ export class Segment {
                 return a;
             }
             // project a,b,c,d on segment ab which is not degenerated
-            const tc = ((b.xf - a.xf) * c.xf + (b.yf - a.yf) * c.yf) / ab;
-            const td = ((b.xf - a.xf) * d.xf + (b.yf - a.yf) * d.yf) / ab;
+            const tc = ((c.xf - a.xf) * (b.xf - a.xf) + (c.yf - a.yf) * (b.yf - a.yf)) / ab;
+            const td = ((d.xf - a.xf) * (b.xf - a.xf) + (d.yf - a.yf) * (b.yf - a.yf)) / ab;
             if (tc < 0) { // c on the left of ab
                 if (td < 0) { // d on the left of ab
                     return undefined;

@@ -433,9 +433,8 @@ export class Command {
         // Read-Write file
         else if (tokenList[idx] === 'read') {
             idx++;
-            ReadWrite.readFileAsText('text.txt').then((text ) => {
-                this.instructions = text;
-                console.log('complete')
+            ReadWrite.readFileAsText('text.txt').then((text) => {
+                this.command(text);
             });
         } else if (tokenList[idx] === 'write') {
             idx++;

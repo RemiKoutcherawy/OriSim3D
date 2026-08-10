@@ -69,10 +69,8 @@ export class ReadWrite {
         faces.forEach((f) => {
             let indexes = [];
             f.points.forEach((p) => {
-                if (points.indexOf(p) === -1) {
-                    model.addPoint(p.xf, p.yf, p.x, p.y, p.z);
-                }
-                indexes.push(points.indexOf(p));
+                const q = model.addPoint(p.xf, p.yf, p.x, p.y, p.z);
+                indexes.push(points.indexOf(q));
             });
             faces_vertices.push(indexes);
         });

@@ -105,11 +105,10 @@
     }
     loop();
 
-    if (typeof document !== 'undefined') {
-      // Read tag and launch
-      const commandText = document.getElementById("boat").content.textContent;
-      globalThis.addEventListener("load", () => { command.command(commandText) });
-    }
+    // Read tag and launch
+    const commandText = document.getElementById("boat").content.textContent;
+    globalThis.addEventListener("load", () => { command.command(commandText) });
+    // Add button actions
     document.querySelectorAll('button[data-load]').forEach(btn => {
       // Le lien entre data-load et dataset.load est une conversion automatique
       btn.addEventListener('click', () => load(btn.dataset.load))
