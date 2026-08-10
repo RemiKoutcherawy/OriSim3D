@@ -59,18 +59,9 @@
   <span></span><span></span><span></span>
 </button>
 <div id="nav">
-  <button type="button" onclick="load('test.txt')">Test</button>
-  <button type="button" onclick="load('boat.txt')">Bateau</button>
-<!--  <button type="button" onclick="load('cocotte.txt')">Cocotte</button>-->
+  <button type="button" data-load="test">Test</button>
+  <button type="button" data-load="boat">Bateau</button>
 </div>
-<script>
-  function load(id) {
-    const nav = document.getElementById('nav');
-    nav.style.display = 'none';
-    document.getElementById('burger').setAttribute('aria-expanded', 'false');
-    globalThis._cmd.command(document.getElementById(id).textContent);
-  }
-</script>
 <!-- Main program -->
 <script type="module">
   import {Model} from "./js/Model.js";
@@ -113,22 +104,28 @@
       requestAnimationFrame(loop);
     }
     loop();
-    globalThis._cmd = command;
+
     if (typeof document !== 'undefined') {
       // Read tag and launch
-      const commandText = document.getElementById("boat.txt").textContent;
+      const commandText = document.getElementById("boat").content.textContent;
       globalThis.addEventListener("load", () => { command.command(commandText) });
     }
+    document.querySelectorAll('button[data-load]').forEach(btn => {
+      // Le lien entre data-load et dataset.load est une conversion automatique
+      btn.addEventListener('click', () => load(btn.dataset.load))
+    })
+    function load(id) {
+      const nav = document.getElementById('nav');
+      nav.style.display = 'none';
+      document.getElementById('burger').setAttribute('aria-expanded', 'false');
+      command.command(document.getElementById(id).content.textContent);
+    }
   }
-  function load(id) {
-    const nav = document.getElementById('nav');
-    nav.style.display = 'none';
-    document.getElementById('burger').setAttribute('aria-expanded', 'false');
-    globalThis._cmd.command(document.getElementById(id).textContent);
-  }
+
 </script>
-<!-- Inline model -->
-<div id="test.txt" hidden="hidden">
+<!-- Inline models -->
+<template id="test">
+  // test
   d 200 200
   overlay labels
   c2d p0 p1 c2d p0 p3 c2d p0 p2 c2d p1 p3
@@ -139,8 +136,9 @@
   t 500 r s8 180 p3
   t 500 r s8 180 p2 a p8
   t 500 r s8 -180 p2
-</div>
-<div id="boat.txt" hidden="hidden">
+</template>
+<template id="boat">
+  // boat
   d 200 200
   snap overlay labels
   across2d p0 p3
@@ -160,6 +158,6 @@
   t 100 r s21 180 p1 p2
   t 100 r s21 -180 p0 p3
   check
-</div>
+</template>
 </body>
 </html>

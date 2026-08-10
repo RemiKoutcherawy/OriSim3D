@@ -81,7 +81,7 @@ export class Interpolator {
     // Anticipate "ia"
     /** @return {number} */
     static AnticipateInterpolator = function AnticipateInterpolator(t) {
-        const mTension = 0; // 2
+        const mTension = 2;
         return t * t * ((mTension + 1) * t - mTension);
     }
     static #a(t, s) {

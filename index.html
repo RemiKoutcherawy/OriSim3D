@@ -28,20 +28,13 @@
   <span></span><span></span><span></span>
 </button>
 <div id="nav">
-  <button type="button" onclick="load('cocotte.txt')">Cocotte</button>
-  <button type="button" onclick="load('boat.txt')">Bateau</button>
+  <button type="button" data-load="cocotte">cocotte</button>
+  <button type="button" data-load="boat">Bateau</button>
+  <button type="button" data-load="test">test</button>
 </div>
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
 <img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>
-<script>
-  function load(id) {
-    const nav = document.getElementById('nav');
-    nav.style.display = 'none';
-    document.getElementById('burger').setAttribute('aria-expanded', 'false');
-    globalThis._cmd.command(document.getElementById(id).textContent);
-  }
-</script>
 <!-- Main program -->
 <script type="module">
   import {Model} from "./js/Model.js";
@@ -82,30 +75,35 @@
       requestAnimationFrame(loop);
     }
     loop();
-    globalThis._cmd = command;
+
     if (typeof document !== 'undefined') {
       // Read tag and launch
-      const commandText = document.getElementById("cocotte.txt").textContent;
+      const commandText = document.getElementById("cocotte").textContent;
       globalThis.addEventListener("load", () => { command.command(commandText) });
     }
+    document.querySelectorAll('button[data-load]').forEach(btn => {
+      // Le lien entre data-load et dataset.load est une conversion automatique
+      btn.addEventListener('click', () => load(btn.dataset.load))
+    })
+    function load(id) {
+      const nav = document.getElementById('nav');
+      nav.style.display = 'none';
+      document.getElementById('burger').setAttribute('aria-expanded', 'false');
+      command.command(document.getElementById(id).content.textContent);
+    }
   }
-  function load(id) {
-    const nav = document.getElementById('nav');
-    nav.style.display = 'none';
-    document.getElementById('burger').setAttribute('aria-expanded', 'false');
-    globalThis._cmd.command(document.getElementById(id).textContent);
-  }
+
 </script>
-<!-- Inline model -->
-<div id="test.txt" hidden="hidden">
+<!-- Inline models -->
+<template id="test">
   d 200 200
   lines // overlay labels
   c2d p0 p1 c2d p0 p3 c2d p0 p2 c2d p1 p3
   o -1 F3 F4 F6 F2
   split s0 0.5
   t 1000 ty 180
-</div>
-<div id="cocotte.txt" hidden="hidden">
+</template>
+<template id="cocotte">
   // Cocotte
   define 200 200
   // Define crease pattern
@@ -161,8 +159,8 @@
   t 1000 fit
   iao
   t 1000 ty 360
-</div>
-<div id="boat.txt" hidden="hidden">
+</template>
+<template id="boat">
   // Boat
   define 210 300
   textures
@@ -227,6 +225,6 @@
   t 1000 fit
   iao
   t 1000 ty 360
-</div>
+</template>
 </body>
 </html>

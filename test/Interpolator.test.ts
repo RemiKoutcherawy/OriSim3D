@@ -76,7 +76,7 @@ Deno.test("Interpolator", async (t) => {
     const t1 = i(1);
     const t05 = i(0.5);
     assertEquals(Math.round(t0 * 10), 0);
-    assertEquals(Math.round(t05 * 10), 1);
+    assertEquals(Math.round(t05 * 10), -1);
     assertEquals(Math.round(t1 * 10), 10);
   });
 

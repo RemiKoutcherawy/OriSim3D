@@ -28,13 +28,7 @@ export class ReadWrite {
         if (typeof Deno !== "undefined") {
             return await Deno.readTextFile(file);
         }
-        return new Promise<String>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onabort = () => reject(new Error("abort"));
-            reader.onerror = (event) => reject((event.target).error);
-            return reader.readAsText(file);
-        });
+        return file.text();
     }
 
     static async writeFold(model, filename) {
@@ -76,7 +70,7 @@ export class ReadWrite {
             let indexes = [];
             f.points.forEach((p) => {
                 if (points.indexOf(p) === -1) {
-                    p = model.addPoint(p.xf, p.yf, p.x, p.y, p.z);
+                    model.addPoint(p.xf, p.yf, p.x, p.y, p.z);
                 }
                 indexes.push(points.indexOf(p));
             });
@@ -87,7 +81,7 @@ export class ReadWrite {
             let indexes = [];
             f.points.forEach((p) => {
                 segments.forEach((s, i) => {
-                    if (s.p1 === p) indexes.push(i);
+                    if (s.p1 === p || s.p2 === p) indexes.push(i);
                 });
             });
             faces_edges.push(indexes);

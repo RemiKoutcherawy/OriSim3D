@@ -34,28 +34,21 @@ export class Command {
         if (this.commandArea !== undefined) {
             this.commandArea.addLine(cde);
         }
-        // Define
-        if (cde.startsWith('d') || cde.startsWith('define')) {
-            // Reset
+        const tokens = this.tokenize(cde);
+        if (tokens[0] === 'd' || tokens[0] === 'define') {
             this.done = [];
             this.tokenTodo = [];
             this.iToken = 0;
             this.instructions = [];
-        }
-        // Undo
-        else if (cde === 'u' || cde === 'undo') {
-            // Current is removed
+        } else if (cde === 'u' || cde === 'undo') {
             this.done.pop();
-            // Last will be restored
             this.model.state = State.undo;
-            // return early, no need to tokenize
             return this;
         } else if (cde === 'run') {
             this.model.state = State.run;
             return this;
         }
-        // Tokenize and push
-        this.tokenTodo.push(...this.tokenize(cde));
+        this.tokenTodo.push(...tokens);
         return this;
     }
 
@@ -440,7 +433,10 @@ export class Command {
         // Read-Write file
         else if (tokenList[idx] === 'read') {
             idx++;
-            ReadWrite.readFileAsText('text.txt', this.instructions).then(() => console.log('complete'));
+            ReadWrite.readFileAsText('text.txt').then((text ) => {
+                this.instructions = text;
+                console.log('complete')
+            });
         } else if (tokenList[idx] === 'write') {
             idx++;
             let doneCde = this.instructions.join('\n');

@@ -90,7 +90,7 @@ export class Segment {
                     return a.xf === c.xf ? a : undefined;
                 }
                 // project 'a' on 'cd'
-                const t = a.xf * (c.xf - d.xf) + a.yf * (c.yf - d.yf);
+                const t = ((a.xf - c.xf) * (d.xf - c.xf) + (a.yf - c.yf) * (d.yf - c.yf)) / cd;
                 if (t < 0 || t > 1) {
                     return undefined;
                 }
