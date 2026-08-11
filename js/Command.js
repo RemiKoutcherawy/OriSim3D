@@ -218,7 +218,7 @@ export class Command {
             const p = this.listObjects(tokenList, idx, 'p')[0];
             idx++;
             this.model.splitPerpendicular2d(s, p);
-        } else if (tokenList[idx] === 'perpendicular' ||tokenList[idx] === 'p3d' || tokenList[idx] === 'perpendicular3d') {
+        } else if (tokenList[idx] === 'p3d' || tokenList[idx] === 'perpendicular3d') {
             // Split perpendicular to segment by point in 3d: p s1 p1;
             idx++;
             const s = this.listObjects(tokenList, idx, 's')[0];
@@ -311,8 +311,8 @@ export class Command {
         } else if (tokenList[idx] === 'check') {
             idx++;
             // Deselect all
-            this.model.points.forEach(p => p.select = 0);
-            this.model.segments.forEach(s => s.select = 0);
+            this.model.points.forEach(p => p.select = false);
+            this.model.segments.forEach(s => s.select = false);
             this.model.checkSegments();
         } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
             // Offset by dz a list of faces: o dz f1 f2...
@@ -404,14 +404,21 @@ export class Command {
             const pts = this.listObjects(tokenList, idx, 'p');
             idx += pts.length;
             this.model.points.forEach(function(p){
-                p.select = pts.includes(p) ? 1 : 0;
+                p.select = pts.includes(p) && !p.select;
             });
         } else if (tokenList[idx] === 'selectSegments' || tokenList[idx] === 'ss') {
             idx++;
             const sgs = this.listObjects(tokenList, idx, 's');
             idx += sgs.length;
             this.model.segments.forEach(function(s){
-                s.select = sgs.includes(s) ? 1 : 0;
+                s.select = sgs.includes(s) && !s.select;
+            });
+        } else if (tokenList[idx] === 'selectFaces' || tokenList[idx] === 'sf') {
+            idx++;
+            const faces = this.listObjects(tokenList, idx, 'f');
+            idx += faces.length;
+            this.model.faces.forEach(function(f){
+                f.select = faces.includes(f) && !f.select;
             });
         } else if (tokenList[idx] === 'labels') {
             idx++;
@@ -433,13 +440,16 @@ export class Command {
         // Read-Write file
         else if (tokenList[idx] === 'read') {
             idx++;
-            ReadWrite.readFileAsText('text.txt').then((text) => {
+            const filename = tokenList[idx++];
+            ReadWrite.readFileAsText(filename).then((text) => {
+                console.log(text);
                 this.command(text);
             });
         } else if (tokenList[idx] === 'write') {
             idx++;
+            const filename = tokenList[idx++];
             let doneCde = this.instructions.join('\n');
-            ReadWrite.writeFile('text.txt', doneCde).then(() => console.log('complete'));
+            ReadWrite.writeFile(filename, doneCde).then(() => console.log('complete'));
         }
 
         // End of line

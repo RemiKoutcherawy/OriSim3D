@@ -8,7 +8,7 @@ export class Point {
         this.z = Number(z);
         // Helper
         this.hover = false;
-        this.select = 0;
+        this.select = false;
         // xCanvas projected point in overlay
         this.xCanvas = null;
         this.yCanvas = null;

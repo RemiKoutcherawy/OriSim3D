@@ -7,7 +7,7 @@ export class Segment {
         this.p1 = p1;
         this.p2 = p2;
         this.hover = false;
-        this.select = 0;
+        this.select = false;
     }
 
     /**

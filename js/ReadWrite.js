@@ -24,11 +24,12 @@ export class ReadWrite {
     }
 
     // Read with FileReader return text or null
-    static async readFileAsText(file) {
+    static async readFileAsText(filename) {
         if (typeof Deno !== "undefined") {
-            return await Deno.readTextFile(file);
+            return await Deno.readTextFile(filename);
         }
-        return file.text();
+        const file = await this.chooseFile();
+        return await file.text();
     }
 
     static async writeFold(model, filename) {

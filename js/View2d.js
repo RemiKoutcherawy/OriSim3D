@@ -47,7 +47,7 @@ export class View2d {
             const yc = -p.yf;
             context2d.beginPath();
             context2d.arc(xc, yc, p.hover ? 12 : 8, 0, 2 * Math.PI);
-            context2d.fillStyle = p.select === 1 ? 'red' : p.select === 2 ? 'orange' : p.hover ? 'blue' : 'skyblue';
+            context2d.fillStyle = p.select ? 'red' : p.hover ? 'blue' : 'skyblue';
             context2d.fill();
 
             // label
@@ -71,7 +71,7 @@ export class View2d {
             context2d.beginPath();
             context2d.moveTo(xf1, yf1);
             context2d.lineTo(xf2, yf2);
-            context2d.strokeStyle = s.select === 1 ? 'red' : s.select === 2 ? 'orange' : s.hover ? 'blue' : 'skyblue';
+            context2d.strokeStyle = s.select ? 'red' : s.hover ? 'blue' : 'skyblue';
             context2d.stroke();
             // Add an arrow on p2
             const arrowLength = 20;
@@ -84,13 +84,13 @@ export class View2d {
             context2d.lineTo(arrowX1, arrowY1);
             context2d.lineTo(arrowX2, arrowY2);
             context2d.closePath();
-            context2d.fillStyle = s.select === 1 ? 'red' : s.select === 2 ? 'orange' : s.hover ? 'blue' : 'skyblue';
+            context2d.fillStyle = s.select ? 'red' : s.hover ? 'blue' : 'skyblue';
             context2d.fill();
 
             // Circle with color for selected, bigger for hovered
             context2d.beginPath();
             context2d.arc(xc, yc, s.hover ? 12 : 8, 0, 2 * Math.PI);
-            context2d.fillStyle = s.select === 1 ? 'red' : s.select === 2 ? 'orange' : s.hover ? 'blue' : 'lightgreen';
+            context2d.fillStyle = s.select ? 'red' : s.hover ? 'blue' : 'lightgreen';
             context2d.fill();
 
             // Label
