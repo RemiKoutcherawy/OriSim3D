@@ -15,7 +15,7 @@ Deno.test("Model", async (t) => {
         const model = new Model().init(200, 200);
         // Serialize
         const serialized = model.serialize();
-        assertEquals(serialized.length, 547, "serialized model length");
+        assertEquals(serialized.length, 563, "serialized model length");
 
         // Model change should not affect serialized
         model.addPoint(0, 0, 0, 0, 0);
@@ -52,17 +52,17 @@ Deno.test("Model", async (t) => {
             const model = new Model().init(200, 200);
             // Click on point, segment and face
             model.click2d3d([model.points[0]], [], []);
-            assertEquals(model.points[0].select, 1, 'First point selected');
+            assertEquals(model.points[0].select, true, 'First point selected');
             model.click2d3d([model.points[0]], [], []);
-            assertEquals(model.points[0].select, 2, 'First point double selected');
+            assertEquals(model.points[0].select, false, 'First point deselected');
             model.click2d3d([], [model.segments[0]], []);
-            assertEquals(model.segments[0].select, 1, 'First segment selected');
+            assertEquals(model.segments[0].select, true, 'First segment selected');
             model.click2d3d([], [model.segments[0]], []);
-            assertEquals(model.segments[0].select, 2, 'First segment double selected');
+            assertEquals(model.segments[0].select, false, 'First segment deselected');
             model.click2d3d([], [], [model.faces[0]]);
-            assertEquals(model.faces[0].select, 1, 'First face selected');
+            assertEquals(model.faces[0].select, true, 'First face selected');
             model.click2d3d([], [], [model.faces[0]]);
-            assertEquals(model.faces[0].select, 2, 'First face double selected');
+            assertEquals(model.faces[0].select, false, 'First face deselected');
         });
     });
     await t.step("indexOf", () => {

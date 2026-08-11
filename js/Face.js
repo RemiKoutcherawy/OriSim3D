@@ -7,7 +7,7 @@ export class Face {
         this.points = points;
         this.offset = 0;
         this.hover = false;
-        this.select = 0;
+        this.select = false;
     }
 
     // Area 2d for an array of points

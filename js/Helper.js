@@ -79,13 +79,13 @@ export class Helper {
         if (this.firstPoint) {
             this.firstPoint.hover = true;
             // From Point with selected segment(s)
-            const s = this.model.segments.find(s => s.select === 1);
+            const s = this.model.segments.find(s => s.select);
             if (s) {
                 // Deselect other segments
-                this.model.segments.filter(sg => sg.select === 1 && sg !== s).forEach(sg => sg.select = 0);
+                this.model.segments.filter(sg => sg.select && sg !== s).forEach(sg => sg.select = false);
                 // The point we move from
                 const p = this.firstPoint;
-                p.select = 1;
+                p.select = true;
                 let distToFirst, distToCurrent;
                 if (this.currentCanvas === '2d') {
                     // Signed distance from the first point to segment.
@@ -125,12 +125,7 @@ export class Helper {
                 if (this.firstPoint === p) {
                     // To the same point select
                     points.forEach((p) => {
-                        p.select = (p.select + 1) % 3;
-                        // Adjust if double-select
-                        if (p.select === 2) {
-                            this.model.adjust(p);
-                            this.view3d.initModelView();
-                        }
+                        p.select = !p.select;
                     });
                     let liste = points.map(p => 'p'+this.model.indexOf(p) + '[' + Math.round(p.x * 10) / 10 + ',' + Math.round(p.y * 10) / 10 + ',' + Math.round(p.z * 10) / 10 + ']').join(' ');
                     if (this.commandArea) this.commandArea.addLine(`points ${liste}`);
@@ -170,17 +165,11 @@ export class Helper {
             }
             // To face or nothing checks if rotating
             else if (this.label) {
-                const s = this.model.segments.find(s => s.select === 1);
+                const s = this.model.segments.find(s => s.select);
                 const aIndex = this.model.indexOf(s);
-                const selected = this.model.points.filter(s => s.select === 1);
+                const selected = this.model.points.filter(p => p.select);
                 const bIndex = selected.map(p => 'p'+this.model.points.indexOf(p));
-                const adjust = this.model.points.filter(s => s.select === 2);
-                const cIndex = adjust.map(p => 'p'+this.model.points.indexOf(p));
-                if (adjust.length === 0) {
-                    this.command.command(`t 1000 r s${aIndex} ${this.label} ${bIndex.join(' ')}`);
-                } else {
-                    this.command.command(`t 1000 r s${aIndex} ${this.label} ${bIndex.join(' ')} a ${cIndex.join(' ')}`);
-                }
+                this.command.command(`t 1000 r s${aIndex} ${this.label} ${bIndex.join(' ')}`);
             }
         }
         // From segment
@@ -189,7 +178,7 @@ export class Helper {
             if (segments.length > 0) {
                 const s = segments[0];
                 if (s === this.firstSegment) {
-                    segments.forEach((s) => s.select = (s.select + 1) % 3);
+                    segments.forEach((s) => s.select = !s.select);
                     let liste = segments.map(s => ('s'+this.model.indexOf(s) + '[' + Math.round(Segment.length2d(s) * 10) / 10 + ';' + Math.round(Segment.length3d(s) * 10) / 10) + ']').join(' ');
                     if (this.commandArea) this.commandArea.addLine(`segments ${liste}`);
                 }
@@ -246,9 +235,9 @@ export class Helper {
         // From Nothing to Nothing
         else {
             // Deselect
-            this.model.points.forEach(p => p.select = 0);
-            this.model.segments.forEach(s => s.select = 0);
-            this.model.faces.forEach(f => f.select = 0);
+            this.model.points.forEach(p => p.select = false);
+            this.model.segments.forEach(s => s.select = false);
+            this.model.faces.forEach(f => f.select = false);
         }
         this.out();
     }
@@ -372,7 +361,7 @@ export class Helper {
             [dx, dy] = [dx * cz - dy * sz, dx * sz + dy * cz];
             let mx = dx * Math.cos(r(v.angleY)), my = dy * Math.sin(r(v.angleY)),
                 mz = dx * Math.sin(r(v.angleY)) - dy * Math.sin(r(v.angleX)),
-                sel = this.model.points.filter(pt => pt.select === 1),
+                sel = this.model.points.filter(pt => pt.select),
                 pts = sel.map(pt => 'p'+this.model.points.indexOf(pt)).join(' ');
             // Round to 0.01
             mx = Math.round(mx * 100) / 100;
@@ -394,7 +383,7 @@ export class Helper {
     wheel(event) {
         // deltaY => up or down zoom view
         this.view3d.scale = event.scale !== undefined ? event.scale / 10 : this.view3d.scale + event.deltaY / 300;
-        this.view3d.scale = Segment.clamp(this.view3d.scale, 0.2, 3); // 0.2 < scale < 3
+        this.view3d.scale = Math.max(3, Math.min(0.2, this.view3d.scale)); // 0.2 < scale < 3
         this.view3d.initModelView();
         this.view3d.initPerspective();
     }

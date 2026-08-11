@@ -70,11 +70,11 @@ export class Model {
     // Handle click2d3d on points, segments, faces 2d and 3d
     click2d3d(points, segments, faces) {
         if (points.length > 0) {
-            points.forEach((p) => p.select = (p.select + 1) % 3);
+            points.forEach((p) => p.select = !p.select);
         } else if (segments.length > 0) {
-            segments.forEach((s) => s.select = (s.select + 1) % 3);
+            segments.forEach((s) => s.select = !s.select);
         } else if (faces.length > 0) {
-            faces.forEach((f) => f.select = (f.select + 1) % 3);
+            faces.forEach((f) => f.select = !f.select);
         }
     }
 
@@ -632,7 +632,7 @@ export class Model {
             const lg2d = Segment.length2d(s); // Should not change
             const d = lg2d - lg3d;
             if (Math.abs(d) > max) {
-                s.select = 1;
+                s.select = true;
             }
         }
     }

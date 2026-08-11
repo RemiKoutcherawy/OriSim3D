@@ -448,21 +448,20 @@ export class View3d {
             // Circle with color for selected, bigger for hovered
             context2d.beginPath();
             context2d.arc(p.xCanvas, p.yCanvas, p.hover ? 10 : 6, 0, 2 * Math.PI);
-            context2d.fillStyle = p.select === 1 ? 'red' : p.select === 2 ? 'orange' : p.hover ? 'blue' : 'skyblue';
+            context2d.fillStyle = p.select ? 'red' : p.hover ? 'blue' : 'skyblue';
             context2d.fill();
         }
     }
 
     // Draw on overlay. Called from render()
     drawSegments(segments) {
-        // if (segments === undefined) {return;}
         const context2d = this.overlay.getContext('2d');
         for (let s of segments) {
             context2d.lineWidth = s.hover ? 6 : 3;
             context2d.beginPath();
             context2d.moveTo(s.p1.xCanvas, s.p1.yCanvas);
             context2d.lineTo(s.p2.xCanvas, s.p2.yCanvas);
-            context2d.strokeStyle = s.select === 1 ? 'red' : s.select === 2 ? 'orange' : s.hover ? 'blue' : 'skyblue';
+            context2d.strokeStyle = s.select ? 'red' : s.hover ? 'blue' : 'skyblue';
             context2d.stroke();
         }
     }
@@ -517,7 +516,7 @@ export class View3d {
             context2d.stroke();
             // Circle
             const radius = 12;
-            context2d.fillStyle = p.select === 1 ? 'red' : p.select === 2 ? 'orange' : 'skyblue';
+            context2d.fillStyle = p.select ? 'red' : 'skyblue';
             context2d.beginPath();
             context2d.arc(oneLabel.getX(), oneLabel.getY(), radius, 0, 2 * Math.PI);
             context2d.stroke();
