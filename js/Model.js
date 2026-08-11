@@ -577,8 +577,7 @@ export class Model {
             // Iterate over all segments
             // Pm is the medium point
             const pm = new Vector3(0, 0, 0);
-            for (let j = 0; j < segments.length; j++) {
-                const s = segments[j];
+            for (const s of segments) {
                 const lg3d = Segment.length3d(s) / this.scale;
                 const lg2d = Segment.length2d(s); // Should not change
                 const d = lg2d - lg3d;
@@ -615,8 +614,7 @@ export class Model {
         let max = 0.1;
         for (let i = 0; max > 0.001 && i < 200; i++) {
             max = 0;
-            for (let j = 0; j < list.length; j++) {
-                const point = list[j];
+            for (const point of list) {
                 const d = this.adjust(point);
                 if (Math.abs(d) > max) {
                     max = Math.abs(d);
@@ -629,8 +627,7 @@ export class Model {
     // Checks segments and selects segments with anormal length
     checkSegments() {
         const max = 1;
-        for (let i = 0; i < this.segments.length; i++) {
-            const s = this.segments[i];
+        for (const s of this.segments) {
             const lg3d = Segment.length3d(s) / this.scale;
             const lg2d = Segment.length2d(s); // Should not change
             const d = lg2d - lg3d;

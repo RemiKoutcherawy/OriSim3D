@@ -149,13 +149,12 @@ export class Helper {
                         }
                     }
                     // Two points but not on segment
-                    else {
-                        if (this.currentCanvas === '2d') {
+                    else if (this.currentCanvas === '2d') {
                             this.command.command(`by2d p${aIndex} p${bIndex}`);
                         } else {
                             this.command.command(`by3d p${aIndex} p${bIndex}`);
                         }
-                    }
+
                 }
             }
             // To segment
@@ -395,7 +394,7 @@ export class Helper {
     wheel(event) {
         // deltaY => up or down zoom view
         this.view3d.scale = event.scale !== undefined ? event.scale / 10 : this.view3d.scale + event.deltaY / 300;
-        this.view3d.scale = Math.min(Math.max(this.view3d.scale, 0.2), 3); // 0.2 < scale < 3
+        this.view3d.scale = Segment.clamp(this.view3d.scale, 0.2, 3); // 0.2 < scale < 3
         this.view3d.initModelView();
         this.view3d.initPerspective();
     }

@@ -202,14 +202,14 @@ export class Segment {
                 // AB segment degenerate into point
                 s = 0;
                 t = f / e; // s=0 => t=(b*s+f)/e = f/e
-                t = t < 0 ? 0 : t > 1 ? 1 : t;
+                t = Math.max(0, Math.min(1, t));
             } else {
                 const c = Vector3.dot(AB, CA);
                 if (e < EPSILON) {
                     // CD segment degenerate into point
                     t = 0;
                     s = -c / a; // t=0 => s=(b*t-c)/a = -c/a
-                    s = s < 0 ? 0 : s > 1 ? 1 : s;
+                    s = Math.max(0, Math.min(1, s));
                 } else {
                     // General case
                     const b = Vector3.dot(AB, CD); // Delayed computation of b
@@ -217,7 +217,7 @@ export class Segment {
                     // Segments not parallel, compute closest
                     if (denominator !== 0) {
                         s = (b * f - c * e) / denominator
-                        s = s < 0 ? 0 : s > 1 ? 1 : s;
+                        s = Math.max(0, Math.min(1, s));
                     } else {
                         // Arbitrary point, here 0 => p1
                         s = 0;
@@ -228,11 +228,11 @@ export class Segment {
                     if (t < 0) {
                         t = 0;
                         s = -c / a;
-                        s = s < 0 ? 0 : s > 1 ? 1 : s;
+                        s = Math.max(0, Math.min(1, s));
                     } else if (t > 1) {
                         t = 1;
                         s = (b - c) / a;
-                        s = s < 0 ? 0 : s > 1 ? 1 : s;
+                        s = Math.max(0, Math.min(1, s));
                     }
                 }
             }

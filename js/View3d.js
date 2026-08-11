@@ -132,19 +132,20 @@ export class View3d {
         gl.attachShader(program, vxShader);
         gl.attachShader(program, fgShader);
         gl.linkProgram(program);
-        checkErrors(gl, program, vxShader, fgShader);
+        this.checkErrors(gl, program, vxShader, fgShader);
 
         // Use it and copy it in an attribute of gl
         gl.useProgram(program);
         gl.program = program;
-        checkErrors(gl, program, vxShader, fgShader);
-        function checkErrors(gl, program, glVertexShader, glFragmentShader) {
-            const programLog = gl.getProgramInfoLog(program).trim();
-            const vertexLog = gl.getShaderInfoLog(glVertexShader).trim();
-            const fragmentLog = gl.getShaderInfoLog(glFragmentShader).trim();
-            if (gl.getProgramParameter(program, gl.LINK_STATUS) === false) {
-                console.error('Shader Error ' + gl.getError() + ' - ' + 'VALIDATE_STATUS ' + gl.getProgramParameter(program, 35715) + '\n\n' + 'Program Info Log: ' + programLog + '\n' + vertexLog + '\n' + fragmentLog);
-            }
+        this.checkErrors(gl, program, vxShader, fgShader);
+    }
+
+    checkErrors(gl, program, glVertexShader, glFragmentShader) {
+        const programLog = gl.getProgramInfoLog(program).trim();
+        const vertexLog = gl.getShaderInfoLog(glVertexShader).trim();
+        const fragmentLog = gl.getShaderInfoLog(glFragmentShader).trim();
+        if (gl.getProgramParameter(program, gl.LINK_STATUS) === false) {
+            console.error('Shader Error ' + gl.getError() + ' - ' + 'VALIDATE_STATUS ' + gl.getProgramParameter(program, 35715) + '\n\n' + 'Program Info Log: ' + programLog + '\n' + vertexLog + '\n' + fragmentLog);
         }
     }
 
@@ -161,7 +162,7 @@ export class View3d {
         gl.uniform1i(uSamplerFront, 0);
         const imageFront = new Image();
         const imageElement = globalThis.document.getElementById('front');
-        if (imageElement && imageElement.src) {
+        if (imageElement?.src) {
             imageFront.onload = () => {
                 gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, textureFront);
@@ -189,7 +190,7 @@ export class View3d {
         gl.uniform1i(uSamplerBack, 1);
         const imageBack = new Image();
         const imageBackElement = globalThis.document.getElementById('back');
-        if (imageBackElement && imageBackElement.src) {
+        if (imageBackElement?.src) {
             imageBack.onload = () => {
                 gl.activeTexture(gl.TEXTURE1);
                 // Flip the image Y coordinate
@@ -255,7 +256,7 @@ export class View3d {
         let index = 0;
         for (let f of this.model.faces) {
             const pts = f.points;
-            const n = normal(pts);
+            const n = this.normal(pts);
 
             for (let i = 1; i < pts.length - 1; i++) {
                 // First point
@@ -337,30 +338,29 @@ export class View3d {
         gl.uniform1i(gl.getUniformLocation(gl.program, 'uLine'), 0);
         // Unbind VAO after setup
         gl.bindVertexArray(null);
-
-        // Compute Face normal in [3]
-        function normal(pts) {
-            let n = [3];
-            for (let i = 0; i < pts.length - 2; i++) {
-                // Take triangles until p2p1 x p1p3 > 0.1
-                const p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
-                const u = [p2.x - p1.x, p2.y - p1.y, p2.z - p1.z];
-                const v = [p3.x - p1.x, p3.y - p1.y, p3.z - p1.z];
-                n[0] = u[1] * v[2] - u[2] * v[1];
-                n[1] = u[2] * v[0] - u[0] * v[2];
-                n[2] = u[0] * v[1] - u[1] * v[0];
-                if (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) > 0.1) {
-                    break;
-                }
+    }
+    // Compute Face normal in [3]
+    normal(pts) {
+        let n = [3];
+        for (let i = 0; i < pts.length - 2; i++) {
+            // Take triangles until p2p1 x p1p3 > 0.1
+            const p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
+            const u = [p2.x - p1.x, p2.y - p1.y, p2.z - p1.z];
+            const v = [p3.x - p1.x, p3.y - p1.y, p3.z - p1.z];
+            n[0] = u[1] * v[2] - u[2] * v[1];
+            n[1] = u[2] * v[0] - u[0] * v[2];
+            n[2] = u[0] * v[1] - u[1] * v[0];
+            if (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2]) > 0.1) {
+                break;
             }
-            // n.normalize();
-            const sq = Math.hypot(n[0], n[1], n[2]);
-            if (sq < 1e-6) return [0, 0, 1];
-            n[0] /= sq;
-            n[1] /= sq;
-            n[2] /= sq;
-            return n;
         }
+        // n.normalize();
+        const sq = Math.hypot(n[0], n[1], n[2]);
+        if (sq < 1e-6) return [0, 0, 1];
+        n[0] /= sq;
+        n[1] /= sq;
+        n[2] /= sq;
+        return n;
     }
     // Model view matrix
     initModelView() {
