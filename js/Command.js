@@ -146,6 +146,20 @@ export class Command {
         return false;
     }
 
+    // Execute tokens up to untilIdx at once, skipping the real time animation delay
+    runInstant(untilIdx) {
+        while (this.iToken < untilIdx && this.iToken < this.tokenTodo.length) {
+            if (this.tokenTodo[this.iToken] === 't' || this.tokenTodo[this.iToken] === 'time') {
+                this.iToken += 2;
+                this.tni = 1;
+                this.tpi = 0;
+            } else {
+                this.execute(this.iToken);
+            }
+        }
+        this.model.state = State.pause;
+    }
+
     doneInstructions(idxBefore, idxAfter) {
         // Keep track of commands done
         let doneCommands = this.tokenTodo.slice(idxBefore, idxAfter).join(' ');
