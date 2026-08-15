@@ -186,13 +186,9 @@ export class Helper {
             this.sendCmd('p', 's' + this.model.indexOf(this.firstSegment), 'p' + this.model.indexOf(points[0]))
     }
     fromFace(points, segments, faces) {
-        // To face
-        if (faces.length > 0) {
-            const f= faces[0];
-            // To the same face
-            if(f === this.firstFace){
-                f.select = !f.select
-            }
+        // To the same face: select or deselect
+        if (faces.length > 0 && faces[0] === this.firstFace) {
+            faces[0].select = !faces[0].select
         }
         // To another face or nothing: split segments on 2d crease pattern.
         else {
