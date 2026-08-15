@@ -48,6 +48,12 @@ export class Model {
         this.faces.push(f);
         // State run
         this.state = State.run;
+        // Options
+        this.labels = false;
+        this.textures = false;
+        this.overlay = false; // show points segments and face
+        this.lines = true;   // render lines on 3d
+        this.snap = true;    // snap nearest points
         return this;
     }
 
@@ -770,7 +776,7 @@ export class Model {
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Non-serialized / UI-only fields
-        const exclude = new Set(['labels', 'textures', 'overlay', 'lines', 'hidden', 'snap']);
+        const exclude = new Set(['hidden']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {

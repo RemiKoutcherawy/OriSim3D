@@ -15,9 +15,6 @@
     #nav{position:absolute;top:46px;left:8px;z-index:10;background:rgba(0,0,0,.82);border-radius:4px;display:none}
     #nav button,summary{display:block;color:#fff;padding:10px 16px;cursor:pointer;white-space:nowrap;text-decoration:none;outline:0;background:none;border:none;width:100%;text-align:left;font-family:inherit;font-size:inherit}
     #nav button:hover,summary:hover{background:rgba(255,255,255,.12)}
-    #carousel{position:fixed;left:0;bottom:0;width:100%;height:90px;background:rgba(0,0,0,.82);display:flex;overflow-x:auto;gap:4px;padding:4px;box-sizing:border-box;z-index:5}
-    #carousel img{height:100%;cursor:pointer;border:2px solid transparent;flex:none}
-    #carousel img:hover{border-color:#fff}
   </style>
 </head>
 <body>
@@ -35,10 +32,11 @@
   <button type="button" data-load="boat">Bateau</button>
   <button type="button" data-load="test">test</button>
 </div>
-<div id="carousel"></div>
+
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
 <img id="back" src="textures/back.jpg" style="display:none;" alt="back"/>
+
 <!-- Main program -->
 <script type="module">
   import {Model} from "./js/Model.js";
@@ -68,55 +66,6 @@
     const helper = new Helper(model, command, canvas2d, view3d, overlay, null);
     helper.out();
 
-    // Offscreen model used only to render carousel thumbnails
-    const thumbCanvas3d = createHiddenCanvas(240, 160);
-    const thumbOverlay = createHiddenCanvas(240, 160);
-    const thumbModel = new Model().init(200, 200);
-    const thumbView3d = new View3d(thumbModel, thumbCanvas3d, thumbOverlay);
-    const thumbCommand = new Command(thumbModel, thumbView3d);
-    function createHiddenCanvas(width, height) {
-      const canvas = document.createElement('canvas');
-      canvas.style.cssText = `position:absolute;left:-9999px;width:${width}px;height:${height}px`;
-      document.body.appendChild(canvas);
-      return canvas;
-    }
-    function stepBoundaries(tokens) {
-      const bounds = [];
-      for (let i = 0; i < tokens.length; i++) {
-        if (tokens[i] === '\n') bounds.push(i + 1);
-      }
-      if (bounds.length === 0 || bounds[bounds.length - 1] !== tokens.length) {
-        bounds.push(tokens.length);
-      }
-      return bounds;
-    }
-    function buildCarousel(commandText) {
-      thumbCommand.command(commandText);
-      const bounds = stepBoundaries(thumbCommand.tokenTodo);
-      const carousel = document.getElementById('carousel');
-      carousel.innerHTML = '';
-      for (const bound of bounds) {
-        thumbCommand.runInstant(bound);
-        thumbView3d.initBuffers();
-        thumbView3d.initModelView();
-        thumbView3d.render();
-        const img = document.createElement('img');
-        img.src = thumbCanvas3d.toDataURL('image/png');
-        img.alt = 'étape';
-        img.addEventListener('click', () => jumpToStep(commandText, bound));
-        img.addEventListener('dblclick', () => run());
-        carousel.appendChild(img);
-      }
-    }
-    function jumpToStep(commandText, bound) {
-      command.command(commandText);
-      command.runInstant(bound);
-      view3d.initBuffers();
-      view3d.initModelView();
-    }
-    function run() {
-      command.command('run');
-    }
     // Animation loop
     function loop() {
       if (command.anim()) {
@@ -134,7 +83,6 @@
     const commandText = document.getElementById("cocotte").content.textContent;
     globalThis.addEventListener("load", () => {
       command.command(commandText);
-      buildCarousel(commandText);
     });
 
     // Add button actions
@@ -149,7 +97,6 @@
       document.getElementById('burger').setAttribute('aria-expanded', 'false');
       const text = document.getElementById(id).content.textContent;
       command.command(text);
-      buildCarousel(text);
     }
   }
 
