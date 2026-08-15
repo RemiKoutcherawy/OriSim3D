@@ -29,9 +29,17 @@ export class Helper {
             canvas2d.addEventListener('mousedown', (event) => this.down2d(event));
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
             canvas2d.addEventListener('mouseup', (event) => this.up2d(event));
-            canvas2d.addEventListener('mouseout', () => this.out());
+            canvas2d.addEventListener('mouseout', (event) => this.out(event));
+            // Keyboard
+            document.addEventListener('keydown', (event) => this.keydown(event));
         }
         this.out();
+    }
+    keydown(event) {
+        // Control Z to undo
+        if (event.key === 'z' && (event.ctrlKey || event.metaKey)) {
+            this.command.command('undo');
+        }
     }
 
     // init properties
@@ -169,7 +177,9 @@ export class Helper {
                 s.select = !s.select
             }
             // To another segment crease bisector
-            this.sendCmd('bisector', 's' + this.model.indexOf(this.firstSegment), 's' + this.model.indexOf(s))
+            else{
+                this.sendCmd('bisector', 's' + this.model.indexOf(this.firstSegment), 's' + this.model.indexOf(s))
+            }
         }
         // To point crease perpendicular from segment to point
         else if (points.length > 0)
