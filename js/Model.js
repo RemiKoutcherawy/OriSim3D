@@ -49,9 +49,9 @@ export class Model {
         // State run
         this.state = State.run;
         // Options
-        this.labels = false;
+        this.labels = true;
         this.textures = false;
-        this.overlay = false; // show points segments and face
+        this.overlay = true; // show points segments and face
         this.lines = true;   // render lines on 3d
         this.snap = true;    // snap nearest points
         return this;
@@ -196,10 +196,12 @@ export class Model {
             // last and current on different side, crossing // 8 9
             else {
                 const inter = Face.intersectionPlaneSegment(plane, last, current);
-
-                // Origami
-                Point.align2dFrom3d(last, current, inter);
-                lastInter = this.addIntersection3d(inter, left, right, dCurrent, current, last, lastInter);
+                if (inter) {
+                    Point.align2dFrom3d(last, current, inter);
+                    lastInter = this.addIntersection3d(inter, left, right, dCurrent, current, last, lastInter);
+                } else {
+                    dCurrent < 0 ? left.push(current) : right.push(current);
+                }
             }
             last = current;
             dLast = dCurrent;

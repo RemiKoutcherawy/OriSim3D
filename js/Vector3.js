@@ -44,7 +44,8 @@ export class Vector3 {
     }
 
     static normalize(v) {
-        return Vector3.scale(v, 1 / Vector3.length3d(v));
+        const length = Vector3.length3d(v);
+        return length === 0 ? v : Vector3.scale(v, 1 / length);
     }
 
     static add(u, v) {
