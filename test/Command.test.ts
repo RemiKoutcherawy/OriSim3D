@@ -225,6 +225,34 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.points[2].y), 200);
     });
 
+    await t.step('undo then new commands still run', () => {
+        // Mouse-like: only `t … r …`, no prior execute() snapshot with state=run
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
+        cmd.command('t 10 rotate S0 90 P2 P3');
+        let n = 0;
+        while (cmd.anim() && ++n < 10000) { /* drain anim */ }
+        assertEquals(n < 10000, true, 'animation should finish');
+        assertEquals(Math.round(m.points[2].y), -200);
+        cmd.command('\nundo\n'); // template textContent is rarely exactly "undo"
+        n = 0;
+        while (cmd.anim() && ++n < 10000) { /* drain undo */ }
+        assertEquals(n < 10000, true, 'undo should finish');
+        assertEquals(m.state, State.run, 'undo must return to run');
+        assertEquals(Math.round(m.points[2].y), 200);
+        cmd.command('m 0 10 0 p2').anim();
+        assertEquals(Math.round(m.points[2].y), 210, 'command after undo must execute');
+    });
+
+    await t.step('undo with empty stack returns to run', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
+        cmd.command('undo').anim();
+        assertEquals(m.state, State.run);
+        cmd.command('m 0 10 0 p2').anim();
+        assertEquals(Math.round(m.points[2].y), 210);
+    });
+
     // Animation commands
     await t.step('command t 10 rotate S0 90 P2 P3', () => {
         cde.command('t 10 rotate S0 90 P2 P3');

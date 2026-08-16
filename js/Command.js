@@ -52,13 +52,21 @@ export class Command {
             this.tokenTodo = [];
             this.iToken = 0;
             this.instructions = [];
-        } else if (cde === 'u' || cde === 'undo') {
-            this.done.pop();
+        } else if (tokens[0] === 'u' || tokens[0] === 'undo') {
+            // Drop the snapshot of the live model; runUndo restores the previous one.
+            if (this.done.length > 0) {
+                this.done.pop();
+            }
             this.model.state = State.undo;
             return this;
-        } else if (cde === 'run') {
+        } else if (tokens[0] === 'run') {
             this.model.state = State.run;
             return this;
+        }
+        // A new instruction must leave undo, otherwise anim() keeps calling runUndo
+        // and tokenTodo is never consumed (mouse / commandArea look "dead").
+        if (this.model.state === State.undo) {
+            this.model.state = State.run;
         }
         this.tokenTodo.push(...tokens);
         return this;
@@ -137,6 +145,9 @@ export class Command {
         this.idxBefore = this.iToken;
         // Handle time command to start animation and switch to Anim
         if (this.peek() === 't' || this.peek() === 'time') {
+            // Snapshot before the animated line (state is still run). Without it,
+            // undo only has anim-frame snapshots and never returns to State.run.
+            this.pushUndo();
             this.iToken++;
             this.duration = Number.parseFloat(this.next());
             this.tStart = performance.now();
@@ -150,11 +161,18 @@ export class Command {
     }
 
     runUndo() {
+        // Empty stack: stay in undo and nothing ever runs again (commandArea / mouse).
+        if (this.done.length === 0) {
+            this.model.state = State.run;
+            return false;
+        }
         this.popUndo();
-        // Continue undo if the model was in animation
+        // Continue undo through per-frame snapshots of an animated line
         if (this.model.state === State.anim) {
             this.model.state = State.undo;
+            return true;
         }
+        this.model.state = State.run;
         return true;
     }
 
