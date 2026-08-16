@@ -102,6 +102,9 @@ Deno.test("Model", async (t) => {
         const face = model.addFace(f0.points);
         assertEquals(model.faces.length, 1, 'Model should have 1 face');
         assertEquals(model.faces[0], face, 'Model first face should be added face');
+        // Same vertices in a new array should reuse the existing face
+        assertEquals(model.addFace([...f0.points]), f0, 'Copied points should match existing face');
+        assertEquals(model.faces.length, 1, 'Model should still have 1 face');
         // Should add a new face with 3 first points
         model.addFace([f0.points[0], f0.points[1], f0.points[2]]);
         assertEquals(model.faces.length, 2, 'Model should have 2 faces');
@@ -142,6 +145,13 @@ Deno.test("Model", async (t) => {
             plane = Plane.across(model.points[1], model.points[3]);
             model.splitAllFacesByPlane3d(plane);
             assertEquals(model.faces.length, 4, 'model should have 4 faces');
+        });
+        await t.step("splitFaceByPlane3d vertical face", () => {
+            const model = new Model().init(200, 200);
+            // Fold the top edge 90° around the bottom segment → vertical rectangle
+            model.rotate(model.segments[0], 90, [model.points[2], model.points[3]]);
+            model.splitAllFacesByPlane3d(Plane.across(model.points[0], model.points[1]));
+            assertEquals(model.faces.length, 2, 'Vertical face should still split');
         });
         await t.step("splitFaceByPlane3d on side", () => {
             const model = new Model().init(200, 200);
@@ -470,11 +480,20 @@ Deno.test("Model", async (t) => {
         await t.step("splitSegmentOnPoint2d", () => {
             const model = new Model().init(200, 200);
             const s = model.segments[0];
-            const p = {xf: 0, yf: -200};
-            model.splitSegmentOnPoint2d(s, p);
+            const a = s.p1, b = s.p2;
+            model.splitSegmentOnPoint2d(s, {xf: 0, yf: -200});
             assertEquals(model.faces.length, 1, 'Model should have 1 faces');
             assertEquals(model.points.length, 5, 'Model should have 5 points');
             assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+            const face = model.faces[0];
+            const added = model.points[4];
+            assertEquals(face.points.length, 5, 'Face should include the new vertex');
+            assertEquals(face.points.includes(added), true, 'New point should be on the face');
+            const i = face.points.indexOf(added);
+            const prev = face.points[(i + 4) % 5];
+            const next = face.points[(i + 1) % 5];
+            assertEquals((prev === a && next === b) || (prev === b && next === a), true,
+                'New point should sit between the split edge vertices');
         });
         await t.step("splitSegmentByRatio2d", () => {
             const model = new Model().init(200, 200);
@@ -484,6 +503,7 @@ Deno.test("Model", async (t) => {
             assertEquals(model.faces.length, 1, 'Model should have 1 faces');
             assertEquals(model.points.length, 5, 'Model should have 5 points');
             assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+            assertEquals(model.faces[0].points.length, 5, 'Face should include the split vertex');
         });
     });
     await t.step('Turn', () => {
