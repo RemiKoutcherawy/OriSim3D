@@ -591,6 +591,43 @@ export class Model {
         this.rotate(axe, angle, this.points);
     }
 
+    // Faces that move with a fold: at least one vertex in `points` besides the axis ends
+    movingFaces(s, points) {
+        const moving = new Set(points);
+        return this.faces.filter((f) =>
+            f.points.some((p) => moving.has(p) && p !== s.p1 && p !== s.p2)
+        );
+    }
+
+    // Offset those faces. `layer` uses the same unit as the offset command (1 => 0.01).
+    // Call once at the start of a fold, not every animation frame.
+    // Sign of angle chooses the side (valley vs mountain). Heuristic: works for a
+    // simple flap; not a general layer stack (see offset comment in View3d).
+    offsetForFold(s, points, angle, layer = 1) {
+        const faces = this.movingFaces(s, points);
+        if (!faces.length || !layer || !angle) return faces;
+        this.offset(Math.sign(angle) * layer / 10, faces);
+        return faces;
+    }
+
+    // Valley fold: offset moving faces then rotate (angle in degrees)
+    fold(s, angle, points, layer = 1) {
+        this.offsetForFold(s, points, angle, layer);
+        this.rotate(s, angle, points);
+    }
+
+    // Mountain fold: opposite offset sign, same rotation
+    mountain(s, angle, points, layer = 1) {
+        this.offsetForFold(s, points, -angle, layer);
+        this.rotate(s, angle, points);
+    }
+
+    // Fold then adjust 3d lengths of the moved points (typical `r … a p…`)
+    foldFlat(s, angle, points, layer = 1) {
+        this.fold(s, angle, points, layer);
+        this.adjustList(points.length ? points : this.points);
+    }
+
     // Offset faces by dz
     offset(dz, faces) {
         if (dz === 0 || faces.length === 0) {

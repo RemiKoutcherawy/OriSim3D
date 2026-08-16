@@ -301,6 +301,55 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.faces[1].offset*100)/100, 0.42);
     });
 
+    await t.step('command fold valley mountain', () => {
+        cde.command('d 200 200').anim();
+        cde.command('c3d P0 P2').anim();
+        const face = model.movingFaces(model.segments[4], [model.points[0]])[0];
+        cde.command('fold s4 180 p0').anim();
+        assertEquals(Math.round(face.offset * 1000) / 1000, 0.01);
+        const xAfterValley = Math.round(model.points[0].x);
+
+        cde.command('d 200 200').anim();
+        cde.command('c3d P0 P2').anim();
+        const faceM = model.movingFaces(model.segments[4], [model.points[0]])[0];
+        cde.command('mountain s4 180 p0').anim();
+        assertEquals(Math.round(faceM.offset * 1000) / 1000, -0.01);
+        assertEquals(Math.round(model.points[0].x), xAfterValley);
+
+        cde.command('d 200 200').anim();
+        cde.command('c3d P0 P2').anim();
+        cde.command('valley s4 180 p0').anim();
+        const faceV = model.movingFaces(model.segments[4], [model.points[0]])[0];
+        assertEquals(Math.round(faceV.offset * 1000) / 1000, 0.01);
+
+        // Offset only on the first anim step (tpi === 0 and dt !== 0)
+        cde.command('d 200 200').anim();
+        cde.command('c3d P0 P2').anim();
+        const faceOnce = model.movingFaces(model.segments[4], [model.points[0]])[0];
+        cde.tokenTodo = cde.tokenize('fold s4 180 p0');
+        cde.iToken = 0;
+        model.state = State.anim;
+        cde.tpi = 0;
+        cde.tni = 0.5;
+        cde.execute(cde.iToken);
+        assertEquals(Math.round(faceOnce.offset * 1000) / 1000, 0.01);
+        cde.tokenTodo = cde.tokenize('fold s4 180 p0');
+        cde.iToken = 0;
+        cde.tpi = 0.5;
+        cde.tni = 1;
+        cde.execute(cde.iToken);
+        assertEquals(Math.round(faceOnce.offset * 1000) / 1000, 0.01);
+        model.state = State.run;
+
+        cde.command('d 200 200').anim();
+        cde.command('c3d P0 P2').anim();
+        cde.tpi = 0;
+        cde.tni = 1;
+        cde.command('foldFlat s4 90 p0').anim();
+        const faceFf = model.movingFaces(model.segments[4], [model.points[0]])[0];
+        assertEquals(Math.round(faceFf.offset * 1000) / 1000, 0.01);
+    });
+
     await t.step('toggles labels overlay lines snap textures', () => {
         cde.command('d 200 200').anim();
         const before = {

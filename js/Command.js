@@ -290,6 +290,24 @@ function rotate(cmd) {
     cmd.model.rotate(s, angle, cmd.objects('p'));
 }
 
+// fold / valley: offset moving faces once, then rotate (same unit as `offset 1`)
+// mountain: opposite offset sign
+// foldFlat: fold then adjust the moved points (typical `r … a p…`)
+// Offset on a non-animated command, or on the first anim step (tpi === 0 and dt !== 0).
+function foldCmd(cmd, layerSign, thenAdjust = false) {
+    const s = cmd.object('s');
+    const angle = Number(cmd.next());
+    const pts = cmd.objects('p');
+    const firstStep = cmd.model.state !== State.anim || (cmd.tpi === 0 && cmd.dt !== 0);
+    if (firstStep) {
+        cmd.model.offsetForFold(s, pts, layerSign * angle, 1);
+    }
+    cmd.model.rotate(s, angle * cmd.dt, pts);
+    if (thenAdjust) {
+        cmd.model.adjustList(pts.length ? pts : cmd.model.points);
+    }
+}
+
 function move(cmd) {
     const d = cmd.dt;
     const dx = Number(cmd.next()) * d;
@@ -347,6 +365,9 @@ on('bisector3dPoints', (cmd) => take(cmd, 'p', 3, 'bisector3dPoints needs 3 poin
 on('split splitSegment2d', splitSegment);
 
 on('r rotate', rotate);
+on('fold valley', (cmd) => foldCmd(cmd, 1));
+on('mountain', (cmd) => foldCmd(cmd, -1));
+on('foldFlat ff', (cmd) => foldCmd(cmd, 1, true));
 on('m move', move);
 on('mop moveOnPoint', (cmd) => {
     const pts = cmd.objects('p');
