@@ -414,10 +414,13 @@ on('selectSegments ss', (cmd) => select(cmd, 's', cmd.model.segments));
 on('selectFaces sf', (cmd) => select(cmd, 'f', cmd.model.faces));
 
 on('read', (cmd) => {
-    const filename = cmd.next();
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !HANDLERS[token] ? cmd.next() : undefined;
     ReadWrite.readFileAsText(filename).then((text) => {
-        console.log(text);
-        cmd.command(text);
+        if (text == null) return;
+        ReadWrite.loadText(cmd, text);
+        cmd.view3d?.initBuffers?.();
+        cmd.view3d?.initModelView?.();
     });
 });
 on('write', (cmd) => {

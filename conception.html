@@ -34,7 +34,8 @@
   <span></span><span></span><span></span>
 </button>
 <div id="nav">
-  <button type="button" id="open-file">Ouvrir un fichier…</button>
+  <button type="button" data-load="open">Ouvrir un fichier…</button>
+  <button type="button" data-load="undo">Undo</button>
   <button type="button" data-load="test">Test</button>
   <button type="button" data-load="model">Model</button>
 </div>
@@ -46,7 +47,6 @@
   import {Command} from "./js/Command.js";
   import {Helper} from './js/Helper.js';
   import {CommandArea} from './js/CommandArea.js';
-  import {ReadWrite} from "./js/ReadWrite.js";
   init();
   function init() {
     // Model 3D
@@ -96,20 +96,12 @@
       const text = document.getElementById(id).content.textContent;
       command.command(text);
     }
-
-    ReadWrite.attachOpenUI(command, {
-      button: document.getElementById('open-file'),
-      nav: document.getElementById('nav'),
-      burger: document.getElementById('burger'),
-      onLoaded: () => {
-        view3d.initBuffers();
-        view3d.initModelView();
-      },
-    });
   }
 
 </script>
 <!-- Inline models -->
+<template id="open">read</template>
+<template id="undo">undo</template>
 <template id="test">
   // test
   d 200 200

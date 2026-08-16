@@ -69,35 +69,10 @@ export class ReadWrite {
         return 'script';
     }
 
-    // File picker + drag-and-drop. onLoaded() refreshes 3d buffers after a load.
-    static attachOpenUI(command, {button, nav, burger, onLoaded} = {}) {
-        const closeNav = () => {
-            if (nav) nav.style.display = 'none';
-            burger?.setAttribute('aria-expanded', 'false');
-        };
-        const apply = async (text) => {
-            const kind = ReadWrite.loadText(command, text);
-            if (kind !== 'empty') onLoaded?.();
-            return kind;
-        };
-        button?.addEventListener('click', async () => {
-            closeNav();
-            const file = await ReadWrite.chooseFile();
-            if (!file) return;
-            await apply(await file.text());
-        });
-        document.addEventListener('dragover', (e) => { e.preventDefault(); });
-        document.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            closeNav();
-            const file = e.dataTransfer?.files?.[0];
-            if (file) await apply(await file.text());
-        });
-    }
-
     // Read with FileReader return text or null
     static async readFileAsText(filename) {
         if (typeof Deno !== "undefined") {
+            if (!filename) return null;
             return await Deno.readTextFile(filename);
         }
         const file = await this.chooseFile();
