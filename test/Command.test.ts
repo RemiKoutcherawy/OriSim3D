@@ -1,4 +1,4 @@
-import { Model } from '../js/Model.js';
+import { Model, State } from '../js/Model.js';
 import { Command } from '../js/Command.js';
 import { Point } from '../js/Point.js';
 import { Interpolator } from '../js/Interpolator.js';
@@ -299,6 +299,67 @@ Deno.test('Command', async (t) => {
         cde.execute(cde.iToken);
         assertEquals(model.faces[0].offset, 0);
         assertEquals(Math.round(model.faces[1].offset*100)/100, 0.42);
+    });
+
+    await t.step('toggles labels overlay lines snap textures', () => {
+        cde.command('d 200 200').anim();
+        const before = {
+            labels: model.labels,
+            overlay: model.overlay,
+            lines: model.lines,
+            snap: model.snap,
+            textures: model.textures,
+        };
+        cde.command('labels overlay lines snap textures');
+        while (cde.anim()) { /* wait */ }
+        assertEquals(model.labels, !before.labels);
+        assertEquals(model.overlay, !before.overlay);
+        assertEquals(model.lines, !before.lines);
+        assertEquals(model.snap, !before.snap);
+        assertEquals(model.textures, !before.textures);
+    });
+
+    await t.step('selectPoints selectSegments selectFaces', () => {
+        cde.command('d 200 200').anim();
+        cde.command('c3d P0 P2').anim();
+        cde.command('sp p0 p2').anim();
+        assertEquals(model.points[0].select, true);
+        assertEquals(model.points[2].select, true);
+        assertEquals(model.points[1].select, false);
+        cde.command('ss s0').anim();
+        assertEquals(model.segments[0].select, true);
+        cde.command('sf f0').anim();
+        assertEquals(model.faces[0].select, true);
+    });
+
+    await t.step('moveOnPoint mop and moveOnSegment mos', () => {
+        cde.command('d 200 200').anim();
+        cde.command('mop p0 p2').anim();
+        assertEquals(model.points[2].x, model.points[0].x);
+        assertEquals(model.points[2].y, model.points[0].y);
+        assertEquals(model.points[2].z, model.points[0].z);
+        cde.command('d 200 200').anim();
+        cde.command('mos s0 p2').anim();
+        assertEquals(Math.round(model.points[2].y), Math.round(model.points[0].y));
+    });
+
+    await t.step('zoom and fit', () => {
+        const viewZoom = {angleX:0, angleY:0, angleZ:0, translationX:0, translationY:0, scale:1};
+        const cdeZoom = new Command(model, viewZoom);
+        cdeZoom.command('d 200 200').anim();
+        cdeZoom.command('z 2 0 0').anim();
+        assertEquals(viewZoom.scale, 2);
+        cdeZoom.command('fit').anim();
+        assertEquals(typeof viewZoom.scale, 'number');
+        assertEquals(viewZoom.scale > 0, true);
+    });
+
+    await t.step('pause and run', () => {
+        cde.command('d 200 200').anim();
+        cde.command('pause').anim();
+        assertEquals(cde.anim(), false);
+        cde.command('run');
+        assertEquals(model.state, State.run);
     });
 
     // execute one instruction directly from tokenTodo
