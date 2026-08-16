@@ -4,20 +4,16 @@ import {assertEquals} from "jsr:@std/assert";
 
 Deno.test("ReadWrite", async (t) => {
 
-    await t.step('readFileAsText', () => {
-        ReadWrite.readFileAsText('models/box.fold').then((text) => {
-            if (text) assertEquals((text as String).length, 4322, "writeFold should be tested");
-        })
+    await t.step('readFileAsText', async () => {
+        const text = await ReadWrite.readFileAsText('models/box.fold');
+        if (text) assertEquals((text as String).length, 4322, "writeFold should be tested");
     });
-    await t.step('writeFold', () => {
-        let model = new Model();
-        model.init(200, 200);
-        let filename = 'test/test.fold';
-        ReadWrite.writeFold(model, filename).then(json => {
-            assertEquals(json.length > 0, true, "writeFold should be tested");
-        }).then( () => {
-            Deno.remove(filename);
-        });
+    await t.step('writeFold', async () => {
+        const model = new Model().init(200, 200);
+        const filename = 'test/test.fold';
+        const json = await ReadWrite.writeFold(model, filename);
+        assertEquals(json.length > 0, true, "writeFold should be tested");
+        await Deno.remove(filename);
     });
 
     await t.step('consistency toJSONFold / jsonFoldToModel', () => {
