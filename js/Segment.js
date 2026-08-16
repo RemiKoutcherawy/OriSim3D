@@ -128,7 +128,11 @@ export class Segment {
                     return collinear(a, b, c, d);
                 }
                 const t = a3 / (a3 - a4);
-                return new Point(a.xf + t * (b.xf - a.xf), a.yf + t * (b.yf - a.yf));
+                const u = a1 / (a1 - a2);
+                if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+                    return new Point(a.xf + t * (b.xf - a.xf), a.yf + t * (b.yf - a.yf));
+                }
+                return undefined;
             }
         }
         return undefined;
