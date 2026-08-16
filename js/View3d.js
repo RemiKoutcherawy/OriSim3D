@@ -257,6 +257,7 @@ export class View3d {
         for (let f of this.model.faces) {
             const pts = f.points;
             const n = this.normal(pts);
+            const faceIndex = new Map();
 
             for (let i = 1; i < pts.length - 1; i++) {
                 // First point
@@ -287,10 +288,21 @@ export class View3d {
                 this.btx.push((200 + pts[i + 1].xf) / this.wTexBack);
                 this.btx.push((200 + pts[i + 1].yf) / this.hTexBack);
 
-                // Keep track of index in vtx for each point to draw lines
-                this.indexMap.set(pts[0], index++);
-                this.indexMap.set(pts[i], index++);
-                this.indexMap.set(pts[i + 1], index++);
+                // Keep track of index in vtx for each point, per face for the contour
+                if (!this.indexMap.has(pts[0])) this.indexMap.set(pts[0], index);
+                if (!faceIndex.has(pts[0])) faceIndex.set(pts[0], index);
+                index++;
+                if (!this.indexMap.has(pts[i])) this.indexMap.set(pts[i], index);
+                if (!faceIndex.has(pts[i])) faceIndex.set(pts[i], index);
+                index++;
+                if (!this.indexMap.has(pts[i + 1])) this.indexMap.set(pts[i + 1], index);
+                if (!faceIndex.has(pts[i + 1])) faceIndex.set(pts[i + 1], index);
+                index++;
+            }
+
+            // Contour of this face only, in point order, using this face's own vertex copies
+            for (let i = 0; i < pts.length; i++) {
+                this.lin.push(faceIndex.get(pts[i]), faceIndex.get(pts[(i + 1) % pts.length]));
             }
         }
 
@@ -326,10 +338,7 @@ export class View3d {
         gl.vertexAttribPointer(aTexCoordsBack, 2, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(aTexCoordsBack);
 
-        // Segments
-        for (let s of this.model.segments) {
-            this.lin.push(this.indexMap.get(s.p1), this.indexMap.get(s.p2));
-        }
+        // Lines buffer, contour built per face above
         if (!this.linBuffer) {this.linBuffer = gl.createBuffer();}
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.lin), gl.STATIC_DRAW);
@@ -444,7 +453,9 @@ export class View3d {
     // Draw on overlay. Called from render()
     drawPoints(points,) {
         const context2d = this.overlay.getContext('2d');
-        for (let p of points) {
+        const priority = p => p.select ? 2 : p.hover ? 1 : 0;
+        const ordered = [...points].sort((a, b) => priority(a) - priority(b));
+        for (let p of ordered) {
             // Circle with color for selected, bigger for hovered
             context2d.beginPath();
             context2d.arc(p.xCanvas, p.yCanvas, p.hover ? 10 : 6, 0, 2 * Math.PI);
@@ -456,7 +467,9 @@ export class View3d {
     // Draw on overlay. Called from render()
     drawSegments(segments) {
         const context2d = this.overlay.getContext('2d');
-        for (let s of segments) {
+        const priority = s => s.select ? 2 : s.hover ? 1 : 0;
+        const ordered = [...segments].sort((a, b) => priority(a) - priority(b));
+        for (let s of ordered) {
             context2d.lineWidth = s.hover ? 6 : 3;
             context2d.beginPath();
             context2d.moveTo(s.p1.xCanvas, s.p1.yCanvas);
