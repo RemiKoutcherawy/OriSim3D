@@ -372,7 +372,7 @@ on('pause', (cmd) => { cmd.model.state = State.pause; });
 
 on('by by3d', (cmd) => take(cmd, 'p', 2, 'by3d needs 2 points', (a, b) => cmd.model.splitBy3d(a, b)));
 on('by2d', (cmd) => take(cmd, 'p', 2, 'by2d needs 2 points', (a, b) => cmd.model.splitBy2d(a, b)));
-on('c3d across3d cross3d', (cmd) => take(cmd, 'p', 2, 'c3d needs 2 points', (a, b) => cmd.model.splitCross3d(a, b)));
+on('c3d across3d', (cmd) => take(cmd, 'p', 2, 'c3d needs 2 points', (a, b) => cmd.model.splitCross3d(a, b)));
 on('c2d across2d', (cmd) => take(cmd, 'p', 2, 'c2d needs 2 points', (a, b) => cmd.model.splitCross2d(a, b)));
 on('p2d perpendicular2d', (cmd) => cmd.model.splitPerpendicular2d(cmd.object('s'), cmd.object('p')));
 on('p3d perpendicular3d', (cmd) => cmd.model.splitPerpendicular3d(cmd.object('s'), cmd.object('p')));
@@ -387,10 +387,7 @@ on('fold valley', (cmd) => foldCmd(cmd, 1));
 on('mountain', (cmd) => foldCmd(cmd, -1));
 on('foldFlat ff', (cmd) => foldCmd(cmd, 1, true));
 on('m move', move);
-on('mop moveOnPoint', (cmd) => {
-    const pts = cmd.objects('p');
-    cmd.model.moveOnPoint(pts[0], pts);
-});
+on('mop moveOnPoint', (cmd) => {const pts = cmd.objects('p');cmd.model.moveOnPoint(pts[0], pts);});
 on('mos moveOnSegment', (cmd) => cmd.model.moveOnSegment(cmd.object('s'), cmd.objects('p')));
 on('a adjust', (cmd) => {
     const pts = cmd.objects('p');

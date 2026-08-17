@@ -200,8 +200,12 @@ export class ReadWrite {
         }
     }
 
-    static async writeFile(filename, text) {
-        // Download
+    static async writeFile(filename = 'OriSim3d', text) {
+        if (typeof Deno !== "undefined") {
+            await Deno.writeTextFile(filename, text);
+            return;
+        }
+        // Download using filename
         const data = new Blob([text], {type: "text/plain"});
         const link = document.createElement("a");
         link.setAttribute("download", filename);
