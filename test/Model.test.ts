@@ -102,6 +102,9 @@ Deno.test("Model", async (t) => {
         const face = model.addFace(f0.points);
         assertEquals(model.faces.length, 1, 'Model should have 1 face');
         assertEquals(model.faces[0], face, 'Model first face should be added face');
+        // Same vertices in a new array should reuse the existing face
+        assertEquals(model.addFace([...f0.points]), f0, 'Copied points should match existing face');
+        assertEquals(model.faces.length, 1, 'Model should still have 1 face');
         // Should add a new face with 3 first points
         model.addFace([f0.points[0], f0.points[1], f0.points[2]]);
         assertEquals(model.faces.length, 2, 'Model should have 2 faces');
@@ -142,6 +145,13 @@ Deno.test("Model", async (t) => {
             plane = Plane.across(model.points[1], model.points[3]);
             model.splitAllFacesByPlane3d(plane);
             assertEquals(model.faces.length, 4, 'model should have 4 faces');
+        });
+        await t.step("splitFaceByPlane3d vertical face", () => {
+            const model = new Model().init(200, 200);
+            // Fold the top edge 90° around the bottom segment → vertical rectangle
+            model.rotate(model.segments[0], 90, [model.points[2], model.points[3]]);
+            model.splitAllFacesByPlane3d(Plane.across(model.points[0], model.points[1]));
+            assertEquals(model.faces.length, 2, 'Vertical face should still split');
         });
         await t.step("splitFaceByPlane3d on side", () => {
             const model = new Model().init(200, 200);
@@ -470,11 +480,20 @@ Deno.test("Model", async (t) => {
         await t.step("splitSegmentOnPoint2d", () => {
             const model = new Model().init(200, 200);
             const s = model.segments[0];
-            const p = {xf: 0, yf: -200};
-            model.splitSegmentOnPoint2d(s, p);
+            const a = s.p1, b = s.p2;
+            model.splitSegmentOnPoint2d(s, {xf: 0, yf: -200});
             assertEquals(model.faces.length, 1, 'Model should have 1 faces');
             assertEquals(model.points.length, 5, 'Model should have 5 points');
             assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+            const face = model.faces[0];
+            const added = model.points[4];
+            assertEquals(face.points.length, 5, 'Face should include the new vertex');
+            assertEquals(face.points.includes(added), true, 'New point should be on the face');
+            const i = face.points.indexOf(added);
+            const prev = face.points[(i + 4) % 5];
+            const next = face.points[(i + 1) % 5];
+            assertEquals((prev === a && next === b) || (prev === b && next === a), true,
+                'New point should sit between the split edge vertices');
         });
         await t.step("splitSegmentByRatio2d", () => {
             const model = new Model().init(200, 200);
@@ -484,6 +503,7 @@ Deno.test("Model", async (t) => {
             assertEquals(model.faces.length, 1, 'Model should have 1 faces');
             assertEquals(model.points.length, 5, 'Model should have 5 points');
             assertEquals(model.segments.length, 5, 'Model should have 5 segments');
+            assertEquals(model.faces[0].points.length, 5, 'Face should include the split vertex');
         });
     });
     await t.step('Turn', () => {
@@ -515,6 +535,36 @@ Deno.test("Model", async (t) => {
         assertEquals(model.faces[1].offset, 0, 'Got:' + model.faces[1].offset);
         model.offset(42, []);
         assertEquals(model.faces[0].offset, 0, 'Got:' + model.faces[0].offset);
+    });
+    await t.step('movingFaces offsetForFold fold mountain', () => {
+        const model = new Model().init(200, 200);
+        // across p0 p2 adds diagonal s4 = p1–p3; p0 is the flap
+        model.splitCross3d(model.points[0], model.points[2]);
+        const axis = model.segments[4];
+        const p0 = model.points[0];
+        const moving = model.movingFaces(axis, [p0]);
+        assertEquals(moving.length, 1, 'one face moves with p0');
+        assertEquals(moving[0].points.includes(p0), true);
+
+        const before = moving[0].offset;
+        model.offsetForFold(axis, [p0], 180, 1);
+        // Same unit as `offset 1` => +0.01
+        assertEquals(Math.round((moving[0].offset - before) * 1000) / 1000, 0.01);
+
+        const mountainFace = model.faces.find((f) => !moving.includes(f));
+        const mountainBefore = mountainFace.offset;
+        model.mountain(axis, 180, [model.points[2]], 1);
+        assertEquals(Math.round((mountainFace.offset - mountainBefore) * 1000) / 1000, -0.01);
+
+        const modelFold = new Model().init(200, 200);
+        modelFold.splitCross3d(modelFold.points[0], modelFold.points[2]);
+        const p = modelFold.points[0];
+        const x = p.x, y = p.y, z = p.z;
+        modelFold.fold(modelFold.segments[4], 180, [p]);
+        const moved = Math.hypot(p.x - x, p.y - y, p.z - z) > 1;
+        assertEquals(moved, true, 'fold rotates the point');
+        const foldedFace = modelFold.movingFaces(modelFold.segments[4], [p])[0];
+        assertEquals(Math.round(foldedFace.offset * 1000) / 1000, 0.01);
     });
     await t.step('get2DBounds', () => {
         const model = new Model().init(200, 200);

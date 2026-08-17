@@ -3,6 +3,20 @@ import {Interpolator} from './Interpolator.js';
 import {State} from './Model.js';
 import {ReadWrite} from './ReadWrite.js';
 
+const INTERPOLATORS = {
+    il: Interpolator.LinearInterpolator,
+    ib: Interpolator.BounceInterpolator,
+    io: Interpolator.OvershootInterpolator,
+    ia: Interpolator.AnticipateInterpolator,
+    iao: Interpolator.AnticipateOvershootInterpolator,
+    iad: Interpolator.AccelerateDecelerateInterpolator,
+    iso: Interpolator.SpringOvershootInterpolator,
+    isb: Interpolator.SpringBounceInterpolator,
+    igb: Interpolator.GravityBounceInterpolator,
+};
+
+const TOGGLES = ['labels', 'textures', 'overlay', 'lines', 'snap'];
+
 export class Command {
     model; // Current model
     // Tokenized commands
@@ -31,124 +45,162 @@ export class Command {
 
     // The main entry point executes a string of commands
     command(cde) {
-        if (this.commandArea !== undefined) {
-            this.commandArea.addLine(cde);
-        }
+        this.commandArea?.addLine(cde);
         const tokens = this.tokenize(cde);
         if (tokens[0] === 'd' || tokens[0] === 'define') {
             this.done = [];
             this.tokenTodo = [];
             this.iToken = 0;
             this.instructions = [];
-        } else if (cde === 'u' || cde === 'undo') {
-            this.done.pop();
+        } else if (tokens[0] === 'u' || tokens[0] === 'undo') {
+            // Drop the snapshot of the live model; runUndo restores the previous one.
+            if (this.done.length > 0) {
+                this.done.pop();
+            }
             this.model.state = State.undo;
             return this;
-        } else if (cde === 'run') {
+        } else if (tokens[0] === 'run') {
             this.model.state = State.run;
             return this;
+        }
+        // A new instruction must leave undo, otherwise anim() keeps calling runUndo
+        // and tokenTodo is never consumed (mouse / commandArea look "dead").
+        if (this.model.state === State.undo) {
+            this.model.state = State.run;
         }
         this.tokenTodo.push(...tokens);
         return this;
     }
 
     // Tokenize, split the input String in Array of String
-    tokenize = function tokenize(input) {
-        let cleaned = input
-            .replace(/[);]/gm, '') // Remove old /g global /m multiline
-            .replace(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments ?: non-capturing /g global
+    tokenize(input) {
+        const cleaned = input
+            .replace(/[);]/gm, '') // Remove old separators
+            .replace(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
             .replace(/^\s*$/gm, '')   // Remove spaces only lines
             .replace(/\n{2,}/g, '\n') // Remove empty lines
             .trim();                  // Remove leading/trailing whitespace
         return cleaned.match(/\S+|\n/g) || [];
     }
 
-    // Returns true if token is a number
     isNumber(token) {
         return token !== '\n' && !Number.isNaN(Number(token));
+    }
+
+    peek() {
+        return this.tokenTodo[this.iToken];
+    }
+
+    next() {
+        return this.tokenTodo[this.iToken++];
+    }
+
+    // Optional number with default
+    num(fallback) {
+        return this.isNumber(this.peek()) ? Number.parseFloat(this.next()) : fallback;
+    }
+
+    // Consume one object token (always advances, like the previous idx++)
+    object(prefix) {
+        const obj = this.listObjects(this.tokenTodo, this.iToken, prefix)[0];
+        this.iToken++;
+        return obj;
+    }
+
+    // Consume a run of objects with the same prefix (p0 p1 p2...)
+    objects(prefix) {
+        const list = this.listObjects(this.tokenTodo, this.iToken, prefix);
+        this.iToken += list.length;
+        return list;
+    }
+
+    // Animation delta between previous and current interpolated time
+    get dt() {
+        return this.tni - this.tpi;
     }
 
     // State machine returns true if the model needs redrawing
     // Only 4 states: run, anim, undo, pause
     // Called by requestAnimationFrame(loop)
     anim() {
-        if (this.model.state === State.pause) {
-            // Nothing to do
+        switch (this.model.state) {
+            case State.pause:
+                return false;
+            case State.run:
+                return this.runNext();
+            case State.undo:
+                return this.runUndo();
+            case State.anim:
+                return this.runAnim();
+            default:
+                console.log('unhandled state', Object.keys(State)[this.model.state]);
+                return false;
+        }
+    }
+
+    runNext() {
+        if (this.iToken >= this.tokenTodo.length) {
             return false;
         }
-        // If running
-        else if (this.model.state === State.run) {
-            // Nothing to do
-            if (this.iToken >= this.tokenTodo.length) {
-                return false;
-            } else {
-                this.idxBefore = this.iToken;
-                // Handle time command to start animation and switch to Anim
-                if (this.tokenTodo[this.iToken] === 't' || this.tokenTodo[this.iToken] === 'time') {
-                    this.iToken++;
-                    this.duration = Number.parseFloat(this.tokenTodo[this.iToken++]);
-                    this.tStart = performance.now();
-                    this.tpi = 0;
-                    // State anim for the next call
-                    this.model.state = State.anim;
-                    return true;
-                }
-
-                // Execute one command starting at this.iToken
-                this.execute(this.iToken);
-
-                // Keep track of done
-                this.doneInstructions(this.idxBefore, this.iToken);
-                return true;
-            }
-        }
-        // Handle undo
-        else if (this.model.state === State.undo) {
-            // Restore model
-            this.popUndo();
-            // Continue undo if the model was in animation
-            if (this.model.state === State.anim) {
-                this.model.state = State.undo;
-            }
+        this.idxBefore = this.iToken;
+        // Handle time command to start animation and switch to Anim
+        if (this.peek() === 't' || this.peek() === 'time') {
+            // Snapshot before the animated line (state is still run). Without it,
+            // undo only has anim-frame snapshots and never returns to State.run.
+            this.pushUndo();
+            this.iToken++;
+            this.duration = Number.parseFloat(this.next());
+            this.tStart = performance.now();
+            this.tpi = 0;
+            this.model.state = State.anim;
             return true;
         }
-        // Animation in progress
-        else if (this.model.state === State.anim) {
-            // Compute tn varying from 0 to 1
-            const t = performance.now();
-            let tn = Math.min((t - this.tStart) / this.duration, 1);
-            this.tni = this.interpolator(tn);
-            // Execute commands after t xxx up to end of line
-            let iBeginAnim = this.iToken;
-            while (this.iToken < this.tokenTodo.length && this.tokenTodo[this.iToken] !== '\n') {
-                this.execute(this.iToken);
-            }
-            // t preceding (tpi) is now to t now (tni)
-            this.tpi = this.tni; // t preceding
-            // If Animation is finished, set end values
-            if (tn >= 1) {
-                this.tni = 1;
-                this.tpi = 0;
-                if (this.model.snap) {
-                    this.model.align();
-                }
-                // Keep track of done
-                this.doneInstructions(this.idxBefore, this.iToken);
-                // No more animation State run for the next call
-                this.model.state = State.run;
-                return true;
-            }
-            // Rewind to continue animation
-            this.iToken = iBeginAnim;
+        this.execute(this.iToken);
+        this.doneInstructions(this.idxBefore, this.iToken);
+        return true;
+    }
+
+    runUndo() {
+        // Empty stack: stay in undo and nothing ever runs again (commandArea / mouse).
+        if (this.done.length === 0) {
+            this.model.state = State.run;
+            return false;
+        }
+        this.popUndo();
+        // Continue undo through per-frame snapshots of an animated line
+        if (this.model.state === State.anim) {
+            this.model.state = State.undo;
             return true;
         }
-        console.log('unhandled state', Object.keys(State)[this.model.state]);
-        return false;
+        this.model.state = State.run;
+        return true;
+    }
+
+    runAnim() {
+        const tn = Math.min((performance.now() - this.tStart) / this.duration, 1);
+        this.tni = this.interpolator(tn);
+        // Execute commands after t xxx up to end of line
+        const iBeginAnim = this.iToken;
+        while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {
+            this.execute(this.iToken);
+        }
+        this.tpi = this.tni;
+        if (tn >= 1) {
+            this.tni = 1;
+            this.tpi = 0;
+            if (this.model.snap) {
+                this.model.align();
+            }
+            this.doneInstructions(this.idxBefore, this.iToken);
+            this.model.state = State.run;
+            return true;
+        }
+        this.iToken = iBeginAnim;
+        return true;
     }
 
     doneInstructions(idxBefore, idxAfter) {
-        // Keep track of commands done
-        let doneCommands = this.tokenTodo.slice(idxBefore, idxAfter).join(' ');
+        const doneCommands = this.tokenTodo.slice(idxBefore, idxAfter).join(' ');
         if (doneCommands === 'undo') {
             this.instructions.pop();
         } else if (doneCommands !== '' && doneCommands !== '\n') {
@@ -158,334 +210,40 @@ export class Command {
 
     // Execute one instruction from tokenTodo starting at idx on the model
     execute(idx) {
-        const tokenList = this.tokenTodo;
-
-        // Define sheet
-        if (tokenList[idx] === 'd' || tokenList[idx] === 'define') {
-            // Define a sheet by N points x,y CCW
-            idx++;
-            const width = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 200;
-            const height = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 200;
-            this.model.init(width, height);
-            if (this.view3d) {
-                this.view3d.angleX = 0;
-                this.view3d.angleY = 0;
-                this.view3d.angleZ = 0;
-                this.view3d.scale = 1;
-                this.view3d.translationX = 0;
-                this.view3d.translationY = 0;
-            }
-        }
-        else if (tokenList[idx] === 'pause') {
-            idx++;
-            this.model.state = State.pause;
-        }
-
-        // Origami splits
-        else if (tokenList[idx] === 'by' || tokenList[idx] === 'by3d') {
-            // Split by two points in 3d: by p1 p2
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            if(pts.length !== 2) console.log('by3d needs 2 points', pts.length, tokenList.slice(idx,idx+3).join(' '))
-            idx += pts.length;
-            this.model.splitBy3d(pts[0], pts[1]);
-        } else if (tokenList[idx] === 'by2d') {
-            // Split by two points in 2d on the crease pattern: by 2d p1 p2
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            if(pts.length !== 2) console.log('by2d needs 2 points', pts.length, tokenList.slice(idx,idx+3).join(' '))
-            idx += pts.length;
-            this.model.splitBy2d(pts[0], pts[1]);
-        } else if (tokenList[idx] === 'c3d' || tokenList[idx] === 'across3d' || tokenList[idx] === 'cross3d') {
-            // Split across two points in 3d: c3d p1 p2;
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            if(pts.length !== 2) console.log('c3d needs 2 points', pts.length, tokenList.slice(idx,idx+3).join(' '))
-            idx += pts.length;
-            this.model.splitCross3d(pts[0], pts[1]);
-        } else if (tokenList[idx] === 'c2d' || tokenList[idx] === 'across2d') {
-            // Split across two points on 2d the crease pattern: c2d p1 p2;
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            if(pts.length !== 2) console.log('c2d needs 2 points', pts.length, tokenList.slice(idx,idx+3).join(' '))
-            idx += pts.length;
-            this.model.splitCross2d(pts[0], pts[1]);
-        } else if (tokenList[idx] === 'p2d' || tokenList[idx] === 'perpendicular2d') {
-            // Split perpendicular to segment by point in 2d: p s1 p1;
-            idx++;
-            const s = this.listObjects(tokenList, idx, 'S')[0];
-            idx++;
-            const p = this.listObjects(tokenList, idx, 'p')[0];
-            idx++;
-            this.model.splitPerpendicular2d(s, p);
-        } else if (tokenList[idx] === 'p3d' || tokenList[idx] === 'perpendicular3d') {
-            // Split perpendicular to segment by point in 3d: p s1 p1;
-            idx++;
-            const s = this.listObjects(tokenList, idx, 's')[0];
-            idx++;
-            const p = this.listObjects(tokenList, idx, 'p')[0];
-            idx++;
-            this.model.splitPerpendicular3d(s, p);
-        } else if (tokenList[idx] === 'bisector2d' || tokenList[idx] === 'b2d') {
-            // Split by a line passing between segments: s2d s1 s2;
-            idx++;
-            const sgs = this.listObjects(tokenList, idx, 's');
-            if(sgs.length !== 2) console.log('bisector2d needs 2 segments', sgs.length, tokenList.slice(idx,idx+3).join(' '))
-            idx += sgs.length;
-            this.model.bisector2d(sgs[0], sgs[1]);
-        } else if (tokenList[idx] === 'bisector3d' || tokenList[idx] === 'b3d') {
-            // Split by a plane passing between segments: s1 s2;
-            idx++;
-            const sgs = this.listObjects(tokenList, idx, 's');
-            if(sgs.length !== 2) console.log('bisector3d needs 2 segments', sgs.length, tokenList.slice(idx,idx+3).join(' '))
-            idx += sgs.length;
-            const s1 = sgs[0];
-            const s2 = sgs[1];
-            this.model.bisector3d(s1.p1, s1.p2, s2.p1, s2.p2);
-        } else if (tokenList[idx] === 'bisector2dPoints') {
-            // Split by a line bisector of 3 points A B C. B is in the middle
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            if(pts.length !== 3) console.log('bisector2dPoints needs 3 points', pts.length, tokenList.slice(idx,idx+4).join(' '))
-            idx += pts.length;
-            this.model.bisector2dPoints(pts[0], pts[1], pts[2]);
-        }  else if (tokenList[idx] === 'bisector3dPoints') {
-            // Split by a plane bisector of 3 points A B C. B is in the middle
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            if(pts.length !== 3) console.log('bisector3dPoints needs 3 points', pts.length, tokenList.slice(idx,idx+4).join(' '))
-            idx += pts.length;
-            this.model.bisector3dPoints(pts[0], pts[1], pts[2]);
-        }
-        // Segment split
-        else if (tokenList[idx] === 'split'|| tokenList[idx] === 'splitSegment2d') { // "s: split segment factor"
-            // Split segment by ratio
-            idx++;
-            const s = this.listObjects(tokenList, idx, 's')[0];
-            idx++;
-            const k = Number.parseFloat(tokenList[idx++]);
-            if (k >= 0 && k <= 1) {
-                this.model.splitSegmentByRatio2d(s, k);
-            }
-        }
-
-        // Origami folding
-        else if (tokenList[idx] === 'r' || tokenList[idx] === 'rotate') {
-            // Rotate around 'Seg' with 'Angle' all 'Points' with animation: r s1 angle p1 p2 p3...
-            idx++;
-            const s = this.listObjects(tokenList, idx, 's')[0];
-            idx++;
-            const angle = Number(tokenList[idx++]) * (this.tni - this.tpi);
-            const pts = this.listObjects(tokenList, idx, 'p');
-            idx += pts.length;
-            this.model.rotate(s, angle, pts);
-        } else if (tokenList[idx] === 'm' || tokenList[idx] === 'move') {
-            // Move n points by dx,dy,dz in 3D with animation: move dx dy dz p1 p2 p3...
-            idx++;
-            const dx = Number(tokenList[idx++]) * (this.tni - this.tpi);
-            const dy = Number(tokenList[idx++]) * (this.tni - this.tpi);
-            const dz = Number(tokenList[idx++]) * (this.tni - this.tpi);
-            const pts = this.listObjects(tokenList, idx, 'p');
-            idx += pts.length;
-            this.model.movePoints(dx, dy, dz, pts);
-        }  else if (tokenList[idx] === 'mop' || tokenList[idx] === 'moveOnPoint') {
-            // Move all points on first
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'P');
-            idx += pts.length;
-            this.model.moveOnPoint(pts[0], pts);
-        } else if (tokenList[idx] === 'mos' || tokenList[idx] === 'moveOnSegment') {
-            // Move points on the segment
-            idx++;
-            const s = this.listObjects(tokenList, idx, 's')[0];
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            idx += pts.length;
-            this.model.moveOnSegment(s, pts);
-        } else if (tokenList[idx] === 'a' || tokenList[idx] === 'adjust') {
-            // Adjust points in 3D to equal 2D length of segments: a p1 p2 p3...
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            idx += pts.length;
-            this.model.adjustList(pts.length ===0 ? this.model.points : pts);
-        } else if (tokenList[idx] === 'check') {
-            idx++;
-            // Deselect all
-            this.model.points.forEach(p => p.select = false);
-            this.model.segments.forEach(s => s.select = false);
-            this.model.checkSegments();
-        } else if (tokenList[idx] === 'o' || tokenList[idx] === 'offset') {
-            // Offset by dz a list of faces: o dz f1 f2...
-            idx++;
-            const dz = Number.parseFloat(tokenList[idx++]) / 10;
-            const faces = this.listObjects(tokenList, idx, 'f');
-            idx += faces.length;
-            this.model.offset(dz, faces);
-        }
-
-        // View3D turn, zoom and move
-        else if (tokenList[idx] === 'tx') {
-            // "tx: TurnX angle"
-            idx++;
-            this.view3d.angleX += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
-        } else if (tokenList[idx] === 'ty') {
-            // "ty: Turn angle"
-            idx++;
-            this.view3d.angleY += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
-        } else if (tokenList[idx] === 'tz') {
-            // "tz: Turn angle"
-            idx++;
-            this.view3d.angleZ += Number.parseFloat(tokenList[idx++]) * (this.tni - this.tpi);
-        } else if (tokenList[idx] === 'z' || tokenList[idx] === 'zoom') { // @OK
-            // Zoom scale x y. The zoom is centered on x y z=0: z 2 50 50
-            idx++;
-            let scale = Number.parseFloat(tokenList[idx++]);
-            const x = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 0;
-            const y = this.isNumber(tokenList[idx]) ? Number.parseFloat(tokenList[idx++]) : 0;
-            // Animation
-            const a = ((1 + this.tni * (scale - 1)) / (1 + this.tpi * (scale - 1)));
-            const b = scale * (this.tni / a - this.tpi);
-            this.view3d.translationX += x * b;
-            this.view3d.translationY += y * b;
-            this.view3d.scale *= a;
-        } else if (tokenList[idx] === 'fit') {
-            idx++;
-            if (this.tpi === 0) {
-                const bounds = this.model.get3DBounds();
-                const w = 400;
-                this.scale = w / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
-                this.deltaX = -(bounds.xMin + bounds.xMax) / 2;
-                this.deltaY = -(bounds.yMin + bounds.yMax) / 2;
-                this.scaleStart = this.view3d.scale;
-                this.txStart = this.view3d.translationX;
-                this.tyStart = this.view3d.translationY;
-            }
-            const targetTx = this.deltaX * this.scale;
-            const targetTy = this.deltaY * this.scale;
-            const targetScale = this.scale;
-            this.view3d.translationX = this.txStart + (targetTx - this.txStart) * this.tni;
-            this.view3d.translationY = this.tyStart + (targetTy - this.tyStart) * this.tni;
-            this.view3d.scale = this.scaleStart + (targetScale - this.scaleStart) * this.tni;
-        }
-
-        // Interpolator
-        else if (tokenList[idx] === 'il') { // "il: Interpolator Linear"
-            idx++;
-            this.interpolator = Interpolator.LinearInterpolator;
-        } else if (tokenList[idx] === 'ib') { // "ib: Interpolator Bounce"
-            idx++;
-            this.interpolator = Interpolator.BounceInterpolator;
-        } else if (tokenList[idx] === 'io') { // "io: Interpolator OverShoot"
-            idx++;
-            this.interpolator = Interpolator.OvershootInterpolator;
-        } else if (tokenList[idx] === 'ia') { // "ia: Interpolator Anticipate"
-            idx++;
-            this.interpolator = Interpolator.AnticipateInterpolator;
-        } else if (tokenList[idx] === 'iao') { // "iao: Interpolator Anticipate OverShoot"
-            idx++;
-            this.interpolator = Interpolator.AnticipateOvershootInterpolator;
-        } else if (tokenList[idx] === 'iad') { // "iad: Interpolator Accelerate Decelerate"
-            idx++;
-            this.interpolator = Interpolator.AccelerateDecelerateInterpolator;
-        } else if (tokenList[idx] === 'iso') { // "iso Interpolator Spring Overshoot"
-            idx++;
-            this.interpolator = Interpolator.SpringOvershootInterpolator;
-        } else if (tokenList[idx] === 'isb') { // "isb Interpolator Spring Bounce"
-            idx++;
-            this.interpolator = Interpolator.SpringBounceInterpolator;
-        } else if (tokenList[idx] === 'igb') { // "igb: Interpolator Gravity Bounce"
-            idx++;
-            this.interpolator = Interpolator.GravityBounceInterpolator;
-        }
-
-        // Select
-        else if (tokenList[idx] === 'selectPoints' || tokenList[idx] === 'sp') {
-            idx++;
-            const pts = this.listObjects(tokenList, idx, 'p');
-            idx += pts.length;
-            this.model.points.forEach(function(p){
-                p.select = pts.includes(p) && !p.select;
-            });
-        } else if (tokenList[idx] === 'selectSegments' || tokenList[idx] === 'ss') {
-            idx++;
-            const sgs = this.listObjects(tokenList, idx, 's');
-            idx += sgs.length;
-            this.model.segments.forEach(function(s){
-                s.select = sgs.includes(s) && !s.select;
-            });
-        } else if (tokenList[idx] === 'selectFaces' || tokenList[idx] === 'sf') {
-            idx++;
-            const faces = this.listObjects(tokenList, idx, 'f');
-            idx += faces.length;
-            this.model.faces.forEach(function(f){
-                f.select = faces.includes(f) && !f.select;
-            });
-        } else if (tokenList[idx] === 'labels') {
-            idx++;
-            this.model.labels = !this.model.labels;
-        } else if (tokenList[idx] === 'textures') {
-            idx++;
-            this.model.textures = !this.model.textures;
-        } else if (tokenList[idx] === 'overlay') {
-            idx++;
-            this.model.overlay = !this.model.overlay;
-        } else if (tokenList[idx] === 'lines') {
-            idx++;
-            this.model.lines = !this.model.lines;
-        } else if (tokenList[idx] === 'snap') {
-            idx++;
-            this.model.snap = !this.model.snap;
-        }
-
-        // Read-Write file
-        else if (tokenList[idx] === 'read') {
-            idx++;
-            const filename = tokenList[idx++];
-            ReadWrite.readFileAsText(filename).then((text) => {
-                console.log(text);
-                this.command(text);
-            });
-        } else if (tokenList[idx] === 'write') {
-            idx++;
-            const filename = tokenList[idx++];
-            let doneCde = this.instructions.join('\n');
-            ReadWrite.writeFile(filename, doneCde).then(() => console.log('complete'));
-        }
-
-        // End of line
-        else if (tokenList[idx] === '\n') {
-            idx++;
-        }
-
-        // Unexpected end
-        else {
-            console.log('Unexpected end of command', tokenList.slice(idx,idx+3).join(' '));
-            // Ignore until the next command after '\n'
-            while (tokenList[idx] !== '\n' && idx < tokenList.length) {
-                idx++;
-            }
-            if (idx < tokenList.length) {
-                idx++;
-            }
-        }
-
-        // Keep state after executing
-        this.pushUndo();
         this.iToken = idx;
+        const token = this.next();
+        const handler = HANDLERS[token];
+        if (handler) {
+            handler(this);
+        } else if (token !== '\n') {
+            this.skipUnexpected();
+        }
+        this.pushUndo();
     }
+
+    skipUnexpected() {
+        const idx = this.iToken - 1;
+        console.log('Unexpected end of command', this.tokenTodo.slice(idx, idx + 3).join(' '));
+        this.iToken = idx;
+        while (this.peek() !== '\n' && this.iToken < this.tokenTodo.length) {
+            this.iToken++;
+        }
+        if (this.iToken < this.tokenTodo.length) {
+            this.iToken++;
+        }
+    }
+
     listObjects(tokenList, iStart, prefix) {
         const list = [];
         prefix = prefix.toLowerCase();
+        const collections = {p: this.model.points, s: this.model.segments, f: this.model.faces};
+        const collection = collections[prefix];
         while (iStart < tokenList.length) {
             const token = tokenList[iStart];
-            if (token === '\n') break;
-            if (token.length === 0 || token[0].toLowerCase() !== prefix) break;
+            if (token === '\n' || !token || token[0].toLowerCase() !== prefix) break;
             const n = Number(token.slice(1));
-            if (Number.isNaN(n)) break;
-            if (prefix === 'p' && this.model.points[n]) list.push(this.model.points[n]);
-            else if (prefix === 's' && this.model.segments[n]) list.push(this.model.segments[n]);
-            else if (prefix === 'f' && this.model.faces[n]) list.push(this.model.faces[n]);
-            else break;
+            if (Number.isNaN(n) || !collection?.[n]) break;
+            list.push(collection[n]);
             iStart++;
         }
         return list;
@@ -499,8 +257,177 @@ export class Command {
         if (this.done.length === 0) {
             return;
         }
-        // Previous is restored if any
         Object.assign(this.model, this.model.deserialize(this.done.pop()));
     }
 }
-// 467 lines
+
+function take(cmd, prefix, n, label, apply) {
+    const list = cmd.objects(prefix);
+    if (list.length !== n) {
+        console.log(label, list.length, cmd.tokenTodo.slice(cmd.iToken, cmd.iToken + n + 1).join(' '));
+    }
+    apply(...list);
+}
+
+function select(cmd, prefix, collection) {
+    const selected = cmd.objects(prefix);
+    collection.forEach((o) => {
+        o.select = selected.includes(o) && !o.select;
+    });
+}
+
+function turn(axis) {
+    return (cmd) => {
+        cmd.view3d[axis] += Number.parseFloat(cmd.next()) * cmd.dt;
+    };
+}
+
+function define(cmd) {
+    const width = cmd.num(200);
+    const height = cmd.num(200);
+    cmd.model.init(width, height);
+    const v = cmd.view3d;
+    if (v) {
+        v.angleX = v.angleY = v.angleZ = 0;
+        v.scale = 1;
+        v.translationX = v.translationY = 0;
+    }
+}
+
+function splitSegment(cmd) {
+    const s = cmd.object('s');
+    const k = Number.parseFloat(cmd.next());
+    if (k >= 0 && k <= 1) {
+        cmd.model.splitSegmentByRatio2d(s, k);
+    }
+}
+
+function rotate(cmd) {
+    const s = cmd.object('s');
+    const angle = Number(cmd.next()) * cmd.dt;
+    cmd.model.rotate(s, angle, cmd.objects('p'));
+}
+
+// fold / valley: offset moving faces once, then rotate (same unit as `offset 1`)
+// mountain: opposite offset sign
+// foldFlat: fold then adjust the moved points (typical `r … a p…`)
+// Offset on a non-animated command, or on the first anim step (tpi === 0 and dt !== 0).
+function foldCmd(cmd, layerSign, thenAdjust = false) {
+    const s = cmd.object('s');
+    const angle = Number(cmd.next());
+    const pts = cmd.objects('p');
+    const firstStep = cmd.model.state !== State.anim || (cmd.tpi === 0 && cmd.dt !== 0);
+    if (firstStep) {
+        cmd.model.offsetForFold(s, pts, layerSign * angle, 1);
+    }
+    cmd.model.rotate(s, angle * cmd.dt, pts);
+    if (thenAdjust) {
+        cmd.model.adjustList(pts.length ? pts : cmd.model.points);
+    }
+}
+
+function move(cmd) {
+    const d = cmd.dt;
+    const dx = Number(cmd.next()) * d;
+    const dy = Number(cmd.next()) * d;
+    const dz = Number(cmd.next()) * d;
+    cmd.model.movePoints(dx, dy, dz, cmd.objects('p'));
+}
+
+function zoom(cmd) {
+    const scale = Number.parseFloat(cmd.next());
+    const x = cmd.num(0);
+    const y = cmd.num(0);
+    const a = (1 + cmd.tni * (scale - 1)) / (1 + cmd.tpi * (scale - 1));
+    const b = scale * (cmd.tni / a - cmd.tpi);
+    cmd.view3d.translationX += x * b;
+    cmd.view3d.translationY += y * b;
+    cmd.view3d.scale *= a;
+}
+
+function fit(cmd) {
+    if (cmd.tpi === 0) {
+        const bounds = cmd.model.get3DBounds();
+        cmd.scale = 400 / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
+        cmd.deltaX = -(bounds.xMin + bounds.xMax) / 2;
+        cmd.deltaY = -(bounds.yMin + bounds.yMax) / 2;
+        cmd.scaleStart = cmd.view3d.scale;
+        cmd.txStart = cmd.view3d.translationX;
+        cmd.tyStart = cmd.view3d.translationY;
+    }
+    cmd.view3d.translationX = cmd.txStart + (cmd.deltaX * cmd.scale - cmd.txStart) * cmd.tni;
+    cmd.view3d.translationY = cmd.tyStart + (cmd.deltaY * cmd.scale - cmd.tyStart) * cmd.tni;
+    cmd.view3d.scale = cmd.scaleStart + (cmd.scale - cmd.scaleStart) * cmd.tni;
+}
+
+const HANDLERS = {};
+function on(names, handler) {
+    for (const name of names.split(/\s+/)) {
+        HANDLERS[name] = handler;
+    }
+}
+
+on('d define', define);
+on('pause', (cmd) => { cmd.model.state = State.pause; });
+
+on('by by3d', (cmd) => take(cmd, 'p', 2, 'by3d needs 2 points', (a, b) => cmd.model.splitBy3d(a, b)));
+on('by2d', (cmd) => take(cmd, 'p', 2, 'by2d needs 2 points', (a, b) => cmd.model.splitBy2d(a, b)));
+on('c3d across3d', (cmd) => take(cmd, 'p', 2, 'c3d needs 2 points', (a, b) => cmd.model.splitCross3d(a, b)));
+on('c2d across2d', (cmd) => take(cmd, 'p', 2, 'c2d needs 2 points', (a, b) => cmd.model.splitCross2d(a, b)));
+on('p2d perpendicular2d', (cmd) => cmd.model.splitPerpendicular2d(cmd.object('s'), cmd.object('p')));
+on('p3d perpendicular3d', (cmd) => cmd.model.splitPerpendicular3d(cmd.object('s'), cmd.object('p')));
+on('bisector2d b2d', (cmd) => take(cmd, 's', 2, 'bisector2d needs 2 segments', (a, b) => cmd.model.bisector2d(a, b)));
+on('bisector3d b3d', (cmd) => take(cmd, 's', 2, 'bisector3d needs 2 segments', (s1, s2) => cmd.model.bisector3d(s1.p1, s1.p2, s2.p1, s2.p2)));
+on('bisector2dPoints', (cmd) => take(cmd, 'p', 3, 'bisector2dPoints needs 3 points', (a, b, c) => cmd.model.bisector2dPoints(a, b, c)));
+on('bisector3dPoints', (cmd) => take(cmd, 'p', 3, 'bisector3dPoints needs 3 points', (a, b, c) => cmd.model.bisector3dPoints(a, b, c)));
+on('split splitSegment2d', splitSegment);
+
+on('r rotate', rotate);
+on('fold valley', (cmd) => foldCmd(cmd, 1));
+on('mountain', (cmd) => foldCmd(cmd, -1));
+on('foldFlat ff', (cmd) => foldCmd(cmd, 1, true));
+on('m move', move);
+on('mop moveOnPoint', (cmd) => {const pts = cmd.objects('p');cmd.model.moveOnPoint(pts[0], pts);});
+on('mos moveOnSegment', (cmd) => cmd.model.moveOnSegment(cmd.object('s'), cmd.objects('p')));
+on('a adjust', (cmd) => {
+    const pts = cmd.objects('p');
+    cmd.model.adjustList(pts.length === 0 ? cmd.model.points : pts);
+});
+on('check', (cmd) => {
+    cmd.model.points.forEach((p) => { p.select = false; });
+    cmd.model.segments.forEach((s) => { s.select = false; });
+    cmd.model.checkSegments();
+});
+on('o offset', (cmd) => cmd.model.offset(Number.parseFloat(cmd.next()) / 10, cmd.objects('f')));
+
+on('tx', turn('angleX'));
+on('ty', turn('angleY'));
+on('tz', turn('angleZ'));
+on('z zoom', zoom);
+on('fit', fit);
+
+on('selectPoints sp', (cmd) => select(cmd, 'p', cmd.model.points));
+on('selectSegments ss', (cmd) => select(cmd, 's', cmd.model.segments));
+on('selectFaces sf', (cmd) => select(cmd, 'f', cmd.model.faces));
+
+on('read', (cmd) => {
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !HANDLERS[token] ? cmd.next() : undefined;
+    ReadWrite.readFileAsText(filename).then((text) => {
+        if (text == null) return;
+        ReadWrite.loadText(cmd, text);
+        cmd.view3d?.initBuffers?.();
+        cmd.view3d?.initModelView?.();
+    });
+});
+on('write', (cmd) => {
+    const filename = cmd.next();
+    ReadWrite.writeFile(filename, cmd.instructions.join('\n')).then(() => console.log('complete'));
+});
+
+for (const [name, interpolator] of Object.entries(INTERPOLATORS)) {
+    HANDLERS[name] = (cmd) => { cmd.interpolator = interpolator; };
+}
+for (const prop of TOGGLES) {
+    HANDLERS[prop] = (cmd) => { cmd.model[prop] = !cmd.model[prop]; };
+}

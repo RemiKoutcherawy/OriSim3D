@@ -91,4 +91,19 @@ Deno.test("Helper Tests", async (t) => {
       assertEquals(result.faces.length, 1);
     },
   );
+
+  await t.step("rotatePoints emits fold", () => {
+    const cmds: string[] = [];
+    const original = command.command.bind(command);
+    command.command = (cde) => {
+      cmds.push(cde);
+      return original(cde);
+    };
+    model.segments[0].select = true;
+    model.points[2].select = true;
+    helper.label = 90;
+    helper.rotatePoints();
+    assertEquals(cmds[0], "t 1000 fold s0 90 p2");
+    command.command = original;
+  });
 });

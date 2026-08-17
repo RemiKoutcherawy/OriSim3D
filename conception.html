@@ -34,8 +34,12 @@
   <span></span><span></span><span></span>
 </button>
 <div id="nav">
+  <button type="button" data-load="open">Ouvrir un fichier…</button>
+  <button type="button" data-load="save">Sauver un fichier…</button>
+  <button type="button" data-load="undo">Undo</button>
   <button type="button" data-load="test">Test</button>
   <button type="button" data-load="model">Model</button>
+  <button type="button" data-load="debug">Debug</button>
 </div>
 <!-- Main program -->
 <script type="module">
@@ -97,6 +101,11 @@
   }
 
 </script>
+<!-- Inline commands -->
+<template id="open">read</template>
+<template id="save">write file</template>
+<template id="undo">undo</template>
+<template id="debug">overlay lines labels</template>
 <!-- Inline models -->
 <template id="test">
   // test

@@ -219,7 +219,7 @@ export class Helper {
     rotatePoints() {
         const s = this.model.segments.find(s => s.select)
         const pts = this.model.points.filter(p => p.select).map(p => 'p' + this.model.points.indexOf(p))
-        this.command.command(`t 1000 r s${this.model.indexOf(s)} ${this.label} ${pts.join(' ')}`)
+        this.command.command(`t 1000 fold s${this.model.indexOf(s)} ${this.label} ${pts.join(' ')}`)
     }
 
     // Flat 2d
