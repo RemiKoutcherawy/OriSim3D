@@ -200,9 +200,25 @@ export class ReadWrite {
         }
     }
 
-    static async writeFile(filename = 'OriSim3d', text) {
+    static async writeFile(filename = 'OriSim3d.txt', text) {
         if (typeof Deno !== "undefined") {
             await Deno.writeTextFile(filename, text);
+            return;
+        }
+        if (!filename.endsWith('.txt')) filename = `${filename}.txt`;
+        // Save-as picker when the browser supports it
+        if (globalThis.showSaveFilePicker) {
+            try {
+                const handle = await globalThis.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{description: 'Texte', accept: {'text/plain': ['.txt']}}],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(text);
+                await writable.close();
+            } catch (e) {
+                if (e.name !== 'AbortError') throw e;
+            }
             return;
         }
         // Download using filename
