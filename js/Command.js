@@ -391,21 +391,21 @@ on('write', (cmd) => {
 });
 
 // Toggles
-on('labels', (cmd) => { cmd.model.labels = !cmd.model.labels; });
-on('textures', (cmd) => { cmd.model.textures = !cmd.model.textures; });
-on('overlay', (cmd) => { cmd.model.overlay = !cmd.model.overlay; });
-on('lines', (cmd) => { cmd.model.lines = !cmd.model.lines; });
-on('snap', (cmd) => { cmd.model.snap = !cmd.model.snap; });
+on('labels', (cmd) => { cmd.model['labels'] = !cmd.model['labels'] });
+on('textures', (cmd) => { cmd.model['textures'] = !cmd.model['textures'] });
+on('overlay', (cmd) => { cmd.model['overlay'] = !cmd.model['overlay'] });
+on('lines', (cmd) => { cmd.model['lines'] = !cmd.model['lines'] });
+on('snap', (cmd) => { cmd.model['snap'] = !cmd.model['snap'] });
 
 // Interpolator
-on('il', (cmd) => { cmd.interpolator = Interpolator.LinearInterpolator; });
-on('ib', (cmd) => { cmd.interpolator = Interpolator.BounceInterpolator; });
-on('io', (cmd) => { cmd.interpolator = Interpolator.OvershootInterpolator; });
-on('ia', (cmd) => { cmd.interpolator = Interpolator.AnticipateInterpolator; });
-on('iao', (cmd) => { cmd.interpolator = Interpolator.AnticipateOvershootInterpolator; });
-on('iad', (cmd) => { cmd.interpolator = Interpolator.AccelerateDecelerateInterpolator; });
-on('iso', (cmd) => { cmd.interpolator = Interpolator.SpringOvershootInterpolator; });
-on('isb', (cmd) => { cmd.interpolator = Interpolator.SpringBounceInterpolator; });
-on('igb', (cmd) => { cmd.interpolator = Interpolator.GravityBounceInterpolator; });
+on('il', (cmd) => { cmd.interpolator = Interpolator.LinearInterpolator });
+on('ib', (cmd) => { cmd.interpolator = Interpolator.BounceInterpolator });
+on('io', (cmd) => { cmd.interpolator = Interpolator.OvershootInterpolator });
+on('ia', (cmd) => { cmd.interpolator = Interpolator.AnticipateInterpolator });
+on('iao', (cmd) => { cmd.interpolator = Interpolator.AnticipateOvershootInterpolator });
+on('iad', (cmd) => { cmd.interpolator = Interpolator.AccelerateDecelerateInterpolator });
+on('iso', (cmd) => { cmd.interpolator = Interpolator.SpringOvershootInterpolator });
+on('isb', (cmd) => { cmd.interpolator = Interpolator.SpringBounceInterpolator });
+on('igb', (cmd) => { cmd.interpolator = Interpolator.GravityBounceInterpolator });
 
 
