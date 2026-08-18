@@ -56,6 +56,7 @@ export class Command {
             // Drop the snapshot of the live model; runUndo restores the previous one.
             if (this.done.length > 0) {
                 this.done.pop();
+                this.instructions.pop();
             }
             this.model.state = State.undo;
             return this;

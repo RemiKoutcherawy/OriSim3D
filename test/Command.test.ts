@@ -253,6 +253,19 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(m.points[2].y), 210);
     });
 
+    await t.step('undo drops last diagonal from recorded instructions', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
+        cmd.command('d 200 200').anim();
+        cmd.command('c2d P0 P2').anim();
+        cmd.command('c2d P1 P3').anim();
+        cmd.command('undo');
+        while (cmd.anim()) { /* drain undo */ }
+        const recorded = cmd.instructions.join('\n');
+        const diagonals = cmd.instructions.filter((line) => /c2d/i.test(line));
+        assertEquals(diagonals.length, 1, recorded);
+    });
+
     // Animation commands
     await t.step('command t 10 rotate S0 90 P2 P3', () => {
         cde.command('t 10 rotate S0 90 P2 P3');
