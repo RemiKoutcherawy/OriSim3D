@@ -188,7 +188,11 @@ export class Helper {
     fromFace(points, segments, faces) {
         // To the same face: select or deselect
         if (faces.length > 0 && faces[0] === this.firstFace) {
-            faces[0].select = !faces[0].select
+            faces[0].select = !faces[0].select;
+        }
+        // To another face: movement from face to face
+        else if (faces.length > 0) {
+            this.fromFaceToFace(this.firstFace, faces[0]);
         }
         // To another face or nothing: split segments on 2d crease pattern.
         else {
@@ -209,6 +213,12 @@ export class Helper {
                 }
             });
         }
+    }
+
+    fromFaceToFace(f1, f2) {
+        const i1 = this.model.indexOf(f1);
+        const i2 = this.model.indexOf(f2);
+        this.command.command(`offset 1 f${i1} f${i2}`);
     }
 
     sendCmd(base, ...ids) {
