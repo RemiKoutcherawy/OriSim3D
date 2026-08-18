@@ -124,8 +124,8 @@ export class View3d {
         const fgShader = gl.createShader(gl.FRAGMENT_SHADER);
         gl.shaderSource(fgShader, this.FRAGMENT_SHADER);
         gl.compileShader(fgShader);
-        if (!gl.getShaderParameter(vxShader, gl.COMPILE_STATUS)) {
-            console.error(gl.getShaderInfoLog(vxShader));
+        if (!gl.getShaderParameter(fgShader, gl.COMPILE_STATUS)) {
+            console.error(gl.getShaderInfoLog(fgShader));
         }
         // Create the shader program
         const program = gl.createProgram();
@@ -350,7 +350,7 @@ export class View3d {
     }
     // Compute Face normal in [3]
     normal(pts) {
-        let n = [3];
+        const n = [0, 0, 0];
         for (let i = 0; i < pts.length - 2; i++) {
             // Take triangles until p2p1 x p1p3 > 0.1
             const p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
