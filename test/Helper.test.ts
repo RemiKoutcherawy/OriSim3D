@@ -106,4 +106,20 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], "t 1000 fold s0 90 p2");
     command.command = original;
   });
+
+  await t.step("fromFaceToFace emits offset command", () => {
+    const cmds: string[] = [];
+    const original = command.command.bind(command);
+    command.command = (cde) => {
+      cmds.push(cde);
+      return original(cde);
+    };
+    // Split face so we have 2 faces
+    model.splitBy2d(model.points[0], model.points[2]);
+    assertEquals(model.faces.length, 2);
+    helper.firstFace = model.faces[0];
+    helper.fromFace([], [], [model.faces[1]]);
+    assertEquals(cmds[0], "offset 1 f0 f1");
+    command.command = original;
+  });
 });
