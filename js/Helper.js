@@ -185,16 +185,23 @@ export class Helper {
             this.sendCmd('p', 's' + this.model.indexOf(this.firstSegment), 'p' + this.model.indexOf(points[0]))
     }
     fromFace(points, segments, faces) {
+        console.log(faces.length, faces[0] === this.firstFace, faces.some(f => f.select === true))
         // To the same face: select or deselect
         if (faces.length > 0 && faces[0] === this.firstFace) {
-            faces[0].select = !faces[0].select;
+            faces.forEach(f => f.select = !f.select);
+            // Show offsets
+            faces.forEach((f)=>{
+                this.command.command(`// face ${this.model.indexOf(f)} offset ${f.offset} `);
+            });
         }
-        // To another face: movement from face to face
-        else if (faces.length > 0) {
+        // To another face with some selected
+        else if (faces.length > 0 && faces.some(f => f.select === true)) {
+            this.command.command(`// To another face with some selected`);
             this.fromFaceToFace(this.firstFace, faces[0]);
         }
-        // To another face or nothing: split segments on 2d crease pattern.
+        // To nothing: split segments on 2d crease pattern.
         else {
+            this.command.command(`// To another face Split`);
             const is2d = this.currentCanvas === '2d';
             const ySign = is2d ? -1 : 1;
             const first = {xf: this.firstX, yf: ySign * this.firstY};
@@ -214,10 +221,17 @@ export class Helper {
         }
     }
 
+    // From face to face with some faces selected
     fromFaceToFace(f1, f2) {
         const i1 = this.model.indexOf(f1);
         const i2 = this.model.indexOf(f2);
-        this.command.command(`offset 1 f${i1} f${i2}`);
+        // With some faces selected
+        this.command.command(`// From f${i1} to f${i2}`);
+        const faces = this.model.faces.filter(f => f.select === true);
+        // Debug list selected faces
+        faces.forEach((f) => {
+            this.command.command(`// Selected ${this.model.indexOf(f)}`)
+        });
     }
 
     sendCmd(base, ...ids) {
@@ -228,7 +242,7 @@ export class Helper {
     rotatePoints() {
         const s = this.model.segments.find(s => s.select)
         const pts = this.model.points.filter(p => p.select).map(p => 'p' + this.model.points.indexOf(p))
-        this.command.command(`t 1000 fold s${this.model.indexOf(s)} ${this.label} ${pts.join(' ')}`)
+        this.command.command(`t 1000 r s${this.model.indexOf(s)} ${this.label} ${pts.join(' ')}`)
     }
 
     // Flat 2d

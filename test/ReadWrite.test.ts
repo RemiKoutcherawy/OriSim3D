@@ -2,7 +2,7 @@ import {ReadWrite} from "../js/ReadWrite.js";
 import {Model} from "../js/Model.js";
 import {Point} from "../js/Point.js";
 import {Command} from "../js/Command.js";
-import {assertEquals} from "jsr:@std/assert";
+import {assertEquals} from "@std/assert";
 
 Deno.test("ReadWrite", async (t) => {
 
@@ -19,10 +19,10 @@ Deno.test("ReadWrite", async (t) => {
     });
 
     await t.step('consistency toJSONFold / jsonFoldToModel', () => {
-        let model = new Model();
+        const model = new Model();
         model.init(200, 200);
-        let json = ReadWrite.toJSONFold(model);
-        let model2 = ReadWrite.jsonFoldToModel(json);
+        const json = ReadWrite.toJSONFold(model);
+        const model2 = ReadWrite.jsonFoldToModel(json);
         assertEquals(model.points.length, model2.points.length, "Points length should be equal");
         assertEquals(model.segments.length, model2.segments.length, "Segments length should be equal");
         assertEquals(model.faces.length, model2.faces.length, "Faces length should be equal");

@@ -3,7 +3,7 @@ import { Point } from "../js/Point.js";
 import { Segment } from "../js/Segment.js";
 import { Vector3 } from "../js/Vector3.js";
 import { Face } from "../js/Face.js";
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 
 Deno.test("distance2d - calculates 2D distance from a point to a segment", async (t) => {
   const p1 = new Point(0, 0);

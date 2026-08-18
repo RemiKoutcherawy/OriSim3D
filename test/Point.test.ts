@@ -1,5 +1,5 @@
 import { Point } from "../js/Point.js";
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 
 Deno.test("Point.align2dFrom3d", () => {
     const p0 = new Point(-100, -100, -100, -100, 0);

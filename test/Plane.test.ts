@@ -1,7 +1,7 @@
 // deno test test/Plane.test.ts
 import { Vector3 } from "../js/Vector3.js";
 import { Plane } from "../js/Plane.js";
-import { assertEquals} from "jsr:@std/assert";
+import { assertEquals} from "@std/assert";
 
 Deno.test("Plane ", async (t) => {
     await t.step("across", () => {

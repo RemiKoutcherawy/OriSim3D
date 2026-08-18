@@ -1,6 +1,6 @@
 import { Face } from "../js/Face.js";
 import { Point } from "../js/Point.js";
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 import { Vector3 } from "../js/Vector3.js";
 
 Deno.test("Face", async (t) => {

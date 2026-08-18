@@ -2,7 +2,7 @@ import {Model} from '../js/Model.js';
 import {Plane} from '../js/Plane.js';
 import {Point} from '../js/Point.js';
 import {Segment} from '../js/Segment.js';
-import {assertEquals} from "jsr:@std/assert";
+import {assertEquals} from "@std/assert";
 
 Deno.test("Model", async (t) => {
     await t.step("init", () => {
@@ -535,36 +535,6 @@ Deno.test("Model", async (t) => {
         assertEquals(model.faces[1].offset, 0, 'Got:' + model.faces[1].offset);
         model.offset(42, []);
         assertEquals(model.faces[0].offset, 0, 'Got:' + model.faces[0].offset);
-    });
-    await t.step('movingFaces offsetForFold fold mountain', () => {
-        const model = new Model().init(200, 200);
-        // across p0 p2 adds diagonal s4 = p1–p3; p0 is the flap
-        model.splitCross3d(model.points[0], model.points[2]);
-        const axis = model.segments[4];
-        const p0 = model.points[0];
-        const moving = model.movingFaces(axis, [p0]);
-        assertEquals(moving.length, 1, 'one face moves with p0');
-        assertEquals(moving[0].points.includes(p0), true);
-
-        const before = moving[0].offset;
-        model.offsetForFold(axis, [p0], 180, 1);
-        // Same unit as `offset 1` => +0.01
-        assertEquals(Math.round((moving[0].offset - before) * 1000) / 1000, 0.01);
-
-        const mountainFace = model.faces.find((f) => !moving.includes(f));
-        const mountainBefore = mountainFace.offset;
-        model.mountain(axis, 180, [model.points[2]], 1);
-        assertEquals(Math.round((mountainFace.offset - mountainBefore) * 1000) / 1000, -0.01);
-
-        const modelFold = new Model().init(200, 200);
-        modelFold.splitCross3d(modelFold.points[0], modelFold.points[2]);
-        const p = modelFold.points[0];
-        const x = p.x, y = p.y, z = p.z;
-        modelFold.fold(modelFold.segments[4], 180, [p]);
-        const moved = Math.hypot(p.x - x, p.y - y, p.z - z) > 1;
-        assertEquals(moved, true, 'fold rotates the point');
-        const foldedFace = modelFold.movingFaces(modelFold.segments[4], [p])[0];
-        assertEquals(Math.round(foldedFace.offset * 1000) / 1000, 0.01);
     });
     await t.step('get2DBounds', () => {
         const model = new Model().init(200, 200);

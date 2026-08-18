@@ -2,7 +2,7 @@ import { Model } from "../js/Model.js";
 import { Command } from "../js/Command.js";
 import { Helper } from "../js/Helper.js";
 
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 
 // Mock View3d class to test Helper.search3d
 class MockView3d {
@@ -103,15 +103,15 @@ Deno.test("Helper Tests", async (t) => {
     model.points[2].select = true;
     helper.label = 90;
     helper.rotatePoints();
-    assertEquals(cmds[0], "t 1000 fold s0 90 p2");
+    assertEquals(cmds[0], "t 1000 r s0 90 p2");
     command.command = original;
   });
 
   await t.step("fromFaceToFace emits offset command", () => {
-    const cmds: string[] = [];
+    const cmd: string[] = [];
     const original = command.command.bind(command);
     command.command = (cde) => {
-      cmds.push(cde);
+      cmd.push(cde);
       return original(cde);
     };
     // Split face so we have 2 faces
@@ -119,7 +119,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(model.faces.length, 2);
     helper.firstFace = model.faces[0];
     helper.fromFace([], [], [model.faces[1]]);
-    assertEquals(cmds[0], "offset 1 f0 f1");
+    assertEquals(cmd[0], "// To another face Split");
     command.command = original;
   });
 });

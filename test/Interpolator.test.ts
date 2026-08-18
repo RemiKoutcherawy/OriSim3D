@@ -1,5 +1,5 @@
 import { Interpolator } from "../js/Interpolator.js";
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 
 Deno.test("Interpolator", async (t) => {
   await t.step("LinearInterpolator", () => {

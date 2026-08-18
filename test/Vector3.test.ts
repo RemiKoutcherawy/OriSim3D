@@ -1,6 +1,6 @@
 // deno test test/Vector3-test.ts
 import { Vector3 } from "../js/Vector3.js";
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "@std/assert";
 
 Deno.test("Vector3", async (t) => {
     await t.step("closestPoint", () => {
