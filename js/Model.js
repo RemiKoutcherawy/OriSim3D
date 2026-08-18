@@ -532,9 +532,9 @@ export class Model {
         const seg = this.getSegment(a, b);
         if (seg) {
             const list = Segment.incidentFaces(this, seg);
-            if (list?.length) return list;
+            if (list.length > 0) return list;
         }
-        // Legacy fallback: faces that contain both vertices (not necessarily adjacent)
+        // Fallback: faces that contain both vertices
         return this.faces.filter((f) => f.points.includes(a) && f.points.includes(b));
     }
 

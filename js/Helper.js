@@ -116,9 +116,8 @@ export class Helper {
                 let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
                 // Round to step 10
                 angle = Math.round(angle / 10) * 10;
-                // Round to 0 for angles less than 10
-                angle = Math.abs(Math.abs(angle) - 10) < 10 ? '00' : angle;
-                this.label = angle;
+                // Clamp near-zero angle to 0
+                this.label = Math.abs(angle) < 10 ? 0 : angle;
             }
         } else if (this.firstSegment) {
             this.firstSegment.hover = true;
