@@ -3,20 +3,6 @@ import {Interpolator} from './Interpolator.js';
 import {State} from './Model.js';
 import {ReadWrite} from './ReadWrite.js';
 
-const INTERPOLATORS = {
-    il: Interpolator.LinearInterpolator,
-    ib: Interpolator.BounceInterpolator,
-    io: Interpolator.OvershootInterpolator,
-    ia: Interpolator.AnticipateInterpolator,
-    iao: Interpolator.AnticipateOvershootInterpolator,
-    iad: Interpolator.AccelerateDecelerateInterpolator,
-    iso: Interpolator.SpringOvershootInterpolator,
-    isb: Interpolator.SpringBounceInterpolator,
-    igb: Interpolator.GravityBounceInterpolator,
-};
-
-const TOGGLES = ['labels', 'textures', 'overlay', 'lines', 'snap'];
-
 export class Command {
     model; // Current model
     // Tokenized commands
@@ -76,7 +62,6 @@ export class Command {
     // Tokenize, split the input String in Array of String
     tokenize(input) {
         const cleaned = input
-            .replace(/[);]/gm, '') // Remove old separators
             .replace(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
             .replace(/^\s*$/gm, '')   // Remove spaces only lines
             .replace(/\n{2,}/g, '\n') // Remove empty lines
@@ -101,16 +86,16 @@ export class Command {
         return this.isNumber(this.peek()) ? Number.parseFloat(this.next()) : fallback;
     }
 
-    // Consume one object token (always advances, like the previous idx++)
-    object(prefix) {
-        const obj = this.listObjects(this.tokenTodo, this.iToken, prefix)[0];
+    // Consume one token (always advances, like the previous idx++)
+    token(prefix) {
+        const token = this.listTokens(this.tokenTodo, this.iToken, prefix)[0];
         this.iToken++;
-        return obj;
+        return token;
     }
 
-    // Consume a run of objects with the same prefix (p0 p1 p2...)
-    objects(prefix) {
-        const list = this.listObjects(this.tokenTodo, this.iToken, prefix);
+    // Consume a run of tokens with the same prefix (p0 p1 p2...)
+    tokens(prefix) {
+        const list = this.listTokens(this.tokenTodo, this.iToken, prefix);
         this.iToken += list.length;
         return list;
     }
@@ -213,9 +198,9 @@ export class Command {
     execute(idx) {
         this.iToken = idx;
         const token = this.next();
-        const handler = HANDLERS[token];
-        if (handler) {
-            handler(this);
+        const command = COMMANDS[token];
+        if (command) {
+            command(this);
         } else if (token !== '\n') {
             this.skipUnexpected();
         }
@@ -234,7 +219,7 @@ export class Command {
         }
     }
 
-    listObjects(tokenList, iStart, prefix) {
+    listTokens(tokenList, iStart, prefix) {
         const list = [];
         prefix = prefix.toLowerCase();
         const collections = {p: this.model.points, s: this.model.segments, f: this.model.faces};
@@ -263,7 +248,7 @@ export class Command {
 }
 
 function take(cmd, prefix, n, label, apply) {
-    const list = cmd.objects(prefix);
+    const list = cmd.tokens(prefix);
     if (list.length !== n) {
         console.log(label, list.length, cmd.tokenTodo.slice(cmd.iToken, cmd.iToken + n + 1).join(' '));
     }
@@ -271,7 +256,7 @@ function take(cmd, prefix, n, label, apply) {
 }
 
 function select(cmd, prefix, collection) {
-    const selected = cmd.objects(prefix);
+    const selected = cmd.tokens(prefix);
     collection.forEach((o) => {
         o.select = selected.includes(o) && !o.select;
     });
@@ -296,7 +281,7 @@ function define(cmd) {
 }
 
 function splitSegment(cmd) {
-    const s = cmd.object('s');
+    const s = cmd.token('s');
     const k = Number.parseFloat(cmd.next());
     if (k >= 0 && k <= 1) {
         cmd.model.splitSegmentByRatio2d(s, k);
@@ -304,27 +289,9 @@ function splitSegment(cmd) {
 }
 
 function rotate(cmd) {
-    const s = cmd.object('s');
+    const s = cmd.token('s');
     const angle = Number(cmd.next()) * cmd.dt;
-    cmd.model.rotate(s, angle, cmd.objects('p'));
-}
-
-// fold / valley: offset moving faces once, then rotate (same unit as `offset 1`)
-// mountain: opposite offset sign
-// foldFlat: fold then adjust the moved points (typical `r … a p…`)
-// Offset on a non-animated command, or on the first anim step (tpi === 0 and dt !== 0).
-function foldCmd(cmd, layerSign, thenAdjust = false) {
-    const s = cmd.object('s');
-    const angle = Number(cmd.next());
-    const pts = cmd.objects('p');
-    const firstStep = cmd.model.state !== State.anim || (cmd.tpi === 0 && cmd.dt !== 0);
-    if (firstStep) {
-        cmd.model.offsetForFold(s, pts, layerSign * angle, 1);
-    }
-    cmd.model.rotate(s, angle * cmd.dt, pts);
-    if (thenAdjust) {
-        cmd.model.adjustList(pts.length ? pts : cmd.model.points);
-    }
+    cmd.model.rotate(s, angle, cmd.tokens('p'));
 }
 
 function move(cmd) {
@@ -332,7 +299,7 @@ function move(cmd) {
     const dx = Number(cmd.next()) * d;
     const dy = Number(cmd.next()) * d;
     const dz = Number(cmd.next()) * d;
-    cmd.model.movePoints(dx, dy, dz, cmd.objects('p'));
+    cmd.model.movePoints(dx, dy, dz, cmd.tokens('p'));
 }
 
 function zoom(cmd) {
@@ -361,10 +328,10 @@ function fit(cmd) {
     cmd.view3d.scale = cmd.scaleStart + (cmd.scale - cmd.scaleStart) * cmd.tni;
 }
 
-const HANDLERS = {};
-function on(names, handler) {
+const COMMANDS = {};
+function on(names, command) {
     for (const name of names.split(/\s+/)) {
-        HANDLERS[name] = handler;
+        COMMANDS[name] = command;
     }
 }
 
@@ -375,8 +342,8 @@ on('by by3d', (cmd) => take(cmd, 'p', 2, 'by3d needs 2 points', (a, b) => cmd.mo
 on('by2d', (cmd) => take(cmd, 'p', 2, 'by2d needs 2 points', (a, b) => cmd.model.splitBy2d(a, b)));
 on('c3d across3d', (cmd) => take(cmd, 'p', 2, 'c3d needs 2 points', (a, b) => cmd.model.splitCross3d(a, b)));
 on('c2d across2d', (cmd) => take(cmd, 'p', 2, 'c2d needs 2 points', (a, b) => cmd.model.splitCross2d(a, b)));
-on('p2d perpendicular2d', (cmd) => cmd.model.splitPerpendicular2d(cmd.object('s'), cmd.object('p')));
-on('p3d perpendicular3d', (cmd) => cmd.model.splitPerpendicular3d(cmd.object('s'), cmd.object('p')));
+on('p2d perpendicular2d', (cmd) => cmd.model.splitPerpendicular2d(cmd.token('s'), cmd.token('p')));
+on('p3d perpendicular3d', (cmd) => cmd.model.splitPerpendicular3d(cmd.token('s'), cmd.token('p')));
 on('bisector2d b2d', (cmd) => take(cmd, 's', 2, 'bisector2d needs 2 segments', (a, b) => cmd.model.bisector2d(a, b)));
 on('bisector3d b3d', (cmd) => take(cmd, 's', 2, 'bisector3d needs 2 segments', (s1, s2) => cmd.model.bisector3d(s1.p1, s1.p2, s2.p1, s2.p2)));
 on('bisector2dPoints', (cmd) => take(cmd, 'p', 3, 'bisector2dPoints needs 3 points', (a, b, c) => cmd.model.bisector2dPoints(a, b, c)));
@@ -384,14 +351,11 @@ on('bisector3dPoints', (cmd) => take(cmd, 'p', 3, 'bisector3dPoints needs 3 poin
 on('split splitSegment2d', splitSegment);
 
 on('r rotate', rotate);
-on('fold valley', (cmd) => foldCmd(cmd, 1));
-on('mountain', (cmd) => foldCmd(cmd, -1));
-on('foldFlat ff', (cmd) => foldCmd(cmd, 1, true));
 on('m move', move);
-on('mop moveOnPoint', (cmd) => {const pts = cmd.objects('p');cmd.model.moveOnPoint(pts[0], pts);});
-on('mos moveOnSegment', (cmd) => cmd.model.moveOnSegment(cmd.object('s'), cmd.objects('p')));
+on('mop moveOnPoint', (cmd) => {const pts = cmd.tokens('p');cmd.model.moveOnPoint(pts[0], pts);});
+on('mos moveOnSegment', (cmd) => cmd.model.moveOnSegment(cmd.token('s'), cmd.tokens('p')));
 on('a adjust', (cmd) => {
-    const pts = cmd.objects('p');
+    const pts = cmd.tokens('p');
     cmd.model.adjustList(pts.length === 0 ? cmd.model.points : pts);
 });
 on('check', (cmd) => {
@@ -399,7 +363,7 @@ on('check', (cmd) => {
     cmd.model.segments.forEach((s) => { s.select = false; });
     cmd.model.checkSegments();
 });
-on('o offset', (cmd) => cmd.model.offset(Number.parseFloat(cmd.next()) / 10, cmd.objects('f')));
+on('o offset', (cmd) => cmd.model.offset(Number.parseFloat(cmd.next()) / 10, cmd.tokens('f')));
 
 on('tx', turn('angleX'));
 on('ty', turn('angleY'));
@@ -413,7 +377,7 @@ on('selectFaces sf', (cmd) => select(cmd, 'f', cmd.model.faces));
 
 on('read', (cmd) => {
     const token = cmd.peek();
-    const filename = token && token !== '\n' && !HANDLERS[token] ? cmd.next() : undefined;
+    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.readFileAsText(filename).then((text) => {
         if (text == null) return;
         ReadWrite.loadText(cmd, text);
@@ -426,9 +390,22 @@ on('write', (cmd) => {
     ReadWrite.writeFile(filename, cmd.instructions.join('\n')).then(() => console.log('complete'));
 });
 
-for (const [name, interpolator] of Object.entries(INTERPOLATORS)) {
-    HANDLERS[name] = (cmd) => { cmd.interpolator = interpolator; };
-}
-for (const prop of TOGGLES) {
-    HANDLERS[prop] = (cmd) => { cmd.model[prop] = !cmd.model[prop]; };
-}
+// Toggles
+on('labels', (cmd) => { cmd.model['labels'] = !cmd.model['labels'] });
+on('textures', (cmd) => { cmd.model['textures'] = !cmd.model['textures'] });
+on('overlay', (cmd) => { cmd.model['overlay'] = !cmd.model['overlay'] });
+on('lines', (cmd) => { cmd.model['lines'] = !cmd.model['lines'] });
+on('snap', (cmd) => { cmd.model['snap'] = !cmd.model['snap'] });
+
+// Interpolator
+on('il', (cmd) => { cmd.interpolator = Interpolator.LinearInterpolator });
+on('ib', (cmd) => { cmd.interpolator = Interpolator.BounceInterpolator });
+on('io', (cmd) => { cmd.interpolator = Interpolator.OvershootInterpolator });
+on('ia', (cmd) => { cmd.interpolator = Interpolator.AnticipateInterpolator });
+on('iao', (cmd) => { cmd.interpolator = Interpolator.AnticipateOvershootInterpolator });
+on('iad', (cmd) => { cmd.interpolator = Interpolator.AccelerateDecelerateInterpolator });
+on('iso', (cmd) => { cmd.interpolator = Interpolator.SpringOvershootInterpolator });
+on('isb', (cmd) => { cmd.interpolator = Interpolator.SpringBounceInterpolator });
+on('igb', (cmd) => { cmd.interpolator = Interpolator.GravityBounceInterpolator });
+
+
