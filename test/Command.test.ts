@@ -217,7 +217,7 @@ Deno.test('Command', async (t) => {
     await t.step('undo', () => {
         cde.command('d 200 200').anim();
         assertEquals(Math.round(model.points[2].y), 200);
-        cde.command('time 10 rotate S0 90 P2 P3;');
+        cde.command('time 10 rotate S0 90 P2 P3');
         while(cde.anim()) {/* wait for animation to finish */}
         assertEquals(Math.round(model.points[2].y), -200);
         cde.command('undo');
