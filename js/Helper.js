@@ -270,24 +270,25 @@ export class Helper {
         const faces = this.model.faces.filter(f => Face.contains2d(f, xf, yf));
         return {points, segments, faces};
     }
+    get2dSelection(event) {
+        const {xf, yf} = this.event2d(event);
+        return {xf, yf, ...this.search2d(xf, yf)};
+    }
     // Down on flat 2d
     down2d(event) {
         this.currentCanvas = '2d';
-        const {xf, yf} = this.event2d(event);
-        const {points, segments, faces} = this.search2d(xf, yf);
+        const {xf, yf, points, segments, faces} = this.get2dSelection(event);
         this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate
     }
     // Move on flat 2d
     move2d(event) {
         this.currentCanvas = '2d';
-        const {xf, yf} = this.event2d(event);
-        const {points, segments, faces} = this.search2d(xf, yf);
+        const {xf, yf, points, segments, faces} = this.get2dSelection(event);
         this.move(points, segments, faces, xf, -yf);
     }
     // Up on flat 2d
     up2d(event) {
-        const {xf, yf} = this.event2d(event);
-        const {points, segments, faces} = this.search2d(xf, yf);
+        const {points, segments, faces} = this.get2dSelection(event);
         this.up(points, segments, faces);
     }
 
@@ -310,19 +311,21 @@ export class Helper {
         const faces = this.model.faces.filter(f => Face.contains3d(f, xCanvas, yCanvas, this.view3d));
         return {points, segments, faces};
     }
+    get3dSelection(event) {
+        const {xCanvas, yCanvas} = this.eventCanvas3d(event);
+        return {xCanvas, yCanvas, ...this.search3d(xCanvas, yCanvas)};
+    }
     // Down on 3d overlay
     down3d(event) {
         this.currentCanvas = '3d';
-        const {xCanvas, yCanvas} = this.eventCanvas3d(event);
-        const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
+        const {xCanvas, yCanvas, points, segments, faces} = this.get3dSelection(event);
         this.down(points, segments, faces, xCanvas, yCanvas);
     }
 
     // Move on 3d overlay
     move3d(event) {
         this.currentCanvas = '3d';
-        const {xCanvas, yCanvas} = this.eventCanvas3d(event);
-        const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
+        const {xCanvas, yCanvas, points, segments, faces} = this.get3dSelection(event);
         // Handle 3d rotation
         if (points.length === 0 && segments.length === 0 && faces.length === 0
             && event.buttons === 1
@@ -346,7 +349,7 @@ export class Helper {
     }
     // Up on 3d overlay
     up3d(event) {
-        const {points, segments, faces} = this.search3d(...Object.values(this.eventCanvas3d(event)));
+        const {points, segments, faces} = this.get3dSelection(event);
         this.up(points, segments, faces);
         if (points.length === 0 && segments.length === 0 && faces.length === 0) {
             this.doubleClick();
