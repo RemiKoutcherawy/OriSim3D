@@ -150,9 +150,9 @@ export class Helper {
         this.out()
     }
     fromPoint(points, segments) {
+        const p = points[0];
         // To Point
-        if (points.length > 0) {
-            const p = points[0]
+        if (p) {
             // To the same point select or deselect
             if (this.downPoint === p) {
                 p.select = !p.select;
@@ -170,7 +170,7 @@ export class Helper {
             }
         }
         // To segment but not in current rotation
-        else if (segments.length > 0 && this.label === undefined) {
+        else if (segments[0] && this.label === undefined) {
             const s = segments[0]
             this.sendCmd('p', 's' + this.model.indexOf(s), 'p' + this.model.indexOf(this.downPoint))
         }
@@ -180,9 +180,9 @@ export class Helper {
         }
     }
     fromSegment(points, segments) {
+        const s = segments[0];
         // To segment
-        if (segments.length > 0 ){
-            const s = segments[0]
+        if (s){
             // To same segment select
             if (s === this.downSegment) {
                 s.select = !s.select
@@ -193,13 +193,13 @@ export class Helper {
             }
         }
         // To point crease perpendicular from segment to point
-        else if (points.length > 0)
+        else if (points[0])
             this.sendCmd('p', 's' + this.model.indexOf(this.downSegment), 'p' + this.model.indexOf(points[0]))
     }
     fromFace(points, segments, faces) {
         console.log(faces.length, faces[0] === this.downFace, faces.some(f => f.select === true))
         // To the same face: select or deselect
-        if (faces.length > 0 && faces[0] === this.downFace) {
+        if (faces[0] && faces[0] === this.downFace) {
             faces.forEach(f => f.select = !f.select);
             // Show offsets
             faces.forEach((f)=>{
@@ -207,7 +207,7 @@ export class Helper {
             });
         }
         // To another face with some selected
-        else if (faces.length > 0 && faces.some(f => f.select === true)) {
+        else if (faces[0] && faces.some(f => f.select === true)) {
             this.command.command(`// To another face with some selected`);
             this.fromFaceToFace(this.downFace, faces[0]);
         }
