@@ -132,17 +132,14 @@ export class Helper {
     }
 
     up(points, segments, faces) {
-        const sameDownPoints = (this.downPoints || []).filter(p => points.includes(p));
-        const sameDownSegments = (this.downSegments || []).filter(s => segments.includes(s));
-        const sameDownFaces = (this.downFaces || []).filter(f => faces.includes(f));
-        if (sameDownPoints.length > 0) {
-            this.downPoint = sameDownPoints[0];
+        this.downPoint = (this.downPoints || []).find(p => points.includes(p));
+        this.downSegment = (this.downSegments || []).find(s => segments.includes(s));
+        this.downFace = (this.downFaces || []).find(f => faces.includes(f));
+        if (this.downPoint) {
             this.fromPoint(points, segments)
-        } else if (sameDownSegments.length > 0) {
-            this.downSegment = sameDownSegments[0];
+        } else if (this.downSegment) {
             this.fromSegment(points, segments)
-        } else if (sameDownFaces.length > 0) {
-            this.downFace = sameDownFaces[0];
+        } else if (this.downFace) {
             this.fromFace(points, segments, faces)
         }
         else {
