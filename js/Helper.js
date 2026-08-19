@@ -132,25 +132,13 @@ export class Helper {
     }
 
     up(points, segments, faces) {
-        const shared = (downItems, upItems) => (downItems || []).find(item => upItems.includes(item));
-        this.downPoint = shared(this.downPoints, points);
-        if (this.downPoint) {
-            this.fromPoint(points, segments)
-            this.out()
-            return;
-        }
-        this.downSegment = shared(this.downSegments, segments);
-        if (this.downSegment) {
-            this.fromSegment(points, segments)
-            this.out()
-            return;
-        }
-        this.downFace = shared(this.downFaces, faces);
-        if (this.downFace) {
-            this.fromFace(points, segments, faces)
-            this.out()
-            return;
-        } else {
+        this.downPoint = (this.downPoints || []).find(p => points.includes(p));
+        this.downSegment = this.downPoint ? undefined : (this.downSegments || []).find(s => segments.includes(s));
+        this.downFace = this.downPoint || this.downSegment ? undefined : (this.downFaces || []).find(f => faces.includes(f));
+        if (this.downPoint) this.fromPoint(points, segments);
+        else if (this.downSegment) this.fromSegment(points, segments);
+        else if (this.downFace) this.fromFace(points, segments, faces);
+        else {
             this.model.points.forEach(p => p.select = false)
             this.model.segments.forEach(s => s.select = false)
             this.model.faces.forEach(f => f.select = false)
