@@ -64,7 +64,7 @@ export class Command {
         const cleaned = input
             .replace(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
             .replace(/^\s*$/gm, '')   // Remove spaces only lines
-            .replace(/;/g, ' ')
+            .replaceAll(';', ' ')
             .replace(/\n{2,}/g, '\n') // Remove empty lines
             .trim();                  // Remove leading/trailing whitespace
         return cleaned.match(/\S+|\n/g) || [];
