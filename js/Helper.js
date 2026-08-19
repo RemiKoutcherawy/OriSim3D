@@ -132,9 +132,17 @@ export class Helper {
     }
 
     up(points, segments, faces) {
-        this.downPoint = (this.downPoints || []).find(p => points.includes(p)); this.downSegment = this.downPoint ? undefined : (this.downSegments || []).find(s => segments.includes(s)); this.downFace = this.downPoint || this.downSegment ? undefined : (this.downFaces || []).find(f => faces.includes(f));
-        if (this.downPoint) this.fromPoint(points, segments); else if (this.downSegment) this.fromSegment(points, segments); else if (this.downFace) this.fromFace(points, segments, faces);
-        else [this.model.points, this.model.segments, this.model.faces].forEach(a => a.forEach(o => o.select = false));
+        this.downPoint = (this.downPoints || []).find(p => points.includes(p));
+        this.downSegment = this.downPoint ? undefined : (this.downSegments || []).find(s => segments.includes(s));
+        this.downFace = this.downPoint || this.downSegment ? undefined : (this.downFaces || []).find(f => faces.includes(f));
+        if (this.downPoint) this.fromPoint(points, segments);
+        else if (this.downSegment) this.fromSegment(points, segments);
+        else if (this.downFace) this.fromFace(points, segments, faces);
+        else {
+            this.model.points.forEach(p => p.select = false)
+            this.model.segments.forEach(s => s.select = false)
+            this.model.faces.forEach(f => f.select = false)
+        }
         this.out()
     }
     fromPoint(points, segments) {
