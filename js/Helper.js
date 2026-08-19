@@ -10,10 +10,11 @@ export class Helper {
         this.overlay = overlay;
         this.touchTime = 0;
         this.label = undefined;
-        // Mouse coordinates, first and current
-        this.firstX = this.firstY = this.currentX = this.currentY = undefined;
-        // First point, segment, or face selected
-        this.firstPoint = this.firstSegment = this.firstFace = undefined;
+        // Mouse coordinates, down and current
+        this.downX = this.downY = this.currentX = this.currentY = undefined;
+        // Objects under down (and primary down point/segment/face)
+        this.downPoints = this.downSegments = this.downFaces = undefined;
+        this.downPoint = this.downSegment = this.downFace = undefined;
         // Current canvas: 2d or 3d
         this.currentCanvas = undefined
         // To test with Deno overlay is null
@@ -44,13 +45,14 @@ export class Helper {
 
     // init properties
     out() {
-        this.firstX = this.firstY = this.currentX = this.currentY = undefined;
-        this.firstPoint = this.firstSegment = this.firstFace = this.currentCanvas = this.label = undefined;
+        this.downX = this.downY = this.currentX = this.currentY = undefined;
+        this.downPoints = this.downSegments = this.downFaces = undefined;
+        this.downPoint = this.downSegment = this.downFace = this.currentCanvas = this.label = undefined;
     }
 
     // Draw only if a point, segment, or face is selected
     draw() {
-        if (!this.firstPoint && !this.firstSegment && !this.firstFace) {
+        if (!this.downPoint && !this.downSegment && !this.downFace) {
             return;
         }
         const context = (this.currentCanvas === '2d' ? this.canvas2d : this.overlay).getContext('2d');
@@ -58,7 +60,7 @@ export class Helper {
         context.lineCap = 'round';
         context.strokeStyle = 'green';
         context.beginPath();
-        context.moveTo(this.firstX, this.firstY);
+        context.moveTo(this.downX, this.downY);
         context.lineTo(this.currentX, this.currentY);
         context.stroke();
         if (this.label) {
@@ -78,28 +80,31 @@ export class Helper {
 
     // Logic begins here
     down(points, segments, faces, x, y) {
-        this.firstPoint = points[0];
-        this.firstSegment = !this.firstPoint ? segments[0] : undefined;
-        this.firstFace = !this.firstPoint && !this.firstSegment ? faces[0] : undefined;
-        this.firstX = this.currentX = x;
-        this.firstY = this.currentY = y;
+        this.downPoints = points;
+        this.downSegments = segments;
+        this.downFaces = faces;
+        this.downPoint = points[0];
+        this.downSegment = !this.downPoint ? segments[0] : undefined;
+        this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;
+        this.downX = this.currentX = x;
+        this.downY = this.currentY = y;
     }
 
     move(points, segments, faces, x, y) {
         this.model.hover2d3d(points, segments, faces);
-        if (this.firstPoint) {
-            this.firstPoint.hover = true;
+        if (this.downPoint) {
+            this.downPoint.hover = true;
             // From Point with selected segment(s)
             const s = this.model.segments.find(s => s.select);
             if (s) {
                 // Deselect other segments
                 this.model.segments.filter(sg => sg.select && sg !== s).forEach(sg => sg.select = false);
                 // The point we move from
-                const p = this.firstPoint;
+                const p = this.downPoint;
                 p.select = true;
                 let distToFirst, distToCurrent;
                 if (this.currentCanvas === '2d') {
-                    // Signed distance from the first point to segment.
+                    // Signed distance from the down point to segment.
                     distToFirst = (p.xf - s.p1.xf) * (s.p2.yf - s.p1.yf) - (p.yf - s.p1.yf) * (s.p2.xf - s.p1.xf);
                     // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
                     distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
@@ -119,17 +124,27 @@ export class Helper {
                 // Clamp near-zero angle to 0
                 this.label = Math.abs(angle) < 10 ? 0 : angle;
             }
-        } else if (this.firstSegment) {
-            this.firstSegment.hover = true;
+        } else if (this.downSegment) {
+            this.downSegment.hover = true;
         }
         this.currentX = x;
         this.currentY = y;
     }
 
     up(points, segments, faces) {
-        if (this.firstPoint) this.fromPoint(points, segments)
-        else if (this.firstSegment) this.fromSegment(points, segments)
-        else if (this.firstFace) this.fromFace(points, segments, faces)
+        const sameDownPoints = (this.downPoints || []).filter(p => points.includes(p));
+        const sameDownSegments = (this.downSegments || []).filter(s => segments.includes(s));
+        const sameDownFaces = (this.downFaces || []).filter(f => faces.includes(f));
+        if (sameDownPoints.length > 0) {
+            this.downPoint = sameDownPoints[0];
+            this.fromPoint(points, segments)
+        } else if (sameDownSegments.length > 0) {
+            this.downSegment = sameDownSegments[0];
+            this.fromSegment(points, segments)
+        } else if (sameDownFaces.length > 0) {
+            this.downFace = sameDownFaces[0];
+            this.fromFace(points, segments, faces)
+        }
         else {
             this.model.points.forEach(p => p.select = false)
             this.model.segments.forEach(s => s.select = false)
@@ -142,25 +157,25 @@ export class Helper {
         if (points.length > 0) {
             const p = points[0]
             // To the same point select or deselect
-            if (this.firstPoint === p) {
+            if (this.downPoint === p) {
                 p.select = !p.select;
             }
             // To another point
             else {
                 // Two points on same segment => Crease across segment
-                if (this.model.getSegment(this.firstPoint, p)) {
-                    this.sendCmd('across', 'p' + this.model.indexOf(this.firstPoint), 'p' + this.model.indexOf(p));
+                if (this.model.getSegment(this.downPoint, p)) {
+                    this.sendCmd('across', 'p' + this.model.indexOf(this.downPoint), 'p' + this.model.indexOf(p));
                 }
                 // Two points but not on same segment => Crease by two points
                 else {
-                    this.sendCmd('by', 'p' + this.model.indexOf(this.firstPoint), 'p' + this.model.indexOf(p))
+                    this.sendCmd('by', 'p' + this.model.indexOf(this.downPoint), 'p' + this.model.indexOf(p))
                 }
             }
         }
         // To segment but not in current rotation
         else if (segments.length > 0 && this.label === undefined) {
             const s = segments[0]
-            this.sendCmd('p', 's' + this.model.indexOf(s), 'p' + this.model.indexOf(this.firstPoint))
+            this.sendCmd('p', 's' + this.model.indexOf(s), 'p' + this.model.indexOf(this.downPoint))
         }
         // To segment in current rotation
         else if (this.label) {
@@ -172,22 +187,22 @@ export class Helper {
         if (segments.length > 0 ){
             const s = segments[0]
             // To same segment select
-            if (s === this.firstSegment) {
+            if (s === this.downSegment) {
                 s.select = !s.select
             }
             // To another segment crease bisector
             else{
-                this.sendCmd('bisector', 's' + this.model.indexOf(this.firstSegment), 's' + this.model.indexOf(s))
+                this.sendCmd('bisector', 's' + this.model.indexOf(this.downSegment), 's' + this.model.indexOf(s))
             }
         }
         // To point crease perpendicular from segment to point
         else if (points.length > 0)
-            this.sendCmd('p', 's' + this.model.indexOf(this.firstSegment), 'p' + this.model.indexOf(points[0]))
+            this.sendCmd('p', 's' + this.model.indexOf(this.downSegment), 'p' + this.model.indexOf(points[0]))
     }
     fromFace(points, segments, faces) {
-        console.log(faces.length, faces[0] === this.firstFace, faces.some(f => f.select === true))
+        console.log(faces.length, faces[0] === this.downFace, faces.some(f => f.select === true))
         // To the same face: select or deselect
-        if (faces.length > 0 && faces[0] === this.firstFace) {
+        if (faces.length > 0 && faces[0] === this.downFace) {
             faces.forEach(f => f.select = !f.select);
             // Show offsets
             faces.forEach((f)=>{
@@ -197,19 +212,19 @@ export class Helper {
         // To another face with some selected
         else if (faces.length > 0 && faces.some(f => f.select === true)) {
             this.command.command(`// To another face with some selected`);
-            this.fromFaceToFace(this.firstFace, faces[0]);
+            this.fromFaceToFace(this.downFace, faces[0]);
         }
         // To nothing: split segments on 2d crease pattern.
         else {
             this.command.command(`// To another face Split`);
             const is2d = this.currentCanvas === '2d';
             const ySign = is2d ? -1 : 1;
-            const first = {xf: this.firstX, yf: ySign * this.firstY};
+            const down = {xf: this.downX, yf: ySign * this.downY};
             const current = {xf: this.currentX, yf: ySign * this.currentY};
             this.model.segments.forEach((s, i) => {
                 const p1 = is2d ? s.p1 : {xf: s.p1.xCanvas, yf: s.p1.yCanvas};
                 const p2 = is2d ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
-                const inter = Segment.intersectionFlat(first, current, p1, p2);
+                const inter = Segment.intersectionFlat(down, current, p1, p2);
                 if (inter) {
                     const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
                     s.p1.z ||= 0.1;
@@ -329,7 +344,7 @@ export class Helper {
         // Handle 3d rotation
         if (points.length === 0 && segments.length === 0 && faces.length === 0
             && event.buttons === 1
-            && !this.firstPoint && !this.firstSegment && !this.firstFace) {
+            && !this.downPoint && !this.downSegment && !this.downFace) {
             // Rotation
             const factor = (600 / event.target.height) ;
             const dx = factor * (xCanvas - this.currentX);
