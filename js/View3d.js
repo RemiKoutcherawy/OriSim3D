@@ -2,7 +2,7 @@
 // Inspired by https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Lighting_in_WebGL Sample 7
 // No uNormalMatrix but vLightingBack
 import * as mat4 from './lib/mat4.js';
-import * as vec3 from './lib/vec3.js';
+import { Vector3 } from './Vector3.js';
 
 export class View3d {
     // Vertex shader program
@@ -405,9 +405,9 @@ export class View3d {
 
             // Set xCanvas, yCanvas to model points
             for (let p of this.model.points) {
-                const v = vec3.transformMat4([0, 0, 0], [p.x, p.y, p.z], this.canvasView);
-                p.xCanvas = v[0];
-                p.yCanvas = v[1];
+                const v = Vector3.transformMat4(p, this.canvasView);
+                p.xCanvas = v.x;
+                p.yCanvas = v.y;
             }
         }
     }

@@ -1,5 +1,6 @@
 // deno test test/Vector3-test.ts
 import { Vector3 } from "../js/Vector3.js";
+import * as mat4 from "../js/lib/mat4.js";
 import { assertEquals } from "@std/assert";
 
 Deno.test("Vector3", async (t) => {
@@ -110,5 +111,52 @@ Deno.test("Vector3", async (t) => {
         assertEquals(c.x, -3, "1-4 = -3");
         assertEquals(c.y, -3, "2-5 = -3");
         assertEquals(c.z, -3, "3-6 = -3");
+    });
+
+    await t.step("transformMat4 identity", () => {
+        const a = new Vector3(1, 2, 3);
+        const identity = mat4.create();
+        const res = Vector3.transformMat4(a, identity);
+        assertEquals(res.x, 1);
+        assertEquals(res.y, 2);
+        assertEquals(res.z, 3);
+    });
+
+    await t.step("transformMat4 translation", () => {
+        const a = new Vector3(1, 2, 3);
+        const m = mat4.fromTranslation(mat4.create(), [10, 20, 30]);
+        const res = Vector3.transformMat4(a, m);
+        assertEquals(res.x, 11);
+        assertEquals(res.y, 22);
+        assertEquals(res.z, 33);
+    });
+
+    await t.step("transformMat4 scale", () => {
+        const a = new Vector3(1, 2, 3);
+        const m = mat4.scale(mat4.create(), mat4.create(), [2, 3, 4]);
+        const res = Vector3.transformMat4(a, m);
+        assertEquals(res.x, 2);
+        assertEquals(res.y, 6);
+        assertEquals(res.z, 12);
+    });
+
+    await t.step("transformMat4 with generic object {x, y, z}", () => {
+        const pt = { x: 5, y: 10, z: 15 };
+        const m = mat4.fromTranslation(mat4.create(), [1, 2, 3]);
+        const res = Vector3.transformMat4(pt, m);
+        assertEquals(res instanceof Vector3, true);
+        assertEquals(res.x, 6);
+        assertEquals(res.y, 12);
+        assertEquals(res.z, 18);
+    });
+
+    await t.step("transformMat4 with perspective / w division", () => {
+        const a = new Vector3(2, 4, 6);
+        const m = mat4.create();
+        m[15] = 2;
+        const res = Vector3.transformMat4(a, m);
+        assertEquals(res.x, 1);
+        assertEquals(res.y, 2);
+        assertEquals(res.z, 3);
     });
 });
