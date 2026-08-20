@@ -632,6 +632,29 @@ export class Model {
         });
     }
 
+    // Snapshot 3D point positions for animation frames (lightweight snapshot)
+    snapshotPositions() {
+        const coords = new Float64Array(this.points.length * 3);
+        for (let i = 0; i < this.points.length; i++) {
+            const p = this.points[i];
+            const offset = i * 3;
+            coords[offset] = p.x;
+            coords[offset + 1] = p.y;
+            coords[offset + 2] = p.z;
+        }
+        return coords;
+    }
+
+    // Restore 3D point positions from a lightweight snapshot
+    restorePositions(coords) {
+        for (let i = 0; i < this.points.length; i++) {
+            const offset = i * 3;
+            this.points[i].x = coords[offset];
+            this.points[i].y = coords[offset + 1];
+            this.points[i].z = coords[offset + 2];
+        }
+    }
+
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Non-serialized / UI-only fields
@@ -649,7 +672,27 @@ export class Model {
 
     // Deserialize the model, revive objects, and return a new model
     deserialize(json) {
-        return JSON.parse(json, this.reviver);
+        const data = typeof json === 'string' ? JSON.parse(json) : json;
+        const model = new Model();
+        Object.assign(model, data);
+        if (Array.isArray(data.points)) {
+            model.points = data.points.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
+        }
+        if (Array.isArray(data.segments)) {
+            model.segments = data.segments.map((segment) => new Segment(model.points[segment.p1], model.points[segment.p2]));
+        }
+        if (Array.isArray(data.faces)) {
+            model.faces = data.faces.map((face) => {
+                const newFace = new Face(face.points.map((index) => model.points[index]));
+                newFace.offset = face.offset;
+                return newFace;
+            });
+        }
+        return model;
+    }
+
+    static deserialize(json) {
+        return new Model().deserialize(json);
     }
 
     // Define a reviver to convert points objects into Points instances, and indexes into instance
@@ -658,11 +701,13 @@ export class Model {
             return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
         }
         if (key === 'segments') {
-            return value.map((segment) => new Segment(this.points[segment.p1], this.points[segment.p2]));
+            const pts = this?.points || [];
+            return value.map((segment) => new Segment(pts[segment.p1], pts[segment.p2]));
         }
         if (key === 'faces') {
+            const pts = this?.points || [];
             return value.map((face) => {
-                const newFace = new Face(face.points.map((index) => this.points[index]));
+                const newFace = new Face(face.points.map((index) => pts[index]));
                 newFace.offset = face.offset;
                 return newFace;
             });

@@ -105,7 +105,7 @@ export class View3d {
         this.initModelView();
 
         // Resize
-        window.addEventListener('resize', () => {
+        globalThis.addEventListener('resize', () => {
             this.initPerspective();
             this.initModelView();
             this.render();
@@ -256,7 +256,7 @@ export class View3d {
 
         // Faces with FAN
         let index = 0;
-        for (let f of this.model.faces) {
+        for (const f of this.model.faces) {
             const pts = f.points;
             const n = this.normal(pts);
             const faceIndex = new Map();
@@ -382,7 +382,7 @@ export class View3d {
         // Rotation around Y axis
         ex = mat4.rotateY(ex, ex, this.angleY * Math.PI / 180);
         // Rotation around Z axis
-        let mv = mat4.rotateZ(ex, ex, this.angleZ * Math.PI / 180);
+        const mv = mat4.rotateZ(ex, ex, this.angleZ * Math.PI / 180);
         // Scale ModelView
         this.modelView = mat4.scale(mv, mv, [this.scale, this.scale, this.scale]);
 
@@ -404,7 +404,7 @@ export class View3d {
             this.canvasView = mat4.multiply(mat4.create(), overlay, projection);
 
             // Set xCanvas, yCanvas to model points
-            for (let p of this.model.points) {
+            for (const p of this.model.points) {
                 const v = Vector3.transformMat4(p, this.canvasView);
                 p.xCanvas = v.x;
                 p.yCanvas = v.y;
@@ -457,7 +457,7 @@ export class View3d {
         const context2d = this.overlay.getContext('2d');
         const priority = p => p.select ? 2 : p.hover ? 1 : 0;
         const ordered = [...points].sort((a, b) => priority(a) - priority(b));
-        for (let p of ordered) {
+        for (const p of ordered) {
             // Circle with color for selected, bigger for hovered
             context2d.beginPath();
             context2d.arc(p.xCanvas, p.yCanvas, p.hover ? 10 : 6, 0, 2 * Math.PI);
@@ -471,7 +471,7 @@ export class View3d {
         const context2d = this.overlay.getContext('2d');
         const priority = s => s.select ? 2 : s.hover ? 1 : 0;
         const ordered = [...segments].sort((a, b) => priority(a) - priority(b));
-        for (let s of ordered) {
+        for (const s of ordered) {
             context2d.lineWidth = s.hover ? 6 : 3;
             context2d.beginPath();
             context2d.moveTo(s.p1.xCanvas, s.p1.yCanvas);
@@ -484,7 +484,7 @@ export class View3d {
     // Draw faces
     drawFaces(faces) {
         const context2d = this.overlay.getContext('2d');
-        for (let f of faces) {
+        for (const f of faces) {
             if (f.hover) {
                 context2d.fillStyle = 'pink';
                 const pts = f.points;
@@ -512,7 +512,7 @@ export class View3d {
     drawLabels(context2d) {
         this.labels = [];
         // Points
-        for (let p of this.model.points) {
+        for (const p of this.model.points) {
             if (p.hidden) {continue;}
             const txt = String(this.model.points.indexOf(p));
             const oneLabel = new Label(p.xCanvas, p.yCanvas);

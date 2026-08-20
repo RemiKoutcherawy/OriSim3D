@@ -33,7 +33,7 @@ export class CommandArea {
             if (end === -1) {
                 end = value.length;
             }
-            let line = value.substring(start, end);
+            const line = value.substring(start, end);
             this.command.command(line);
             this.textarea.selectionStart = this.textarea.selectionEnd = this.textarea.value.length;
             el.scrollTop = el.scrollHeight;

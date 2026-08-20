@@ -236,14 +236,29 @@ export class Command {
     }
 
     pushUndo() {
-        this.done.push(this.model.serialize());
+        if (this.model.state === State.anim) {
+            this.done.push({
+                state: State.anim,
+                coords: this.model.snapshotPositions(),
+            });
+        } else {
+            this.done.push(this.model.serialize());
+        }
     }
 
     popUndo() {
         if (this.done.length === 0) {
             return;
         }
-        Object.assign(this.model, this.model.deserialize(this.done.pop()));
+        const snapshot = this.done.pop();
+        if (typeof snapshot === 'string') {
+            Object.assign(this.model, this.model.deserialize(snapshot));
+        } else if (snapshot?.state === State.anim) {
+            this.model.state = State.anim;
+            if (snapshot.coords) {
+                this.model.restorePositions(snapshot.coords);
+            }
+        }
     }
 }
 

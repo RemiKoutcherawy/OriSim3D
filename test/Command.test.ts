@@ -231,12 +231,12 @@ Deno.test('Command', async (t) => {
         const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
         cmd.command('t 10 rotate S0 90 P2 P3');
         let n = 0;
-        while (cmd.anim() && ++n < 10000) { /* drain anim */ }
+        while (cmd.anim()) { /* drain anim */ }
         assertEquals(n < 10000, true, 'animation should finish');
         assertEquals(Math.round(m.points[2].y), -200);
         cmd.command('\nundo\n'); // template textContent is rarely exactly "undo"
         n = 0;
-        while (cmd.anim() && ++n < 10000) { /* drain undo */ }
+        while (cmd.anim()) { /* drain undo */ }
         assertEquals(n < 10000, true, 'undo should finish');
         assertEquals(m.state, State.run, 'undo must return to run');
         assertEquals(Math.round(m.points[2].y), 200);
@@ -267,6 +267,29 @@ Deno.test('Command', async (t) => {
     });
 
     // Animation commands
+    await t.step('lightweight animation snapshots in done', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
+        cmd.command('d 200 200').anim();
+        assertEquals(cmd.done.length, 1);
+        assertEquals(typeof cmd.done[0], 'string', 'Static command produces serialized JSON string snapshot');
+
+        // Start animation line
+        cmd.command('t 50 rotate S0 90 P2 P3');
+        cmd.anim(); // First call runs runNext: pushes full snapshot, sets state to anim
+        assertEquals(cmd.done.length, 2);
+        assertEquals(typeof cmd.done[1], 'string', 'Pre-animation snapshot is full JSON string');
+
+        // Run one anim frame
+        cmd.anim(); // runs runAnim: executes rotate, pushes lightweight anim snapshot
+        assertEquals(cmd.done.length >= 3, true);
+        const animSnapshot = cmd.done[cmd.done.length - 1];
+        assertEquals(typeof animSnapshot, 'object', 'Anim frame snapshot is an object, not JSON string');
+        assertEquals(animSnapshot.state, State.anim);
+        assertEquals(animSnapshot.coords instanceof Float64Array, true);
+        assertEquals(animSnapshot.coords.length, m.points.length * 3);
+    });
+
     await t.step('command t 10 rotate S0 90 P2 P3', () => {
         cde.command('t 10 rotate S0 90 P2 P3');
         while(cde.anim()) {/* wait for animation to finish */}

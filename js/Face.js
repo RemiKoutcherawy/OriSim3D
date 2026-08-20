@@ -36,8 +36,8 @@ export class Face {
         // segment crossing
         const t = (Vector3.dot(plane.normal, plane.origin) - Vector3.dot(plane.normal, a)) / abn;
         if (t >= 0 && t <= 1) {
-            Vector3.scale(ab, t);
-            return new Point(Number.NaN, Number.NaN, a.x + ab.x, a.y + ab.y, a.z + ab.z);
+            const scaled = Vector3.scale(ab, t);
+            return new Point(Number.NaN, Number.NaN, a.x + scaled.x, a.y + scaled.y, a.z + scaled.z);
         }
         return undefined;
     }

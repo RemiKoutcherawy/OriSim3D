@@ -77,10 +77,13 @@ Deno.test("Vector3", async (t) => {
 
     await t.step("scale", () => {
         const a = new Vector3(2, 3, 4);
-        Vector3.scale(a, 2);
-        assertEquals(a.x, 4, "(2,3,4) Scale 2 should give (4,6,8)");
-        assertEquals(a.y, 6, "(2,3,4) Scale 2 should give (4,6,8)");
-        assertEquals(a.z, 8, "(2,3,4) Scale 2 should give (4,6,8)");
+        const res = Vector3.scale(a, 2);
+        assertEquals(res.x, 4, "(2,3,4) Scale 2 should give (4,6,8)");
+        assertEquals(res.y, 6, "(2,3,4) Scale 2 should give (4,6,8)");
+        assertEquals(res.z, 8, "(2,3,4) Scale 2 should give (4,6,8)");
+        assertEquals(a.x, 2, "original vector should not be mutated");
+        assertEquals(a.y, 3, "original vector should not be mutated");
+        assertEquals(a.z, 4, "original vector should not be mutated");
     });
 
     await t.step("length3d", () => {

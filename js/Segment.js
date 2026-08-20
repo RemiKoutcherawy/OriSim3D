@@ -53,7 +53,7 @@ export class Segment {
         }
         // Consider the line extending the segment, parameterized as v + t (w - v).
         // Find the projection of point p onto the line.
-        // It falls where t = [(p-v) . (w-v)] / |w-v|^2
+        // It falls where t = [(p-v). (w-v)] / |w-v|^2
         const t = ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / l2;
         if (t < 0) {
             return Math.hypot(x - x1, y - y1);
@@ -180,11 +180,10 @@ export class Segment {
 
     // Closest points between line [A, B] and line [C, D] return {p, q}
     static closestSegment(A, B, C, D) {
-
-        // On AB segment we have : P(s)=A+s*(B-C)
-        // On CD segment we have : Q(t)=C.p1+t*(D-C)
-        // Vector PQ perpendicular to both lines : PQ(s,t).AB=0  PQ(s,t).CD=0
-        // Cramer system :
+        // On AB segment we have: P(s)=A+s*(B-A)
+        // On CD segment we have: Q(t)=C.p1+t*(D-C)
+        // Vector PQ perpendicular to both lines: PQ(s,t).AB=0 PQ(s,t).CD=0
+        // Cramer system:
         // (AB.AB)*s - (AB.CD)*t = -AB.r <=> a*s -b*t = -c
         // (AB.CD)*s - (CD.CD)*t = -CD.r <=> b*s -e*t = -f
         // Solved to s=(bf-ce)/(ae-bb) t=(af-bc)/(ae-bb)

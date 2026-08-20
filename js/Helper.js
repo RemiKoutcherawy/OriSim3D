@@ -174,6 +174,7 @@ export class Helper {
         if (this.upSegment) {
             if (this.upSegment === this.downSegment) {
                 this.downSegment.select = !this.downSegment.select;
+                this.command.command(`// Différences ${this.model.indexOf(this.downSegment)} ${Segment.length2d(this.downSegment)} ${Segment.length3d(this.downSegment)}`);
             } else {
                 this.sendCmd('bisector', this.downSegment, this.upSegment);
             }

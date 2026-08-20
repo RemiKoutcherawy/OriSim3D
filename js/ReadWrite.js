@@ -84,56 +84,58 @@ export class ReadWrite {
         const json = this.toJSONFold(model);
         if (typeof Deno !== "undefined") {
             await Deno.writeTextFile(filename, json);
-            await ReadWrite.readFileAsText(filename);
         } else {
             const data = new Blob([json], { type: "application/json" });
             const link = document.createElement("a");
             link.setAttribute("download", filename);
-            link.setAttribute("href", window.URL.createObjectURL(data));
+            link.setAttribute("href", globalThis.URL.createObjectURL(data));
             link.click();
         }
         return json;
     }
 
     static toJSONFold(model) {
-        let points = model.points;
-        let vertices_coords = [];
+        const points = model.points;
+        const vertices_coords = [];
         points.forEach((p) => {
-            let xy = [p.xf, p.yf];
+            const xy = [p.xf, p.yf];
             vertices_coords.push(xy);
         })
-        let segments = model.segments;
-        let edges_vertices = [];
+        const segments = model.segments;
+        const edges_vertices = [];
         segments.forEach((s) => {
-            let indexes = [points.indexOf(s.p1), points.indexOf(s.p2)]
+            const indexes = [points.indexOf(s.p1), points.indexOf(s.p2)]
             edges_vertices.push(indexes);
         });
-        let edges_assignment = [];
+        const edges_assignment = [];
         segments.forEach((s) => {
-            let faces = model.searchFacesWithAB(s.p1, s.p2);
+            const faces = model.searchFacesWithAB(s.p1, s.p2);
             edges_assignment.push(faces.length === 1 ? "B" : "F");
         });
-        let faces = model.faces;
-        let faces_vertices = [];
+        const faces = model.faces;
+        const faces_vertices = [];
         faces.forEach((f) => {
-            let indexes = [];
+            const indexes = [];
             f.points.forEach((p) => {
-                const q = model.addPoint(p.xf, p.yf, p.x, p.y, p.z);
-                indexes.push(points.indexOf(q));
+                indexes.push(points.indexOf(p));
             });
             faces_vertices.push(indexes);
         });
-        let faces_edges = [];
+        const faces_edges = [];
         faces.forEach((f) => {
-            let indexes = [];
-            f.points.forEach((p) => {
-                segments.forEach((s, i) => {
-                    if (s.p1 === p || s.p2 === p) indexes.push(i);
-                });
-            });
+            const indexes = [];
+            const len = f.points.length;
+            for (let i = 0; i < len; i++) {
+                const p1 = f.points[i];
+                const p2 = f.points[(i + 1) % len];
+                const edgeIndex = segments.findIndex((s) => (s.p1 === p1 && s.p2 === p2) || (s.p1 === p2 && s.p2 === p1));
+                if (edgeIndex !== -1) {
+                    indexes.push(edgeIndex);
+                }
+            }
             faces_edges.push(indexes);
         });
-        let FOLD = {
+        const FOLD = {
             file_spec: 1.1,
             file_creator: "OriSim3D",
             file_classes: ["singleModel"],
@@ -148,7 +150,7 @@ export class ReadWrite {
 
         // Cosmetic
         let reg = /\[[\n\s]*(-?\d+),[\n\s]*(-?\d+)[\n\s]*]/mg;
-        json = json.replaceAll(reg, (match, g1, g2) => `[${g1},${g2}]`);
+        json = json.replaceAll(reg, (_match, g1, g2) => `[${g1},${g2}]`);
         reg = /\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*]/g;
         // More cosmetics
         json = json.replaceAll(reg, (match) => {
@@ -170,10 +172,10 @@ export class ReadWrite {
             return new Face(face.map((index) => model.points[index]));
         });
         // Rescale to -200, 200
-        let {xMin, yMin, xMax, yMax} = model.get2DBounds();
-        let width = xMax - xMin;
-        let height = yMax - yMin;
-        let ratio = Math.max(width, height) / 400;
+        const {xMin, yMin, xMax, yMax} = model.get2DBounds();
+        const width = xMax - xMin;
+        const height = yMax - yMin;
+        const ratio = Math.max(width, height) / 400;
         model.points.forEach((p) => {
             p.xf = (p.xf - xMin) / ratio - 200;
             p.yf = (p.yf - yMin) / ratio - 200;
@@ -225,7 +227,7 @@ export class ReadWrite {
         const data = new Blob([text], {type: "text/plain"});
         const link = document.createElement("a");
         link.setAttribute("download", filename);
-        link.setAttribute("href", window.URL.createObjectURL(data));
+        link.setAttribute("href", globalThis.URL.createObjectURL(data));
         link.click();
     }
 

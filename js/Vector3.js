@@ -33,10 +33,7 @@ export class Vector3 {
     }
 
     static scale(v, scalar) {
-        v.x *= scalar;
-        v.y *= scalar;
-        v.z *= scalar;
-        return v;
+        return new Vector3(v.x * scalar, v.y * scalar, v.z * scalar);
     }
 
     static length3d(v) {
@@ -45,7 +42,7 @@ export class Vector3 {
 
     static normalize(v) {
         const length = Vector3.length3d(v);
-        return length === 0 ? v : Vector3.scale(v, 1 / length);
+        return length === 0 ? new Vector3(v.x, v.y, v.z) : Vector3.scale(v, 1 / length);
     }
 
     static add(u, v) {

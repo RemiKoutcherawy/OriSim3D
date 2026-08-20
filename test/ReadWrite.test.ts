@@ -21,7 +21,16 @@ Deno.test("ReadWrite", async (t) => {
     await t.step('consistency toJSONFold / jsonFoldToModel', () => {
         const model = new Model();
         model.init(200, 200);
+        const originalPoints = [...model.points];
         const json = ReadWrite.toJSONFold(model);
+        // Model must not be mutated by toJSONFold
+        assertEquals(model.points.length, 4, "Model points count unchanged");
+        assertEquals(model.points[0], originalPoints[0], "Point instances unchanged");
+
+        const parsedFold = JSON.parse(json);
+        assertEquals(parsedFold.faces_vertices, [[0, 1, 2, 3]]);
+        assertEquals(parsedFold.faces_edges, [[0, 1, 2, 3]]);
+
         const model2 = ReadWrite.jsonFoldToModel(json);
         assertEquals(model.points.length, model2.points.length, "Points length should be equal");
         assertEquals(model.segments.length, model2.segments.length, "Segments length should be equal");

@@ -30,6 +30,38 @@ Deno.test("Model", async (t) => {
         assertEquals(model.faces[0].points.length, 4, "deserialized face 0 should have 4 points");
         assertEquals(model.faces[0].offset, 0, "deserialized face 0 should have offset 0");
         assertEquals(model.faces[0].points[0].xf, -200, "deserialized face 0 should have point 0 at xf 0");
+
+        // Deserialize from JSON with reverse key order (segments/faces before points)
+        const raw = JSON.parse(serialized);
+        const reordered = JSON.stringify({
+            faces: raw.faces,
+            segments: raw.segments,
+            points: raw.points,
+            scale: raw.scale,
+        });
+        const deserializedReordered = Model.deserialize(reordered);
+        assertEquals(deserializedReordered.points.length, 4);
+        assertEquals(deserializedReordered.segments.length, 4);
+        assertEquals(deserializedReordered.faces.length, 1);
+        assertEquals(deserializedReordered.segments[0].p1 instanceof Point, true);
+        assertEquals(deserializedReordered.faces[0].points[0] instanceof Point, true);
+    });
+    await t.step("snapshotPositions / restorePositions", () => {
+        const model = new Model().init(200, 200);
+        const snapshot = model.snapshotPositions();
+        assertEquals(snapshot instanceof Float64Array, true);
+        assertEquals(snapshot.length, 12, "4 points * 3 coordinates = 12 floats");
+
+        // Mutate positions
+        model.points[0].x = 999;
+        model.points[0].y = 888;
+        model.points[0].z = 777;
+
+        // Restore positions
+        model.restorePositions(snapshot);
+        assertEquals(model.points[0].x, -200);
+        assertEquals(model.points[0].y, -200);
+        assertEquals(model.points[0].z, 0);
     });
     await t.step("Model hover", async (t) => {
         await t.step("hover2d3d", () => {

@@ -5,7 +5,7 @@ export class View2d {
         this.canvas2d = canvas2d;
 
         // Resize
-        window.addEventListener('resize', () => {
+        globalThis.addEventListener('resize', () => {
             this.fit();
             this.drawModel();
         });
