@@ -42,6 +42,15 @@ export class Helper {
         }
     }
 
+    // Helper method to get formatted object string id (e.g. 'p0', 's1', 'f2')
+    id(obj) {
+        if (!obj) return '';
+        if (this.model.points.includes(obj)) return 'p' + this.model.indexOf(obj);
+        if (this.model.segments.includes(obj)) return 's' + this.model.indexOf(obj);
+        if (this.model.faces.includes(obj)) return 'f' + this.model.indexOf(obj);
+        return '';
+    }
+
     // init properties
     out() {
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
@@ -127,122 +136,97 @@ export class Helper {
     }
 
     up(points, segments, faces) {
-        if (this.firstPoint) this.fromPoint(points, segments)
-        else if (this.firstSegment) this.fromSegment(points, segments)
-        else if (this.firstFace) this.fromFace(points, segments, faces)
+        if (this.firstPoint) this.fromPoint(points, segments);
+        else if (this.firstSegment) this.fromSegment(points, segments);
+        else if (this.firstFace) this.fromFace(points, segments, faces);
         else {
-            this.model.points.forEach(p => p.select = false)
-            this.model.segments.forEach(s => s.select = false)
-            this.model.faces.forEach(f => f.select = false)
+            this.model.points.forEach(p => p.select = false);
+            this.model.segments.forEach(s => s.select = false);
+            this.model.faces.forEach(f => f.select = false);
         }
-        this.out()
+        this.out();
     }
+
     fromPoint(points, segments) {
-        // To Point
         if (points.length > 0) {
-            const p = points[0]
-            // To the same point select or deselect
+            const p = points[0];
             if (this.firstPoint === p) {
                 p.select = !p.select;
+            } else {
+                const cmd = this.model.getSegment(this.firstPoint, p) ? 'across' : 'by';
+                this.sendCmd(cmd, this.firstPoint, p);
             }
-            // To another point
-            else {
-                // Two points on same segment => Crease across segment
-                if (this.model.getSegment(this.firstPoint, p)) {
-                    this.sendCmd('across', 'p' + this.model.indexOf(this.firstPoint), 'p' + this.model.indexOf(p));
-                }
-                // Two points but not on same segment => Crease by two points
-                else {
-                    this.sendCmd('by', 'p' + this.model.indexOf(this.firstPoint), 'p' + this.model.indexOf(p))
-                }
-            }
-        }
-        // To segment but not in current rotation
-        else if (segments.length > 0 && this.label === undefined) {
-            const s = segments[0]
-            this.sendCmd('p', 's' + this.model.indexOf(s), 'p' + this.model.indexOf(this.firstPoint))
-        }
-        // To segment in current rotation
-        else if (this.label) {
-            this.rotatePoints()
-        }
-    }
-    fromSegment(points, segments) {
-        // To segment
-        if (segments.length > 0 ){
-            const s = segments[0]
-            // To same segment select
-            if (s === this.firstSegment) {
-                s.select = !s.select
-            }
-            // To another segment crease bisector
-            else{
-                this.sendCmd('bisector', 's' + this.model.indexOf(this.firstSegment), 's' + this.model.indexOf(s))
-            }
-        }
-        // To point crease perpendicular from segment to point
-        else if (points.length > 0)
-            this.sendCmd('p', 's' + this.model.indexOf(this.firstSegment), 'p' + this.model.indexOf(points[0]))
-    }
-    fromFace(points, segments, faces) {
-        console.log(faces.length, faces[0] === this.firstFace, faces.some(f => f.select === true))
-        // To the same face: select or deselect
-        if (faces.length > 0 && faces[0] === this.firstFace) {
-            faces.forEach(f => f.select = !f.select);
-            // Show offsets
-            faces.forEach((f)=>{
-                this.command.command(`// face ${this.model.indexOf(f)} offset ${f.offset} `);
-            });
-        }
-        // To another face with some selected
-        else if (faces.length > 0 && faces.some(f => f.select === true)) {
-            this.command.command(`// To another face with some selected`);
-            this.fromFaceToFace(this.firstFace, faces[0]);
-        }
-        // To nothing: split segments on 2d crease pattern.
-        else {
-            this.command.command(`// To another face Split`);
-            const is2d = this.currentCanvas === '2d';
-            const ySign = is2d ? -1 : 1;
-            const first = {xf: this.firstX, yf: ySign * this.firstY};
-            const current = {xf: this.currentX, yf: ySign * this.currentY};
-            this.model.segments.forEach((s, i) => {
-                const p1 = is2d ? s.p1 : {xf: s.p1.xCanvas, yf: s.p1.yCanvas};
-                const p2 = is2d ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
-                const inter = Segment.intersectionFlat(first, current, p1, p2);
-                if (inter) {
-                    const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
-                    s.p1.z ||= 0.1;
-                    s.p2.z ||= 0.1;
-                    const t = Math.round((is2d ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z)) * 100) / 100;
-                    this.command.command(`split s${i} ${t}`);
-                }
-            });
+        } else if (this.label) {
+            this.rotatePoints();
+        } else if (segments.length > 0) {
+            this.sendCmd('p', segments[0], this.firstPoint);
         }
     }
 
-    // From face to face with some faces selected
+    fromSegment(points, segments) {
+        if (segments.length > 0) {
+            const s = segments[0];
+            if (s === this.firstSegment) {
+                s.select = !s.select;
+            } else {
+                this.sendCmd('bisector', this.firstSegment, s);
+            }
+        } else if (points.length > 0) {
+            this.sendCmd('p', this.firstSegment, points[0]);
+        }
+    }
+
+    fromFace(points, segments, faces) {
+        if (faces.length > 0 && faces[0] === this.firstFace) {
+            faces.forEach(f => {
+                f.select = !f.select;
+                this.command.command(`// face ${this.model.indexOf(f)} offset ${f.offset} `);
+            });
+        } else if (faces.length > 0 && faces.some(f => f.select)) {
+            this.fromFaceToFace(this.firstFace, faces[0]);
+        } else {
+            this.splitSegments();
+        }
+    }
+
     fromFaceToFace(f1, f2) {
-        const i1 = this.model.indexOf(f1);
-        const i2 = this.model.indexOf(f2);
-        // With some faces selected
-        this.command.command(`// From f${i1} to f${i2}`);
-        const faces = this.model.faces.filter(f => f.select === true);
-        // Debug list selected faces
-        faces.forEach((f) => {
-            this.command.command(`// Selected ${this.model.indexOf(f)}`)
+        this.command.command(`// From ${this.id(f1)} to ${this.id(f2)}`);
+        this.model.faces.filter(f => f.select).forEach(f => {
+            this.command.command(`// Selected ${this.id(f)}`);
         });
     }
 
-    sendCmd(base, ...ids) {
-        const suffix = this.currentCanvas === '2d' ? '2d' : '3d'
-        this.command.command(`${base}${suffix} ${ids.join(' ')}`)
+    splitSegments() {
+        this.command.command(`// To another face Split`);
+        const is2d = this.currentCanvas === '2d';
+        const ySign = is2d ? -1 : 1;
+        const first = {xf: this.firstX, yf: ySign * this.firstY};
+        const current = {xf: this.currentX, yf: ySign * this.currentY};
+        this.model.segments.forEach((s, i) => {
+            const p1 = is2d ? s.p1 : {xf: s.p1.xCanvas, yf: s.p1.yCanvas};
+            const p2 = is2d ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
+            const inter = Segment.intersectionFlat(first, current, p1, p2);
+            if (inter) {
+                const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
+                s.p1.z ||= 0.1;
+                s.p2.z ||= 0.1;
+                const t = Math.round((is2d ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z)) * 100) / 100;
+                this.command.command(`split s${i} ${t}`);
+            }
+        });
     }
+
+    sendCmd(base, ...objs) {
+        const suffix = this.currentCanvas === '2d' ? '2d' : '3d';
+        const args = objs.map(o => typeof o === 'string' ? o : this.id(o));
+        this.command.command(`${base}${suffix} ${args.join(' ')}`);
+    }
+
     // Rotate selected points around selected segment
     rotatePoints() {
-        const s = this.model.segments.find(s => s.select)
-        const pts = this.model.points.filter(p => p.select).map(p => 'p' + this.model.points.indexOf(p))
-        this.command.command(`t 1000 r s${this.model.indexOf(s)} ${this.label} ${pts.join(' ')}`)
+        const s = this.model.segments.find(s => s.select);
+        const pts = this.model.points.filter(p => p.select).map(p => this.id(p));
+        this.command.command(`t 1000 r ${this.id(s)} ${this.label} ${pts.join(' ')}`);
     }
 
     // Flat 2d

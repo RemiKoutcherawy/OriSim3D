@@ -20,62 +20,176 @@ class MockView3d {
 }
 
 Deno.test("Helper Tests", async (t) => {
-  const model = new Model().init(200, 200);
-  const command = new Command(model);
-  const mockView3d = new MockView3d(model);
-  const helper = new Helper(model, command, null, mockView3d, null);
+  await t.step("id() returns correct identifier strings", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
 
-  await t.step("down()", () => {
-    const points = model.points.slice(0, 0);
-    helper.down(points, [], []);
-    assertEquals(helper.firstPoint, points[0]);
-    const segments = model.segments.slice(0, 0);
-    helper.down([], segments, []);
-    assertEquals(helper.firstSegment, segments[0]);
-    const faces = model.faces.slice(0, 0);
-    helper.down([], [], faces);
-    assertEquals(helper.firstFace, faces[0]);
-    helper.down([], [], []);
-    assertEquals(helper.firstPoint, undefined);
-    assertEquals(helper.firstSegment, undefined);
-    assertEquals(helper.firstFace, undefined);
-    // Todo test down logic here
+    assertEquals(helper.id(model.points[0]), "p0");
+    assertEquals(helper.id(model.segments[0]), "s0");
+    assertEquals(helper.id(model.faces[0]), "f0");
+    assertEquals(helper.id(null), "");
   });
 
-  await t.step("move()", () => {
-    const points = model.points.slice(0, 0);
-    helper.move(points, [], []);
-    assertEquals(helper.firstPoint, points[0]);
-    const segments = model.segments.slice(0, 0);
-    helper.move([], segments, []);
-    assertEquals(helper.firstSegment, segments[0]);
-    const faces = model.faces.slice(0, 0);
-    helper.move([], [], faces);
-    assertEquals(helper.firstFace, faces[0]);
-    helper.move([], [], []);
+  await t.step("down() sets initial selection", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+
+    helper.down([model.points[0]], [], [], 10, 20);
+    assertEquals(helper.firstPoint, model.points[0]);
+    assertEquals(helper.firstSegment, undefined);
+    assertEquals(helper.firstFace, undefined);
+
+    helper.down([], [model.segments[0]], [], 10, 20);
+    assertEquals(helper.firstPoint, undefined);
+    assertEquals(helper.firstSegment, model.segments[0]);
+    assertEquals(helper.firstFace, undefined);
+
+    helper.down([], [], [model.faces[0]], 10, 20);
+    assertEquals(helper.firstPoint, undefined);
+    assertEquals(helper.firstSegment, undefined);
+    assertEquals(helper.firstFace, model.faces[0]);
+
+    helper.down([], [], [], 0, 0);
     assertEquals(helper.firstPoint, undefined);
     assertEquals(helper.firstSegment, undefined);
     assertEquals(helper.firstFace, undefined);
-    // Todo test move logic here
   });
-  await t.step("up()", () => {
-    const points = model.points.slice(0, 0);
-    helper.up(points, [], []);
-    assertEquals(helper.firstPoint, points[0]);
-    const segments = model.segments.slice(0, 0);
-    helper.up([], segments, []);
-    assertEquals(helper.firstSegment, segments[0]);
-    const faces = model.faces.slice(0, 0);
-    helper.up([], [], faces);
-    assertEquals(helper.firstFace, faces[0]);
-    helper.up([], [], []);
-    assertEquals(helper.firstPoint, undefined);
-    assertEquals(helper.firstSegment, undefined);
-    assertEquals(helper.firstFace, undefined);
-    // Todo test move logic here
+
+  await t.step("fromPoint interactions", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+
+    const cmds: string[] = [];
+    const original = command.command.bind(command);
+    command.command = (cde) => {
+      cmds.push(cde);
+      return original(cde);
+    };
+
+    helper.currentCanvas = '2d';
+
+    // Same point -> toggle select
+    const p0 = model.points[0];
+    p0.select = false;
+    helper.firstPoint = p0;
+    helper.fromPoint([p0], []);
+    assertEquals(p0.select, true);
+
+    // Point to Point on same segment -> across2d
+    const p1 = model.points[1]; // segment between p0 and p1 exists
+    cmds.length = 0;
+    helper.firstPoint = p0;
+    helper.fromPoint([p1], []);
+    assertEquals(cmds[0], "across2d p0 p1");
+
+    // Point to Point not on same segment -> by2d
+    const p2 = model.points[2]; // diagonal, no segment between p0 and p2
+    cmds.length = 0;
+    helper.firstPoint = p0;
+    helper.fromPoint([p2], []);
+    assertEquals(cmds[0], "by2d p0 p2");
+
+    // Point to segment without label -> perpendicular (p2d)
+    const s0 = model.segments[0];
+    cmds.length = 0;
+    helper.label = undefined;
+    helper.firstPoint = p0;
+    helper.fromPoint([], [s0]);
+    assertEquals(cmds[0], "p2d s0 p0");
+
+    // Point with rotation label -> rotatePoints
+    p0.select = false;
+    s0.select = true;
+    p2.select = true;
+    helper.label = 90;
+    cmds.length = 0;
+    helper.firstPoint = p0;
+    helper.fromPoint([], []);
+    assertEquals(cmds[0], "t 1000 r s0 90 p2");
+
+    command.command = original;
+  });
+
+  await t.step("fromSegment interactions", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+
+    const cmds: string[] = [];
+    const original = command.command.bind(command);
+    command.command = (cde) => {
+      cmds.push(cde);
+      return original(cde);
+    };
+
+    helper.currentCanvas = '2d';
+    const s0 = model.segments[0];
+    const s1 = model.segments[1];
+    const p0 = model.points[0];
+
+    // Same segment -> toggle select
+    s0.select = false;
+    helper.firstSegment = s0;
+    helper.fromSegment([], [s0]);
+    assertEquals(s0.select, true);
+
+    // Segment to another segment -> bisector2d
+    cmds.length = 0;
+    helper.firstSegment = s0;
+    helper.fromSegment([], [s1]);
+    assertEquals(cmds[0], "bisector2d s0 s1");
+
+    // Segment to point -> perpendicular (p2d)
+    cmds.length = 0;
+    helper.firstSegment = s0;
+    helper.fromSegment([p0], []);
+    assertEquals(cmds[0], "p2d s0 p0");
+
+    command.command = original;
+  });
+
+  await t.step("fromFace interactions", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+
+    const cmds: string[] = [];
+    const original = command.command.bind(command);
+    command.command = (cde) => {
+      cmds.push(cde);
+      return original(cde);
+    };
+
+    const f0 = model.faces[0];
+
+    // Same face -> toggle select
+    f0.select = false;
+    helper.firstFace = f0;
+    helper.fromFace([], [], [f0]);
+    assertEquals(f0.select, true);
+
+    // Split face so we have 2 faces for face-to-face test
+    model.splitBy2d(model.points[0], model.points[2]);
+    const f1 = model.faces[1];
+    f1.select = true;
+
+    cmds.length = 0;
+    helper.firstFace = model.faces[0];
+    helper.fromFace([], [], [f1]);
+    assertEquals(cmds[0], "// From f0 to f1");
+
+    command.command = original;
   });
 
   await t.step("search2d() points, segments, faces near xf,yf", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const mockView3d = new MockView3d(model);
+    const helper = new Helper(model, command, null, mockView3d, null);
+
     const result = helper.search2d(200, 200);
     assertEquals(result.points.length, 1);
     assertEquals(result.segments.length, 2);
@@ -84,42 +198,15 @@ Deno.test("Helper Tests", async (t) => {
 
   await t.step(
     "search3d() points, segments, faces near x,y in 3d canvas", () => {
-      console.log("search3d() points, segments, faces near x,y in 3d canvas");
+      const model = new Model().init(200, 200);
+      const command = new Command(model);
+      const mockView3d = new MockView3d(model);
+      const helper = new Helper(model, command, null, mockView3d, null);
+
       const result = helper.search3d(200, 200);
       assertEquals(result.points.length, 1);
       assertEquals(result.segments.length, 2);
       assertEquals(result.faces.length, 1);
     },
   );
-
-  await t.step("rotatePoints emits fold", () => {
-    const cmds: string[] = [];
-    const original = command.command.bind(command);
-    command.command = (cde) => {
-      cmds.push(cde);
-      return original(cde);
-    };
-    model.segments[0].select = true;
-    model.points[2].select = true;
-    helper.label = 90;
-    helper.rotatePoints();
-    assertEquals(cmds[0], "t 1000 r s0 90 p2");
-    command.command = original;
-  });
-
-  await t.step("fromFaceToFace emits offset command", () => {
-    const cmd: string[] = [];
-    const original = command.command.bind(command);
-    command.command = (cde) => {
-      cmd.push(cde);
-      return original(cde);
-    };
-    // Split face so we have 2 faces
-    model.splitBy2d(model.points[0], model.points[2]);
-    assertEquals(model.faces.length, 2);
-    helper.firstFace = model.faces[0];
-    helper.fromFace([], [], [model.faces[1]]);
-    assertEquals(cmd[0], "// To another face Split");
-    command.command = original;
-  });
 });
