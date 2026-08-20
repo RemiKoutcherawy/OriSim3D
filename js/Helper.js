@@ -182,7 +182,7 @@ export class Helper {
                 f.select = !f.select;
                 this.command.command(`// face ${this.model.indexOf(f)} offset ${f.offset} `);
             });
-        } else if (faces.length > 0 && faces.some(f => f.select)) {
+        } else if (faces.some(f => f.select)) {
             this.fromFaceToFace(this.downFace, faces[0]);
         } else {
             this.splitSegments();
