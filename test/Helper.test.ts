@@ -37,24 +37,24 @@ Deno.test("Helper Tests", async (t) => {
     const helper = new Helper(model, command, null, null, null);
 
     helper.down([model.points[0]], [], [], 10, 20);
-    assertEquals(helper.firstPoint, model.points[0]);
-    assertEquals(helper.firstSegment, undefined);
-    assertEquals(helper.firstFace, undefined);
+    assertEquals(helper.downPoint, model.points[0]);
+    assertEquals(helper.downSegment, undefined);
+    assertEquals(helper.downFace, undefined);
 
     helper.down([], [model.segments[0]], [], 10, 20);
-    assertEquals(helper.firstPoint, undefined);
-    assertEquals(helper.firstSegment, model.segments[0]);
-    assertEquals(helper.firstFace, undefined);
+    assertEquals(helper.downPoint, undefined);
+    assertEquals(helper.downSegment, model.segments[0]);
+    assertEquals(helper.downFace, undefined);
 
     helper.down([], [], [model.faces[0]], 10, 20);
-    assertEquals(helper.firstPoint, undefined);
-    assertEquals(helper.firstSegment, undefined);
-    assertEquals(helper.firstFace, model.faces[0]);
+    assertEquals(helper.downPoint, undefined);
+    assertEquals(helper.downSegment, undefined);
+    assertEquals(helper.downFace, model.faces[0]);
 
     helper.down([], [], [], 0, 0);
-    assertEquals(helper.firstPoint, undefined);
-    assertEquals(helper.firstSegment, undefined);
-    assertEquals(helper.firstFace, undefined);
+    assertEquals(helper.downPoint, undefined);
+    assertEquals(helper.downSegment, undefined);
+    assertEquals(helper.downFace, undefined);
   });
 
   await t.step("fromPoint interactions", () => {
@@ -74,21 +74,21 @@ Deno.test("Helper Tests", async (t) => {
     // Same point -> toggle select
     const p0 = model.points[0];
     p0.select = false;
-    helper.firstPoint = p0;
+    helper.downPoint = p0;
     helper.fromPoint([p0], []);
     assertEquals(p0.select, true);
 
     // Point to Point on same segment -> across2d
     const p1 = model.points[1]; // segment between p0 and p1 exists
     cmds.length = 0;
-    helper.firstPoint = p0;
+    helper.downPoint = p0;
     helper.fromPoint([p1], []);
     assertEquals(cmds[0], "across2d p0 p1");
 
     // Point to Point not on same segment -> by2d
     const p2 = model.points[2]; // diagonal, no segment between p0 and p2
     cmds.length = 0;
-    helper.firstPoint = p0;
+    helper.downPoint = p0;
     helper.fromPoint([p2], []);
     assertEquals(cmds[0], "by2d p0 p2");
 
@@ -96,7 +96,7 @@ Deno.test("Helper Tests", async (t) => {
     const s0 = model.segments[0];
     cmds.length = 0;
     helper.label = undefined;
-    helper.firstPoint = p0;
+    helper.downPoint = p0;
     helper.fromPoint([], [s0]);
     assertEquals(cmds[0], "p2d s0 p0");
 
@@ -106,7 +106,7 @@ Deno.test("Helper Tests", async (t) => {
     p2.select = true;
     helper.label = 90;
     cmds.length = 0;
-    helper.firstPoint = p0;
+    helper.downPoint = p0;
     helper.fromPoint([], []);
     assertEquals(cmds[0], "t 1000 r s0 90 p2");
 
@@ -132,19 +132,19 @@ Deno.test("Helper Tests", async (t) => {
 
     // Same segment -> toggle select
     s0.select = false;
-    helper.firstSegment = s0;
+    helper.downSegment = s0;
     helper.fromSegment([], [s0]);
     assertEquals(s0.select, true);
 
     // Segment to another segment -> bisector2d
     cmds.length = 0;
-    helper.firstSegment = s0;
+    helper.downSegment = s0;
     helper.fromSegment([], [s1]);
     assertEquals(cmds[0], "bisector2d s0 s1");
 
     // Segment to point -> perpendicular (p2d)
     cmds.length = 0;
-    helper.firstSegment = s0;
+    helper.downSegment = s0;
     helper.fromSegment([p0], []);
     assertEquals(cmds[0], "p2d s0 p0");
 
@@ -167,7 +167,7 @@ Deno.test("Helper Tests", async (t) => {
 
     // Same face -> toggle select
     f0.select = false;
-    helper.firstFace = f0;
+    helper.downFace = f0;
     helper.fromFace([], [], [f0]);
     assertEquals(f0.select, true);
 
@@ -177,7 +177,7 @@ Deno.test("Helper Tests", async (t) => {
     f1.select = true;
 
     cmds.length = 0;
-    helper.firstFace = model.faces[0];
+    helper.downFace = model.faces[0];
     helper.fromFace([], [], [f1]);
     assertEquals(cmds[0], "// From f0 to f1");
 

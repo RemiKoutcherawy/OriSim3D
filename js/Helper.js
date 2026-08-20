@@ -12,8 +12,8 @@ export class Helper {
         this.label = undefined;
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
-        // First point, segment, or face selected
-        this.firstPoint = this.firstSegment = this.firstFace = undefined;
+        // Point, segment, or face selected on down
+        this.downPoint = this.downSegment = this.downFace = undefined;
         // Current canvas: 2d or 3d
         this.currentCanvas = undefined
         // To test with Deno overlay is null
@@ -54,12 +54,12 @@ export class Helper {
     // init properties
     out() {
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
-        this.firstPoint = this.firstSegment = this.firstFace = this.currentCanvas = this.label = undefined;
+        this.downPoint = this.downSegment = this.downFace = this.currentCanvas = this.label = undefined;
     }
 
     // Draw only if a point, segment, or face is selected
     draw() {
-        if (!this.firstPoint && !this.firstSegment && !this.firstFace) {
+        if (!this.downPoint && !this.downSegment && !this.downFace) {
             return;
         }
         const context = (this.currentCanvas === '2d' ? this.canvas2d : this.overlay).getContext('2d');
@@ -87,24 +87,24 @@ export class Helper {
 
     // Logic begins here
     down(points, segments, faces, x, y) {
-        this.firstPoint = points[0];
-        this.firstSegment = !this.firstPoint ? segments[0] : undefined;
-        this.firstFace = !this.firstPoint && !this.firstSegment ? faces[0] : undefined;
+        this.downPoint = points[0];
+        this.downSegment = !this.downPoint ? segments[0] : undefined;
+        this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;
         this.firstX = this.currentX = x;
         this.firstY = this.currentY = y;
     }
 
     move(points, segments, faces, x, y) {
         this.model.hover2d3d(points, segments, faces);
-        if (this.firstPoint) {
-            this.firstPoint.hover = true;
+        if (this.downPoint) {
+            this.downPoint.hover = true;
             // From Point with selected segment(s)
             const s = this.model.segments.find(s => s.select);
             if (s) {
                 // Deselect other segments
                 this.model.segments.filter(sg => sg.select && sg !== s).forEach(sg => sg.select = false);
                 // The point we move from
-                const p = this.firstPoint;
+                const p = this.downPoint;
                 p.select = true;
                 let distToFirst, distToCurrent;
                 if (this.currentCanvas === '2d') {
@@ -128,17 +128,17 @@ export class Helper {
                 // Clamp near-zero angle to 0
                 this.label = Math.abs(angle) < 10 ? 0 : angle;
             }
-        } else if (this.firstSegment) {
-            this.firstSegment.hover = true;
+        } else if (this.downSegment) {
+            this.downSegment.hover = true;
         }
         this.currentX = x;
         this.currentY = y;
     }
 
     up(points, segments, faces) {
-        if (this.firstPoint) this.fromPoint(points, segments);
-        else if (this.firstSegment) this.fromSegment(points, segments);
-        else if (this.firstFace) this.fromFace(points, segments, faces);
+        if (this.downPoint) this.fromPoint(points, segments);
+        else if (this.downSegment) this.fromSegment(points, segments);
+        else if (this.downFace) this.fromFace(points, segments, faces);
         else {
             this.model.points.forEach(p => p.select = false);
             this.model.segments.forEach(s => s.select = false);
@@ -150,40 +150,40 @@ export class Helper {
     fromPoint(points, segments) {
         if (points.length > 0) {
             const p = points[0];
-            if (this.firstPoint === p) {
+            if (this.downPoint === p) {
                 p.select = !p.select;
             } else {
-                const cmd = this.model.getSegment(this.firstPoint, p) ? 'across' : 'by';
-                this.sendCmd(cmd, this.firstPoint, p);
+                const cmd = this.model.getSegment(this.downPoint, p) ? 'across' : 'by';
+                this.sendCmd(cmd, this.downPoint, p);
             }
         } else if (this.label) {
             this.rotatePoints();
         } else if (segments.length > 0) {
-            this.sendCmd('p', segments[0], this.firstPoint);
+            this.sendCmd('p', segments[0], this.downPoint);
         }
     }
 
     fromSegment(points, segments) {
         if (segments.length > 0) {
             const s = segments[0];
-            if (s === this.firstSegment) {
+            if (s === this.downSegment) {
                 s.select = !s.select;
             } else {
-                this.sendCmd('bisector', this.firstSegment, s);
+                this.sendCmd('bisector', this.downSegment, s);
             }
         } else if (points.length > 0) {
-            this.sendCmd('p', this.firstSegment, points[0]);
+            this.sendCmd('p', this.downSegment, points[0]);
         }
     }
 
     fromFace(points, segments, faces) {
-        if (faces.length > 0 && faces[0] === this.firstFace) {
+        if (faces.length > 0 && faces[0] === this.downFace) {
             faces.forEach(f => {
                 f.select = !f.select;
                 this.command.command(`// face ${this.model.indexOf(f)} offset ${f.offset} `);
             });
         } else if (faces.length > 0 && faces.some(f => f.select)) {
-            this.fromFaceToFace(this.firstFace, faces[0]);
+            this.fromFaceToFace(this.downFace, faces[0]);
         } else {
             this.splitSegments();
         }
@@ -310,7 +310,7 @@ export class Helper {
         // Handle 3d rotation
         if (points.length === 0 && segments.length === 0 && faces.length === 0
             && event.buttons === 1
-            && !this.firstPoint && !this.firstSegment && !this.firstFace) {
+            && !this.downPoint && !this.downSegment && !this.downFace) {
             // Rotation
             const factor = (600 / event.target.height) ;
             const dx = factor * (xCanvas - this.currentX);
