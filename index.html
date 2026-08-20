@@ -12,9 +12,14 @@
     #overlay{position:absolute;width:50%;height:100%;left:50%;top:0;z-index:1;color:hsl(60,100%,50%)}
     #burger{position:absolute;top:8px;left:8px;z-index:10;cursor:pointer;padding:8px;background:rgba(0,0,0,.65);border-radius:4px;line-height:0}
     #burger span{display:block;width:22px;height:2px;background:#fff;margin:4px 0}
-    #nav{position:absolute;top:46px;left:8px;z-index:10;background:rgba(0,0,0,.82);border-radius:4px;display:none}
-    #nav button,summary{display:block;color:#fff;padding:10px 16px;cursor:pointer;white-space:nowrap;text-decoration:none;outline:0;background:none;border:none;width:100%;text-align:left;font-family:inherit;font-size:inherit}
-    #nav button:hover,summary:hover{background:rgba(255,255,255,.12)}
+    #nav{position:absolute;top:46px;left:8px;z-index:10;background:rgba(0,0,0,.82);border-radius:4px;display:none;min-width:180px;overflow:hidden}
+    #nav button,#nav summary{display:block;color:#fff;padding:10px 16px;cursor:pointer;white-space:nowrap;text-decoration:none;outline:0;background:none;border:none;width:100%;text-align:left;font-family:inherit;font-size:inherit}
+    #nav button:hover,#nav summary:hover{background:rgba(255,255,255,.12)}
+    #nav details summary{list-style:none}
+    #nav details summary::-webkit-details-marker{display:none}
+    #nav details summary::after{content:"›";float:right;transition:transform .15s}
+    #nav details[open] summary::after{transform:rotate(90deg)}
+    #nav details button{padding-left:32px;font-size:13px;opacity:.85}
   </style>
 </head>
 <body>
@@ -23,18 +28,27 @@
   <canvas id="canvas3d"></canvas>
   <canvas id="overlay"></canvas>
 </div>
-<button id="burger" onclick="const n=document.getElementById('nav');n.style.display=n.style.display==='block'?'none':'block'"
+<button id="burger" onclick="const n=document.getElementById('nav');const open=n.style.display!=='block';n.style.display=open?'block':'none';this.setAttribute('aria-expanded',open)"
         aria-label="Menu" aria-expanded="false">
   <span></span><span></span><span></span>
 </button>
-<div id="nav">
-  <button type="button" data-load="open">Ouvrir un fichier…</button>
-  <button type="button" data-load="save">Sauver un fichier…</button>
-  <button type="button" data-load="undo">Undo</button>
-  <button type="button" data-load="cocotte">Cocotte</button>
-  <button type="button" data-load="boat">Bateau</button>
-  <button type="button" data-load="test">test</button>
-</div>
+<nav id="nav">
+  <details>
+    <summary>Fichier</summary>
+    <button type="button" data-load="open">Ouvrir un fichier…</button>
+    <button type="button" data-load="save">Sauver un fichier…</button>
+  </details>
+  <details>
+    <summary>Édition</summary>
+    <button type="button" data-load="undo">Undo</button>
+  </details>
+  <details>
+    <summary>Exemples</summary>
+    <button type="button" data-load="cocotte">Cocotte</button>
+    <button type="button" data-load="boat">Bateau</button>
+    <button type="button" data-load="test">test</button>
+  </details>
+</nav>
 
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
@@ -93,6 +107,14 @@
       // Le lien entre data-load et dataset.load est une conversion automatique
       btn.addEventListener('click', () => load(btn.dataset.load))
     })
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#burger') && !e.target.closest('#nav')) {
+        document.getElementById('nav').style.display = 'none';
+        document.getElementById('burger').setAttribute('aria-expanded', 'false');
+      }
+    });
 
     function load(id) {
       const nav = document.getElementById('nav');
