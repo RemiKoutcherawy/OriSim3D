@@ -45,6 +45,33 @@ Work in progress, any help is welcome.
 - swipe from left to right on 2D undo
 - swipe from right to left on 2D turns model
 
+### Outside reverse fold (pli renversé extérieur)
+
+Example: menu **Pli renversé**, or `models/reverse-outside.txt`.
+
+The fold wraps a two-layer flap *around* the packet (the two flap faces sandwich the body). An inside reverse fold uses the same creases but the opposite rotation sign, so the flap tucks *between* the layers.
+
+**Geometry after a vertical book fold of a 400×400 square** (`d 200 200`):
+
+| Id | Role |
+| --- | --- |
+| p0 p3 / p1 p2 | Open edges, stacked in 3D on the left |
+| p4 p5 | Spine ends (bottom / top); s6 is the spine |
+| p6 | Midpoint of the spine (`split s6 0.5`) |
+| s8 p3–p6 | Reverse crease on the front layer |
+| s9 p6–p2 | Reverse crease on the back layer (created together by `by3d p6 p3`) |
+| f1 / f0 | Body faces (left / right) |
+| f2 / f3 | Flap triangles (front / back), sharing p5 and p6 |
+
+**Steps and suggested mouse gestures**
+
+1. **Vertical book fold** — 2D: drag p0 onto p1 (the bottom edge already exists, so this emits `across2d` = the vertical midline). Click f0, type `o -1 f0`. Click s6 then p1 and p2, drag to 180°.
+2. **45° crease through both layers** — type `split s6 0.5` (or drag across the spine only). 3D: drag p6 to p3 → `by3d p6 p3` cuts both stacked layers.
+3. **Open** — select s6, p1, p2, drag about +40° (right layer toward +z).
+4. **Wrap outside** — select s8 and p5, drag to **−180°**. p5 travels through −z, around the back of the packet, and lands at (−200, 0, 0). The opposite sign (+180°) is the inside reverse fold (through the gap).
+5. **Close** — select s6, p1, p2, drag back to 0°.
+6. **Layering** — `o 0` then `o 2 f3` / `o -1 f0` / `o -2 f2` so the flap triangles wrap around the body. `check` highlights any 2D/3D length mismatch.
+
 ### Commands in the CommandArea 
 - ss selectSegments to select without a mouse
 - sp selectPoints to select without a mouse

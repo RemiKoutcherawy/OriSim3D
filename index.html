@@ -46,6 +46,7 @@
     <summary>Exemples</summary>
     <button type="button" data-load="cocotte">Cocotte</button>
     <button type="button" data-load="boat">Bateau</button>
+    <button type="button" data-load="reverse">Pli renversé</button>
     <button type="button" data-load="test">test</button>
   </details>
 </nav>
@@ -137,6 +138,27 @@
   o -1 F3 F4 F6 F2
   split s0 0.5
   t 1000 ty 180
+</template>
+<template id="reverse">
+  // Pli renversé extérieur
+  d 200 200
+  iad
+  c2d p0 p1
+  o -1 f0
+  t 600 r s6 180 p1 p2
+  split s6 0.5
+  by3d p6 p3
+  t 400 tz 35
+  t 500 r s6 40 p1 p2
+  t 1000 r s8 -180 p5
+  t 500 r s6 -40 p1 p2
+  t 400 tz -35
+  o 0
+  o 2 f3
+  o -1 f0
+  o -2 f2
+  check
+  t 800 ty 360
 </template>
 <template id="cocotte">
   // Cocotte

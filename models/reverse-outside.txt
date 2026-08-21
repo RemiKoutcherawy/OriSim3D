@@ -1,0 +1,29 @@
+// Pli renversé extérieur (outside reverse fold)
+// Carré plié en deux, puis le rabat du haut enveloppe l'extérieur du paquet.
+d 200 200
+iad
+
+// 1. Médiane verticale : f0 droite, f1 gauche, s6 épine p4(bas) p5(haut)
+c2d p0 p1
+o -1 f0
+t 600 r s6 180 p1 p2
+
+// 2. Pli à 45° dans les deux couches : p6 centre, s8 avant, s9 arrière
+//    f2 triangle avant [p6 p5 p3], f3 triangle arrière [p2 p5 p6]
+split s6 0.5
+by3d p6 p3
+
+// 3. Ouvrir le livre vers +z, envelopper p5 par l'extérieur (-z), refermer
+t 400 tz 35
+t 500 r s6 40 p1 p2
+t 1000 r s8 -180 p5
+t 500 r s6 -40 p1 p2
+t 400 tz -35
+
+// 4. Empilement extérieur : f3 devant, puis f1, f0, f2 derrière
+o 0
+o 2 f3
+o -1 f0
+o -2 f2
+check
+t 800 ty 360
