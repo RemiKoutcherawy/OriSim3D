@@ -6,8 +6,7 @@ import { assertEquals } from "@std/assert";
 
 Deno.test('Command', async (t) => {
     const model = new Model().init(200, 200);
-    const view = {angleX:0, angleY:0, angleZ:0};
-    const cde = new Command(model, view);
+    const cde = new Command(model);
 
     await t.step('tokenize', () => {
         const text = `
@@ -228,7 +227,7 @@ Deno.test('Command', async (t) => {
     await t.step('undo then new commands still run', () => {
         // Mouse-like: only `t … r …`, no prior execute() snapshot with state=run
         const m = new Model().init(200, 200);
-        const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
+        const cmd = new Command(m);
         cmd.command('t 10 rotate S0 90 P2 P3');
         let n = 0;
         while (cmd.anim()) { /* drain anim */ }
@@ -246,7 +245,7 @@ Deno.test('Command', async (t) => {
 
     await t.step('undo with empty stack returns to run', () => {
         const m = new Model().init(200, 200);
-        const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
+        const cmd = new Command(m);
         cmd.command('undo').anim();
         assertEquals(m.state, State.run);
         cmd.command('m 0 10 0 p2').anim();
@@ -255,7 +254,7 @@ Deno.test('Command', async (t) => {
 
     await t.step('undo drops last diagonal from recorded instructions', () => {
         const m = new Model().init(200, 200);
-        const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
+        const cmd = new Command(m);
         cmd.command('d 200 200').anim();
         cmd.command('c2d P0 P2').anim();
         cmd.command('c2d P1 P3').anim();
@@ -269,7 +268,7 @@ Deno.test('Command', async (t) => {
     // Animation commands
     await t.step('lightweight animation snapshots in done', () => {
         const m = new Model().init(200, 200);
-        const cmd = new Command(m, {angleX: 0, angleY: 0, angleZ: 0});
+        const cmd = new Command(m);
         cmd.command('d 200 200').anim();
         assertEquals(cmd.done.length, 1);
         assertEquals(typeof cmd.done[0], 'string', 'Static command produces serialized JSON string snapshot');
@@ -313,17 +312,15 @@ Deno.test('Command', async (t) => {
     });
 
     await t.step('command turn 180', () => {
-        const viewReset = {angleX:0, angleY:0, angleZ:0, translationX:0, translationY:0, scale:1};
-        const cdeReset = new Command(model, viewReset);
+        const cdeReset = new Command(model);
         cdeReset.command('d 200 200').anim();
         cdeReset.command('tx 180').anim();
-        // Model is not modified only view is rotated
+        // Model points rotated around X axis
         assertEquals(Math.round(model.points[0].x), -200);
-        assertEquals(Math.round(model.points[1].x), 200);
-        // View is turned
-        assertEquals(viewReset.angleX, 180);
+        assertEquals(Math.round(model.points[0].y), 200);
         cdeReset.command('ty 180').anim();
-        assertEquals(viewReset.angleY, 180);
+        // Model points rotated around Y axis
+        assertEquals(Math.round(model.points[0].x), 200);
     });
 
     await t.step('end', () => {
@@ -408,14 +405,12 @@ Deno.test('Command', async (t) => {
     });
 
     await t.step('zoom and fit', () => {
-        const viewZoom = {angleX:0, angleY:0, angleZ:0, translationX:0, translationY:0, scale:1};
-        const cdeZoom = new Command(model, viewZoom);
+        const cdeZoom = new Command(model);
         cdeZoom.command('d 200 200').anim();
         cdeZoom.command('z 2 0 0').anim();
-        assertEquals(viewZoom.scale, 2);
+        assertEquals(Math.round(model.points[1].x), 400);
         cdeZoom.command('fit').anim();
-        assertEquals(typeof viewZoom.scale, 'number');
-        assertEquals(viewZoom.scale > 0, true);
+        assertEquals(Math.round(model.points[1].x), 200);
     });
 
     await t.step('pause and run', () => {

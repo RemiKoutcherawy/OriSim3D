@@ -588,7 +588,30 @@ export class Model {
 
     // Turn the model around axis by angle
     turn(axe, angle) {
-        this.rotate(axe, angle, this.points);
+        const axes = {x: {p1: {x:0, y:0, z:0}, p2: {x:1, y:0, z:0}}, y: {p1: {x:0, y:0, z:0}, p2: {x:0, y:1, z:0}}, z: {p1: {x:0, y:0, z:0}, p2: {x:0, y:0, z:1}}};
+        const s = typeof axe === 'string' ? (axes[axe.toLowerCase().replace('angle', '')] || axes.x) : axe;
+        this.rotate(s, angle, this.points);
+    }
+
+    // Zoom model
+    zoom(scale, x = 0, y = 0) {
+        this.points.forEach((p) => {
+            p.x = x + (p.x - x) * scale;
+            p.y = y + (p.y - y) * scale;
+            p.z *= scale;
+        });
+    }
+
+    // Fit model in 400x400
+    fit() {
+        const b = this.get3DBounds();
+        const s = 400 / (Math.max(b.xMax - b.xMin, b.yMax - b.yMin) || 1);
+        const cx = (b.xMin + b.xMax) / 2, cy = (b.yMin + b.yMax) / 2;
+        this.points.forEach((p) => {
+            p.x = (p.x - cx) * s;
+            p.y = (p.y - cy) * s;
+            p.z *= s;
+        });
     }
 
     // Offset faces by dz
