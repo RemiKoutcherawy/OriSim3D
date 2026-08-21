@@ -39,6 +39,7 @@
   <button type="button" data-load="undo">Undo</button>
   <button type="button" data-load="test">Test</button>
   <button type="button" data-load="model">Model</button>
+  <button type="button" data-load="reverse">Pli renversé</button>
   <button type="button" data-load="debug">Debug</button>
 </div>
 <!-- Main program -->
@@ -159,6 +160,31 @@
   o -1 f3 f12 f5 f10 f0 f7 f8 f14
   t 1000 r s4 180 p3 p6 p12 p13 p15 p17
   check
+</template>
+<template id="reverse">
+  // Pli renversé extérieur
+  d 200 200
+  iad
+  // 1. Médiane verticale : f0 droite, f1 gauche, s6 épine p4 p5
+  c2d p0 p1
+  o -1 f0
+  t 600 r s6 180 p1 p2
+  // 2. Pli 45° dans les deux couches : p6 centre, s8 avant, s9 arrière
+  split s6 0.5
+  by3d p6 p3
+  // 3. Ouvrir vers +z, envelopper p5 par l'extérieur (-z), refermer
+  t 400 tz 35
+  t 500 r s6 40 p1 p2
+  t 1000 r s8 -180 p5
+  t 500 r s6 -40 p1 p2
+  t 400 tz -35
+  // 4. Empilement extérieur : f3 devant, f2 derrière
+  o 0
+  o 2 f3
+  o -1 f0
+  o -2 f2
+  check
+  t 800 ty 360
 </template>
 <template id="crimp">
   overlay labels snap
