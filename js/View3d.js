@@ -77,6 +77,12 @@ export class View3d {
     wTexBack = 1;
     hTexBack = 1;
 
+    // WebGL Textures
+    texPlaceholderFront = null;
+    texImageFront = null;
+    texPlaceholderBack = null;
+    texImageBack = null;
+
     // Arrays
     vtx = []; // vertex coords
     ftx = []; // front texture coords
@@ -154,20 +160,22 @@ export class View3d {
     // Textures
     initTextures() {
         const gl = this.gl;
-        // Create a texture object Front
-        const textureFront = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, textureFront);
-        // Placeholder One-Pixel Color Blue 70ACF3
+
+        // Front placeholder (Blue 70ACF3)
+        this.texPlaceholderFront = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texPlaceholderFront);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
-        const uSamplerFront = gl.getUniformLocation(gl.program, 'uSamplerFront');
-        gl.uniform1i(uSamplerFront, 0);
+
+        // Front image texture (defaults to blue placeholder until loaded)
+        this.texImageFront = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texImageFront);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
+
         const imageFront = new Image();
         const imageElement = globalThis.document.getElementById('front');
         if (imageElement?.src) {
             imageFront.onload = () => {
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, textureFront);
+                gl.bindTexture(gl.TEXTURE_2D, this.texImageFront);
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -175,6 +183,8 @@ export class View3d {
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageFront);
                 this.wTexFront = imageFront.width;
                 this.hTexFront = imageFront.height;
+                this.initBuffers();
+                this.render();
             };
             imageFront.src = imageElement.src;
         } else {
@@ -182,22 +192,23 @@ export class View3d {
             this.hTexFront = 1;
         }
 
-        // Create a texture object Back
-        const textureBack = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, textureBack);
-        // Placeholder one-pixel Color Yellow #FFFF00FF ou FFFF00A8 Pink #FBD3DE
+        // Back placeholder (Yellow FFFF00A8)
+        this.texPlaceholderBack = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texPlaceholderBack);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFF, 0xFF, 0x00, 0xA8]));
-        const uSamplerBack = gl.getUniformLocation(gl.program, 'uSamplerBack');
-        gl.uniform1i(uSamplerBack, 1);
+
+        // Back image texture (defaults to yellow placeholder until loaded)
+        this.texImageBack = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texImageBack);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFF, 0xFF, 0x00, 0xA8]));
+
         const imageBack = new Image();
         const imageBackElement = globalThis.document.getElementById('back');
         if (imageBackElement?.src) {
             imageBack.onload = () => {
-                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, this.texImageBack);
                 // Flip the image Y coordinate
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-                gl.bindTexture(gl.TEXTURE_2D, textureBack);
                 // One of the dimensions is not a power of 2, so set the filtering to render it.
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -206,12 +217,20 @@ export class View3d {
                 // Textures dimensions
                 this.wTexBack = imageBack.width;
                 this.hTexBack = imageBack.height;
-            }
+                this.initBuffers();
+                this.render();
+            };
             imageBack.src = imageBackElement.src;
         } else {
-                this.wTexBack = 1;
-                this.hTexBack = 1;
+            this.wTexBack = 1;
+            this.hTexBack = 1;
         }
+
+        const uSamplerFront = gl.getUniformLocation(gl.program, 'uSamplerFront');
+        gl.uniform1i(uSamplerFront, 0);
+        const uSamplerBack = gl.getUniformLocation(gl.program, 'uSamplerBack');
+        gl.uniform1i(uSamplerBack, 1);
+
         // Recompute texture coords
         this.initBuffers();
         // First Render
@@ -419,6 +438,12 @@ export class View3d {
         // Faces with texture shader
         gl.useProgram(gl.program);
         gl.bindVertexArray(this.vao);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.model.textures ? this.texImageFront : this.texPlaceholderFront);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.model.textures ? this.texImageBack : this.texPlaceholderBack);
 
         // Clear and draw triangles
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
