@@ -51,6 +51,7 @@
     <summary>Édition<span class="chev">›</span></summary>
     <button type="button" data-load="undo">Undo</button>
     <button type="button" data-load="lines">Lines</button>
+    <button type="button" data-load="edges">Edges</button>
     <button type="button" data-load="snap">Snap</button>
     <button type="button" data-load="overlayCde">Overlay</button>
     <button type="button" data-load="debug">Debug</button>
@@ -119,6 +120,14 @@
       btn.addEventListener('click', () => load(btn.dataset.load))
     })
 
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#burger') && !e.target.closest('#nav')) {
+        document.getElementById('nav').style.display = 'none';
+        document.getElementById('burger').setAttribute('aria-expanded', 'false');
+      }
+    });
+
     function load(id) {
       const nav = document.getElementById('nav');
       nav.style.display = 'none';
@@ -137,6 +146,7 @@
 <template id="save">write</template>
 <template id="undo">undo</template>
 <template id="lines">lines</template>
+<template id="edges">edges</template>
 <template id="snap">snap</template>
 <template id="overlayCde">overlay</template>
 <template id="debug">overlay lines labels</template>

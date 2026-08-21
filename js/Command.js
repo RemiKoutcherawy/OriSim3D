@@ -384,6 +384,7 @@ on('writesvg svg', (cmd) => {
 on('labels', (cmd) => { cmd.model['labels'] = !cmd.model['labels'] });
 on('textures', (cmd) => { cmd.model['textures'] = !cmd.model['textures'] });
 on('overlay', (cmd) => { cmd.model['overlay'] = !cmd.model['overlay'] });
+on('edges', (cmd) => { cmd.model['edges'] = !cmd.model['edges'] });
 on('lines', (cmd) => { cmd.model['lines'] = !cmd.model['lines'] });
 on('snap', (cmd) => { cmd.model['snap'] = !cmd.model['snap'] });
 

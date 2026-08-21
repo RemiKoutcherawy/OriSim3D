@@ -467,8 +467,10 @@ export class View3d {
         const context2d = this.overlay.getContext('2d');
         context2d.clearRect(0, 0, this.overlay.clientWidth, this.overlay.clientHeight)
         if (this.model.overlay) {
-            // this.drawSegments(this.model.segments, 'black', 1); // done by webgl
-            this.drawSegments(this.model.segments); // Hover and select
+            // Black segments are done by webgl, see this.model.lines
+            if (this.model.edges) {
+                this.drawSegments(this.model.segments); // Hover and select
+            }
             this.drawPoints(this.model.points);
             this.drawFaces(this.model.faces);    // Only for hover and select
             if (this.model.labels) {

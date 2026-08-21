@@ -51,5 +51,7 @@ Work in progress, any help is welcome.
 - labels
 - textures
 - overlay
+- edges
+- lines
 - undo ⌘+Z
 - check

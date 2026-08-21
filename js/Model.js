@@ -40,6 +40,7 @@ export class Model {
         this.labels = false;
         this.textures = false;
         this.overlay = false; // show points segments and face
+        this.edges = false;   // draw segments on overlay (hover and select)
         this.lines = false;   // render lines on 3d
         this.snap = false;     // snap nearest points
     }
@@ -65,6 +66,7 @@ export class Model {
         this.labels = true;
         this.textures = false;
         this.overlay = true; // show points segments and face
+        this.edges = true;   // draw segments on overlay (hover and select)
         this.lines = true;   // render lines on 3d
         this.snap = true;    // snap nearest points
         return this;
