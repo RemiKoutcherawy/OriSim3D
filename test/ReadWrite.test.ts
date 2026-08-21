@@ -8,7 +8,7 @@ Deno.test("ReadWrite", async (t) => {
 
     await t.step('readFileAsText', async () => {
         const text = await ReadWrite.readFileAsText('models/box.fold');
-        if (text) assertEquals((text as String).length, 4322, "writeFold should be tested");
+        if (text) assertEquals((text as string).length, 4322, "writeFold should be tested");
     });
     await t.step('writeFold', async () => {
         const model = new Model().init(200, 200);
@@ -41,7 +41,7 @@ Deno.test("ReadWrite", async (t) => {
     await t.step('loadText script fold and empty', () => {
         const model = new Model().init(200, 200);
         model.labels = false;
-        const command = new Command(model, {angleX: 0, angleY: 0, angleZ: 0});
+        const command = new Command(model);
         const area = {textarea: {value: 'old', selectionStart: 0, selectionEnd: 0}};
         command.commandArea = area;
 
