@@ -13,9 +13,6 @@ export class Command {
     // Time interpolated at an instant 'p' preceding and at instant 'n' now
     tpi = 0;
     tni = 1;
-    // Goal for fit
-    scale = 1; deltaX = 0; deltaY = 0;
-    scaleStart = 1; txStart = 0; tyStart = 0;
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
@@ -24,9 +21,8 @@ export class Command {
     // Eventual CommandArea
     commandArea;
 
-    constructor(model, view3d) {
+    constructor(model) {
         this.model = model;
-        this.view3d = view3d;
     }
 
     // The main entry point executes a string of commands
@@ -279,20 +275,12 @@ function select(cmd, prefix, collection) {
 
 function turn(axis) {
     return (cmd) => {
-        cmd.view3d[axis] += Number.parseFloat(cmd.next()) * cmd.dt;
+        cmd.model.turn(axis, Number.parseFloat(cmd.next()) * cmd.dt);
     };
 }
 
 function define(cmd) {
-    const width = cmd.num(200);
-    const height = cmd.num(200);
-    cmd.model.init(width, height);
-    const v = cmd.view3d;
-    if (v) {
-        v.angleX = v.angleY = v.angleZ = 0;
-        v.scale = 1;
-        v.translationX = v.translationY = 0;
-    }
+    cmd.model.init(cmd.num(200), cmd.num(200));
 }
 
 function splitSegment(cmd) {
@@ -319,28 +307,12 @@ function move(cmd) {
 
 function zoom(cmd) {
     const scale = Number.parseFloat(cmd.next());
-    const x = cmd.num(0);
-    const y = cmd.num(0);
     const a = (1 + cmd.tni * (scale - 1)) / (1 + cmd.tpi * (scale - 1));
-    const b = scale * (cmd.tni / a - cmd.tpi);
-    cmd.view3d.translationX += x * b;
-    cmd.view3d.translationY += y * b;
-    cmd.view3d.scale *= a;
+    cmd.model.zoom(a, cmd.num(0), cmd.num(0));
 }
 
 function fit(cmd) {
-    if (cmd.tpi === 0) {
-        const bounds = cmd.model.get3DBounds();
-        cmd.scale = 400 / Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin);
-        cmd.deltaX = -(bounds.xMin + bounds.xMax) / 2;
-        cmd.deltaY = -(bounds.yMin + bounds.yMax) / 2;
-        cmd.scaleStart = cmd.view3d.scale;
-        cmd.txStart = cmd.view3d.translationX;
-        cmd.tyStart = cmd.view3d.translationY;
-    }
-    cmd.view3d.translationX = cmd.txStart + (cmd.deltaX * cmd.scale - cmd.txStart) * cmd.tni;
-    cmd.view3d.translationY = cmd.tyStart + (cmd.deltaY * cmd.scale - cmd.tyStart) * cmd.tni;
-    cmd.view3d.scale = cmd.scaleStart + (cmd.scale - cmd.scaleStart) * cmd.tni;
+    if (cmd.tpi === 0) cmd.model.fit();
 }
 
 const COMMANDS = {};
@@ -380,9 +352,9 @@ on('check', (cmd) => {
 });
 on('o offset', (cmd) => cmd.model.offset(Number.parseFloat(cmd.next()) / 10, cmd.tokens('f')));
 
-on('tx', turn('angleX'));
-on('ty', turn('angleY'));
-on('tz', turn('angleZ'));
+on('tx', turn('x'));
+on('ty', turn('y'));
+on('tz', turn('z'));
 on('z zoom', zoom);
 on('fit', fit);
 
@@ -396,13 +368,16 @@ on('read', (cmd) => {
     ReadWrite.readFileAsText(filename).then((text) => {
         if (text == null) return;
         ReadWrite.loadText(cmd, text);
-        cmd.view3d?.initBuffers?.();
-        cmd.view3d?.initModelView?.();
     });
 });
 on('write', (cmd) => {
     const filename = cmd.next();
     ReadWrite.writeFile(filename, cmd.instructions.join('\n')).then(() => console.log('complete'));
+});
+on('writesvg svg', (cmd) => {
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+    ReadWrite.writeSVG(cmd.model, filename);
 });
 
 // Toggles
