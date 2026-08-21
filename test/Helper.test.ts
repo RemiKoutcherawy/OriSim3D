@@ -255,4 +255,18 @@ Deno.test("Helper Tests", async (t) => {
       assertEquals(result.faces.length, 1);
     },
   );
+
+  await t.step("splitSegments does not mutate point z", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+    helper.currentCanvas = '2d';
+    helper.firstX = -200;
+    helper.firstY = 0;
+    helper.currentX = 200;
+    helper.currentY = 0;
+    assertEquals(model.points.every((p) => p.z === 0), true);
+    helper.splitSegments();
+    assertEquals(model.points.every((p) => p.z === 0), true, 'flat paper stays z=0');
+  });
 });

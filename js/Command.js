@@ -59,6 +59,7 @@ export class Command {
     tokenize(input) {
         const cleaned = input
             .replace(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
+            .replace(/;/g, ' ')       // Ignore trailing/embedded semicolons
             .replace(/^\s*$/gm, '')   // Remove spaces only lines
             .replace(/\n{2,}/g, '\n') // Remove empty lines
             .trim();                  // Remove leading/trailing whitespace
@@ -262,6 +263,7 @@ function take(cmd, prefix, n, label, apply) {
     const list = cmd.tokens(prefix);
     if (list.length !== n) {
         console.log(label, list.length, cmd.tokenTodo.slice(cmd.iToken, cmd.iToken + n + 1).join(' '));
+        return;
     }
     apply(...list);
 }
@@ -329,8 +331,16 @@ on('by by3d', (cmd) => take(cmd, 'p', 2, 'by3d needs 2 points', (a, b) => cmd.mo
 on('by2d', (cmd) => take(cmd, 'p', 2, 'by2d needs 2 points', (a, b) => cmd.model.splitBy2d(a, b)));
 on('c3d across3d', (cmd) => take(cmd, 'p', 2, 'c3d needs 2 points', (a, b) => cmd.model.splitCross3d(a, b)));
 on('c2d across2d', (cmd) => take(cmd, 'p', 2, 'c2d needs 2 points', (a, b) => cmd.model.splitCross2d(a, b)));
-on('p2d perpendicular2d', (cmd) => cmd.model.splitPerpendicular2d(cmd.token('s'), cmd.token('p')));
-on('p3d perpendicular3d', (cmd) => cmd.model.splitPerpendicular3d(cmd.token('s'), cmd.token('p')));
+on('p2d perpendicular2d', (cmd) => {
+    const s = cmd.token('s');
+    const p = cmd.token('p');
+    if (s && p) cmd.model.splitPerpendicular2d(s, p);
+});
+on('p3d perpendicular3d', (cmd) => {
+    const s = cmd.token('s');
+    const p = cmd.token('p');
+    if (s && p) cmd.model.splitPerpendicular3d(s, p);
+});
 on('bisector2d b2d', (cmd) => take(cmd, 's', 2, 'bisector2d needs 2 segments', (a, b) => cmd.model.bisector2d(a, b)));
 on('bisector3d b3d', (cmd) => take(cmd, 's', 2, 'bisector3d needs 2 segments', (s1, s2) => cmd.model.bisector3d(s1.p1, s1.p2, s2.p1, s2.p2)));
 on('bisector2dPoints', (cmd) => take(cmd, 'p', 3, 'bisector2dPoints needs 3 points', (a, b, c) => cmd.model.bisector2dPoints(a, b, c)));
@@ -339,8 +349,15 @@ on('split splitSegment2d', splitSegment);
 
 on('r rotate', rotate);
 on('m move', move);
-on('mop moveOnPoint', (cmd) => {const pts = cmd.tokens('p');cmd.model.moveOnPoint(pts[0], pts);});
-on('mos moveOnSegment', (cmd) => cmd.model.moveOnSegment(cmd.token('s'), cmd.tokens('p')));
+on('mop moveOnPoint', (cmd) => {
+    const pts = cmd.tokens('p');
+    if (pts.length >= 2) cmd.model.moveOnPoint(pts[0], pts);
+});
+on('mos moveOnSegment', (cmd) => {
+    const s = cmd.token('s');
+    const pts = cmd.tokens('p');
+    if (s && pts.length) cmd.model.moveOnSegment(s, pts);
+});
 on('a adjust', (cmd) => {
     const pts = cmd.tokens('p');
     cmd.model.adjustList(pts.length === 0 ? cmd.model.points : pts);
@@ -381,12 +398,12 @@ on('writesvg svg', (cmd) => {
 });
 
 // Toggles
-on('labels', (cmd) => { cmd.model['labels'] = !cmd.model['labels'] });
-on('textures', (cmd) => { cmd.model['textures'] = !cmd.model['textures'] });
-on('overlay', (cmd) => { cmd.model['overlay'] = !cmd.model['overlay'] });
-on('edges', (cmd) => { cmd.model['edges'] = !cmd.model['edges'] });
-on('lines', (cmd) => { cmd.model['lines'] = !cmd.model['lines'] });
-on('snap', (cmd) => { cmd.model['snap'] = !cmd.model['snap'] });
+on('labels', (cmd) => { cmd.model.labels = !cmd.model.labels; });
+on('textures', (cmd) => { cmd.model.textures = !cmd.model.textures; });
+on('overlay', (cmd) => { cmd.model.overlay = !cmd.model.overlay; });
+on('edges', (cmd) => { cmd.model.edges = !cmd.model.edges; });
+on('lines', (cmd) => { cmd.model.lines = !cmd.model.lines; });
+on('snap', (cmd) => { cmd.model.snap = !cmd.model.snap; });
 
 // Interpolator
 on('il', (cmd) => { cmd.interpolator = Interpolator.LinearInterpolator });

@@ -42,6 +42,7 @@ export class ReadWrite {
                     labels: command.model.labels,
                     textures: command.model.textures,
                     overlay: command.model.overlay,
+                    edges: command.model.edges,
                     lines: command.model.lines,
                     snap: command.model.snap,
                 };
@@ -92,6 +93,37 @@ export class ReadWrite {
             link.click();
         }
         return json;
+    }
+
+    // Export crease pattern as SVG (2D xf,yf edges)
+    static async writeSVG(model, filename = 'OriSim3d.svg') {
+        const {xMin, yMin, xMax, yMax} = model.get2DBounds();
+        const pad = 10;
+        const width = Math.max(xMax - xMin, 1) + 2 * pad;
+        const height = Math.max(yMax - yMin, 1) + 2 * pad;
+        const lines = model.segments.map((s) => {
+            const x1 = (s.p1.xf - xMin + pad).toFixed(2);
+            const y1 = (s.p1.yf - yMin + pad).toFixed(2);
+            const x2 = (s.p2.xf - xMin + pad).toFixed(2);
+            const y2 = (s.p2.yf - yMin + pad).toFixed(2);
+            return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+        }).join('\n  ');
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width.toFixed(2)}" height="${height.toFixed(2)}" viewBox="0 0 ${width.toFixed(2)} ${height.toFixed(2)}" fill="none" stroke="#111" stroke-width="1">
+  ${lines}
+</svg>
+`;
+        if (!filename.endsWith('.svg')) filename = `${filename}.svg`;
+        if (typeof Deno !== "undefined") {
+            await Deno.writeTextFile(filename, svg);
+        } else {
+            const data = new Blob([svg], {type: 'image/svg+xml'});
+            const link = document.createElement('a');
+            link.setAttribute('download', filename);
+            link.setAttribute('href', globalThis.URL.createObjectURL(data));
+            link.click();
+        }
+        return svg;
     }
 
     static toJSONFold(model) {
@@ -171,17 +203,28 @@ export class ReadWrite {
         model.faces = fold.faces_vertices.map((face) => {
             return new Face(face.map((index) => model.points[index]));
         });
-        // Rescale to -200, 200
+        // Rescale crease-pattern coords to roughly [-200, 200]
         const {xMin, yMin, xMax, yMax} = model.get2DBounds();
         const width = xMax - xMin;
         const height = yMax - yMin;
-        const ratio = Math.max(width, height) / 400;
+        const ratio = Math.max(width, height) / 400 || 1;
+        const is3d = !!(fold.is3d || (Array.isArray(fold.frame_attributes) && fold.frame_attributes.includes('3D')));
         model.points.forEach((p) => {
-            p.xf = (p.xf - xMin) / ratio - 200;
-            p.yf = (p.yf - yMin) / ratio - 200;
-            p.x = p.xf;
-            p.y = p.yf;
-            p.z = 0;
+            const xf = (p.xf - xMin) / ratio - 200;
+            const yf = (p.yf - yMin) / ratio - 200;
+            if (is3d) {
+                p.x = (p.x - xMin) / ratio - 200;
+                p.y = (p.y - yMin) / ratio - 200;
+                p.z = p.z / ratio;
+                p.xf = xf;
+                p.yf = yf;
+            } else {
+                p.xf = xf;
+                p.yf = yf;
+                p.x = xf;
+                p.y = yf;
+                p.z = 0;
+            }
         });
 
         return model;

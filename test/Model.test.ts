@@ -14,9 +14,15 @@ Deno.test("Model", async (t) => {
     });
     await t.step("serialize / deserialize", () => {
         const model = new Model().init(200, 200);
+        model.points[0].hover = true;
+        model.points[0].select = true;
+        model.points[0].xCanvas = 12;
+        model.points[0].yCanvas = 34;
         // Serialize
         const serialized = model.serialize();
-        assertEquals(serialized.length, 647, "serialized model length");
+        assertEquals(serialized.includes('"hover"'), false, "UI hover excluded from undo snapshots");
+        assertEquals(serialized.includes('"xCanvas"'), false, "UI xCanvas excluded from undo snapshots");
+        assertEquals(JSON.parse(serialized).points.length, 4, "serialized has 4 points");
 
         // Model change should not affect serialized
         model.addPoint(0, 0, 0, 0, 0);
@@ -353,6 +359,10 @@ Deno.test("Model", async (t) => {
             model.splitPerpendicular2d(model.segments[0], p);
             assertEquals(model.faces.length, 2,);
             assertEquals(model.points.length, 6);
+            // Foot outside the segment: infinite-line projection must not throw
+            const outside = model.addPoint(-400, 100, -400, 100, 0);
+            model.splitPerpendicular2d(model.segments[0], outside);
+            assertEquals(model.faces.length >= 2, true);
         });
         await t.step("splitPerpendicular3d", () => {
             const model = new Model().init(200, 200);

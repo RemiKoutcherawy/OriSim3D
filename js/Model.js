@@ -384,7 +384,15 @@ export class Model {
 
     // Split faces by a line perpendicular to [p1,p2] passing by point
     splitPerpendicular2d(s, point) {
-        this.splitAllFacesBySegment2d(point, Segment.project2d(s, point));
+        if (!s || !point) return;
+        // Infinite line through the segment (foot may lie outside [p1,p2])
+        const dx = s.p2.xf - s.p1.xf;
+        const dy = s.p2.yf - s.p1.yf;
+        const l2 = dx * dx + dy * dy;
+        if (l2 === 0) return;
+        const t = ((point.xf - s.p1.xf) * dx + (point.yf - s.p1.yf) * dy) / l2;
+        const foot = new Point(s.p1.xf + t * dx, s.p1.yf + t * dy);
+        this.splitAllFacesBySegment2d(point, foot);
     }
 
     // Split faces by a plane perpendicular to [p1,p2] passing by point
@@ -415,8 +423,10 @@ export class Model {
             const b = Point.distance2d(inter, s2.p1) < Point.distance2d(inter, s2.p2) ? s2.p2 : s2.p1;
             this.bisector2dPoints(a, inter, b);
         } else {
-            // Lines do not cross, parallel: split by line from (p1+p2)/2 oriented by p1p2
-            const middle = {xf: (s1.p1.xf + s2.p1.xf) / 2, yf: (s1.p1.yf + s2.p1.yf) / 2};
+            // Parallel: midline between segment midpoints, oriented like s1
+            const m1 = {xf: (s1.p1.xf + s1.p2.xf) / 2, yf: (s1.p1.yf + s1.p2.yf) / 2};
+            const m2 = {xf: (s2.p1.xf + s2.p2.xf) / 2, yf: (s2.p1.yf + s2.p2.yf) / 2};
+            const middle = {xf: (m1.xf + m2.xf) / 2, yf: (m1.yf + m2.yf) / 2};
             const p1p2 = {xf: s1.p2.xf - s1.p1.xf, yf: s1.p2.yf - s1.p1.yf};
             this.splitAllFacesByLine2d(middle, {xf: middle.xf + p1p2.xf, yf: middle.yf + p1p2.yf});
         }
@@ -424,8 +434,10 @@ export class Model {
 
     // Split faces by a plane between two segments [ap] [pc].
     bisector3dPoints(a, p, c) {
+        const denom = Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
+        if (denom === 0) return;
         // Project [a] on [p c] to get a symmetric point
-        const k = Math.hypot(p.x - a.x, p.y - a.y, p.z - a.z) / Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
+        const k = Math.hypot(p.x - a.x, p.y - a.y, p.z - a.z) / denom;
         // e is on pc symmetric of a
         const e = new Vector3(p.x + k * (c.x - p.x), p.y + k * (c.y - p.y), p.z + k * (c.z - p.z));
         // Define Plane across a and e
@@ -446,10 +458,13 @@ export class Model {
 
     // Rotate around axis Segment, by angle, the list of Points
     rotate(s, angle, list = this.points) {
+        if (!s) return;
         const angleRd = angle * Math.PI / 180;
         const ax = s.p1.x, ay = s.p1.y, az = s.p1.z;
         let nx = s.p2.x - ax, ny = s.p2.y - ay, nz = s.p2.z - az;
-        const n = 1 / Math.hypot(nx, ny, nz);
+        const len = Math.hypot(nx, ny, nz);
+        if (len === 0) return;
+        const n = 1 / len;
         nx *= n;
         ny *= n;
         nz *= n;
@@ -682,8 +697,8 @@ export class Model {
 
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
-        // Non-serialized / UI-only fields
-        const exclude = new Set(['hidden']);
+        // Non-serialized / UI-only fields (keep undo snapshots lean)
+        const exclude = new Set(['hidden', 'hover', 'select', 'xCanvas', 'yCanvas']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {
@@ -718,26 +733,6 @@ export class Model {
 
     static deserialize(json) {
         return new Model().deserialize(json);
-    }
-
-    // Define a reviver to convert points objects into Points instances, and indexes into instance
-    reviver(key, value) {
-        if (key === 'points' && Array.isArray(value) && value.every((p) => p !== null && typeof p === 'object')) {
-            return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
-        }
-        if (key === 'segments') {
-            const pts = this?.points || [];
-            return value.map((segment) => new Segment(pts[segment.p1], pts[segment.p2]));
-        }
-        if (key === 'faces') {
-            const pts = this?.points || [];
-            return value.map((face) => {
-                const newFace = new Face(face.points.map((index) => pts[index]));
-                newFace.offset = face.offset;
-                return newFace;
-            });
-        }
-        return value;
     }
 
     // Get a segment from two points

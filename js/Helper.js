@@ -17,21 +17,24 @@ export class Helper {
         this.upPoint = this.upSegment = this.upFace = undefined;
 
         // Current canvas: 2d or 3d
-        this.currentCanvas = undefined
+        this.currentCanvas = undefined;
         // To test with Deno overlay is null
         if (overlay) {
             // 3d
-            overlay.addEventListener('mousedown', (event) => this.down3d(event));
-            overlay.addEventListener('mousemove', (event) => this.move3d(event));
-            overlay.addEventListener('mouseup', (event) => this.up3d(event));
+            overlay.addEventListener('pointerdown', (event) => this.down3d(event));
+            overlay.addEventListener('pointermove', (event) => this.move3d(event));
+            overlay.addEventListener('pointerup', (event) => this.up3d(event));
+            overlay.addEventListener('pointercancel', (event) => this.out(event));
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
-            overlay.addEventListener('mouseout', (event) => this.out(event));
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
-            // 2d
-            canvas2d.addEventListener('mousedown', (event) => this.down2d(event));
+            // 2d — pointer* covers mouse and touch
+            canvas2d.addEventListener('pointerdown', (event) => {
+                try { canvas2d.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+                this.down2d(event);
+            });
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
-            canvas2d.addEventListener('mouseup', (event) => this.up2d(event));
-            canvas2d.addEventListener('mouseout', (event) => this.out(event));
+            canvas2d.addEventListener('pointerup', (event) => this.up2d(event));
+            canvas2d.addEventListener('pointercancel', (event) => this.out(event));
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
         }
@@ -212,9 +215,10 @@ export class Helper {
             const inter = Segment.intersectionFlat(first, current, p1, p2);
             if (inter) {
                 const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
-                s.p1.z ||= 0.1;
-                s.p2.z ||= 0.1;
-                const t = Math.round((is2d ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z)) * 100) / 100;
+                // Use local temps so flat paper (z===0) is not mutated as a side effect
+                const z1 = s.p1.z || 0.1;
+                const z2 = s.p2.z || 0.1;
+                const t = Math.round((is2d ? ratio : (ratio * z1) / ((1 - ratio) * z2 + ratio * z1)) * 100) / 100;
                 this.command.command(`split s${i} ${t}`);
             }
         });
