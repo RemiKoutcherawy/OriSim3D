@@ -1,3 +1,5 @@
+import {Model} from './Model.js';
+
 export class View2d {
 
     constructor(model, canvas2d) {
@@ -97,6 +99,15 @@ export class View2d {
             context2d.fillStyle = s.hover ? 'white' : 'black';
             const n = this.model.segments.indexOf(s);
             context2d.fillText(String(n), xc - (n < 10 ? 4 : 8), yc + 5);
+
+            // Angle of incident faces if there are 2 faces
+            const faces = Model.incidentFaces(this.model, s);
+            if (faces.length === 2) {
+                const angle = Model.dihedralAngle(faces[0], faces[1]);
+                const angleStr = String(angle);
+                context2d.fillStyle = 'black';
+                context2d.fillText(angleStr, xc - 4 * angleStr.length, yc + 22);
+            }
         });
     }
 
@@ -130,6 +141,11 @@ export class View2d {
             context2d.fillStyle = 'black';
             const n = this.model.faces.indexOf(f);
             context2d.fillText(String(n), cx - (n < 10 ? 4 : 8), cy + 5);
+
+            // Normal (+ or -)
+            const normal = Model.normal(f);
+            const sign = normal[2] >= 0 ? '+' : '-';
+            context2d.fillText(sign, cx - 4, cy + 22);
         });
     }
 

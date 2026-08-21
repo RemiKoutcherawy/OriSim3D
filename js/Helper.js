@@ -55,7 +55,6 @@ export class Helper {
 
     // init properties
     out() {
-        this.firstX = this.firstY = this.currentX = this.currentY = undefined;
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
         this.currentCanvas = this.label = undefined;

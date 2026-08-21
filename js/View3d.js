@@ -508,24 +508,27 @@ export class View3d {
         }
     }
 
-    // Draw faces
+    // Draw faces: selected faces stay light red (as in View2d); hovering adds
+    // a highlighted border, the face equivalent of the size bump used for
+    // points and segments, so a hovered face still shows whether it is selected.
     drawFaces(faces) {
         const context2d = this.overlay.getContext('2d');
-        for (const f of faces) {
+        const priority = f => f.select ? 2 : f.hover ? 1 : 0;
+        const ordered = [...faces].sort((a, b) => priority(a) - priority(b));
+        for (const f of ordered) {
+            if (!f.select && !f.hover) continue;
+            const pts = f.points;
+            if (!pts || pts.length === 0) continue;
+            context2d.beginPath();
+            context2d.moveTo(pts[0].xCanvas, pts[0].yCanvas);
+            pts.forEach(p => context2d.lineTo(p.xCanvas, p.yCanvas));
+            context2d.closePath();
+            context2d.fillStyle = f.select ? 'rgba(255,0,0,0.35)' : 'rgba(0,102,255,0.3)';
+            context2d.fill();
             if (f.hover) {
-                context2d.fillStyle = 'pink';
-                const pts = f.points;
-                context2d.beginPath();
-                let xCanvas = pts[0].xCanvas;
-                let yCanvas = pts[0].yCanvas;
-                context2d.moveTo(xCanvas, yCanvas);
-                pts.forEach((p) => {
-                    xCanvas = p.xCanvas;
-                    yCanvas = p.yCanvas;
-                    context2d.lineTo(xCanvas, yCanvas);
-                })
-                context2d.closePath();
-                context2d.fill();
+                context2d.lineWidth = 4;
+                context2d.strokeStyle = f.select ? 'red' : 'blue';
+                context2d.stroke();
             }
         }
     }

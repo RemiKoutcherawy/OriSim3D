@@ -533,7 +533,7 @@ export class Model {
     searchFacesWithAB(a, b) {
         const seg = this.getSegment(a, b);
         if (seg) {
-            const list = Segment.incidentFaces(this, seg);
+            const list = Model.incidentFaces(this, seg);
             if (list.length > 0) return list;
         }
         // Fallback: faces that contain both vertices
@@ -745,5 +745,62 @@ export class Model {
         return this.segments.find((s) =>
             (s.p1 === p1 && s.p2 === p2) || (s.p1 === p2 && s.p2 === p1)
         );
+    }
+
+    // Compute 3D unit normal vector [nx, ny, nz]
+    static normal(face) {
+        const pts = face?.points || face || [];
+        if (pts.length < 3) return [0, 0, 1];
+        let nx = 0, ny = 0, nz = 0;
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i], b = pts[(i + 1) % pts.length];
+            nx += (a.y - b.y) * (a.z + b.z);
+            ny += (a.z - b.z) * (a.x + b.x);
+            nz += (a.x - b.x) * (a.y + b.y);
+        }
+        const len = Math.hypot(nx, ny, nz);
+        if (len < 1e-6) return [0, 0, 1];
+        return [nx / len, ny / len, nz / len];
+    }
+
+    // Compute dihedral angle in degrees between two faces
+    static dihedralAngle(face1, face2) {
+        const n1 = Model.normal(face1);
+        const n2 = Model.normal(face2);
+        const dot = Math.max(-1, Math.min(1, n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2]));
+        return Math.round(Math.acos(dot) * 180 / Math.PI);
+    }
+
+    /**
+     * Return up to two faces incident to the given segment
+     */
+    static incidentFaces(model, segment) {
+        if (!model || !segment) return [];
+        const faces = [];
+        if (!model.faces) return faces;
+        for (const face of model.faces) {
+            if (Model.#faceContainsSegment(face, segment)) {
+                if (!faces.includes(face)) {
+                    faces.push(face);
+                }
+                if (faces.length === 2) break;
+            }
+        }
+        return faces;
+    }
+
+    /**
+     * Check if a face contains the given segment (in any order)
+     */
+    static #faceContainsSegment(face, segment) {
+        const pts = face.points || [];
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i];
+            const b = pts[(i + 1) % pts.length];
+            if ((a === segment.p1 && b === segment.p2) || (a === segment.p2 && b === segment.p1)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

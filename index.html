@@ -11,9 +11,11 @@
     #canvas2d{left:0;border:1px solid black}
     #canvas3d{left:50%;border:1px solid black}
     #overlay{left:50%;z-index:1}
-    #burger,#nav{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #burger,#nav,#undoBtn{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
     #burger{top:8px;padding:8px;line-height:0;cursor:pointer}
     #burger:hover{background:#eef1f4}
+    #undoBtn{top:8px;left:54px;padding:8px;line-height:0;cursor:pointer}
+    #undoBtn:hover{background:#eef1f4}
     #burger span{display:block;width:22px;height:2px;margin:4px 0;background:#1f2328;transition:.15s}
     #burger[aria-expanded="true"] span:first-child{transform:translateY(6px) rotate(45deg)}
     #burger[aria-expanded="true"] span:nth-child(2){opacity:0}
@@ -26,6 +28,8 @@
     #nav .chev{float:right;transition:transform .15s}
     #nav details[open] .chev{transform:rotate(90deg)}
     #nav details button{padding-left:32px;opacity:.85}
+    #nav button[data-flag]::before{content:"✓ ";opacity:0}
+    #nav button[data-flag][data-checked="true"]::before{opacity:1}
   </style>
 </head>
 <body>
@@ -34,9 +38,11 @@
   <canvas id="canvas3d"></canvas>
   <canvas id="overlay"></canvas>
 </div>
-<button id="burger" onclick="const n=document.getElementById('nav');const open=n.style.display!=='block';n.style.display=open?'block':'none';this.setAttribute('aria-expanded',open)"
-        aria-label="Menu" aria-expanded="false">
+<button id="burger" aria-label="Menu" aria-expanded="false">
   <span></span><span></span><span></span>
+</button>
+<button id="undoBtn" data-load="undo" aria-label="Undo">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 1 1 0 11H11"/></svg>
 </button>
 <nav id="nav">
   <details>
@@ -47,10 +53,12 @@
   <details>
     <summary>Édition<span class="chev">›</span></summary>
     <button type="button" data-load="undo">Undo</button>
-    <button type="button" data-load="lines">Lines</button>
-    <button type="button" data-load="edges">Edges</button>
-    <button type="button" data-load="labels">Labels</button>
-    <button type="button" data-load="textures">Textures</button>
+    <button type="button" data-load="lines" data-flag="lines">Lines</button>
+    <button type="button" data-load="edges" data-flag="edges">Edges</button>
+    <button type="button" data-load="snap" data-flag="snap">Snap</button>
+    <button type="button" data-load="overlayCde" data-flag="overlay">Overlay</button>
+    <button type="button" data-load="labels" data-flag="labels">Labels</button>
+    <button type="button" data-load="textures" data-flag="textures">Textures</button>
   </details>
   <details>
     <summary>Exemples<span class="chev">›</span></summary>
@@ -112,6 +120,15 @@
       btn.addEventListener('click', () => load(btn.dataset.load))
     })
 
+    // Burger toggle: open/close nav, refresh checkmarks when opening
+    document.getElementById('burger').addEventListener('click', () => {
+      const nav = document.getElementById('nav');
+      const open = nav.style.display !== 'block';
+      if (open) syncToggles();
+      nav.style.display = open ? 'block' : 'none';
+      document.getElementById('burger').setAttribute('aria-expanded', open);
+    });
+
     // Close menu when clicking outside
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#burger') && !e.target.closest('#nav')) {
@@ -120,12 +137,20 @@
       }
     });
 
+    // Reflect model boolean state as a checkmark on toggle buttons
+    function syncToggles() {
+      document.querySelectorAll('#nav button[data-flag]').forEach(btn => {
+        btn.dataset.checked = model[btn.dataset.flag] ? 'true' : 'false';
+      });
+    }
+
     function load(id) {
       const nav = document.getElementById('nav');
       nav.style.display = 'none';
       document.getElementById('burger').setAttribute('aria-expanded', 'false');
       const text = document.getElementById(id).content.textContent;
       command.command(text);
+      syncToggles();
     }
 
     // Chargement du template "test" au lancement
@@ -139,16 +164,16 @@
 <template id="undo">undo</template>
 <template id="lines">lines</template>
 <template id="edges">edges</template>
+<template id="snap">snap</template>
+<template id="overlayCde">overlay</template>
 <template id="labels">labels</template>
 <template id="textures">textures</template>
 <!-- Inline models -->
 <template id="test">
   d 200 200
-  lines // overlay labels
   c2d p0 p1 c2d p0 p3 c2d p0 p2 c2d p1 p3
   o -1 f0 f1 f5 f7
-  t 1000 r s9 -180 p2 p3 p5
-
+  t 1000 r s9 -145 p2 p3 p5
 </template>
 <template id="cocotte">
   // Cocotte

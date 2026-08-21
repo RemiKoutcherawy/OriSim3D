@@ -2,6 +2,7 @@ import {Model} from '../js/Model.js';
 import {Plane} from '../js/Plane.js';
 import {Point} from '../js/Point.js';
 import {Segment} from '../js/Segment.js';
+import {Face} from '../js/Face.js';
 import {assertEquals} from "@std/assert";
 
 Deno.test("Model", async (t) => {
@@ -599,5 +600,67 @@ Deno.test("Model", async (t) => {
         model.splitCross3d(model.points[3], model.points[1]);
         assertEquals(model.segments.length, 8, 'Got:' + model.segments.length);
         assertEquals(model.faces[0].points.length, 3, 'Got:' + model.faces[0].points.length);
+    });
+    await t.step('Model.normal', async (t) => {
+        const p0 = new Point(-100, -100, -100, -100, 0);
+        const p1 = new Point(100, -100, 100, -100, 0);
+        const p2 = new Point(100, 100, 100, 100, 0);
+        const p3 = new Point(-100, 100, -100, 100, 0);
+        const face = new Face([p0, p1, p2, p3]);
+
+        await t.step("should compute positive normal for CCW xy face", () => {
+            const norm = Model.normal(face);
+            assertEquals(norm, [0, 0, 1]);
+        });
+
+        await t.step("should compute negative normal for flipped face", () => {
+            const flippedFace = new Face([p3, p2, p1, p0]);
+            const norm = Model.normal(flippedFace);
+            assertEquals(norm, [0, 0, -1]);
+        });
+    });
+    await t.step('Model.dihedralAngle', () => {
+        const p1 = new Point(0, 0, 0, 0, 0);
+        const p2 = new Point(10, 0, 10, 0, 0);
+        const p3 = new Point(10, 10, 10, 10, 0);
+        const p4 = new Point(0, 10, 0, 10, 0);
+        const f1 = new Face([p1, p2, p3, p4]);
+
+        const p5 = new Point(10, -10, 10, -10, 0);
+        const p6 = new Point(0, -10, 0, -10, 0);
+        const f2 = new Face([p1, p6, p5, p2]);
+
+        // Coplanar faces
+        assertEquals(Model.dihedralAngle(f1, f2), 0);
+
+        // Perpendicular face (rotated 90 degrees around X)
+        const p7 = new Point(10, 10, 10, 0, 10);
+        const p8 = new Point(0, 10, 0, 0, 10);
+        const f3 = new Face([p1, p2, p7, p8]);
+        assertEquals(Model.dihedralAngle(f1, f3), 90);
+
+        // Folded 180 degrees (opposite normal)
+        const f4 = new Face([p4, p3, p2, p1]);
+        assertEquals(Model.dihedralAngle(f1, f4), 180);
+    });
+    await t.step('Model.incidentFaces', () => {
+        const p1 = new Point(0, 0, 0, 0, 0);
+        const p2 = new Point(10, 0, 10, 0, 0);
+        const p3 = new Point(10, 10, 10, 10, 0);
+        const p4 = new Point(0, 10, 0, 10, 0);
+        const p5 = new Point(10, -10, 10, -10, 0);
+        const p6 = new Point(0, -10, 0, -10, 0);
+
+        const s1 = new Segment(p1, p2);
+
+        const f1 = new Face([p1, p2, p3, p4]);
+        const f2 = new Face([p1, p2, p5, p6]);
+
+        const model = { faces: [f1, f2] };
+        // deno-lint-ignore no-explicit-any
+        const incident = Model.incidentFaces(model as any, s1);
+        assertEquals(incident.length, 2);
+        assertEquals(incident.includes(f1), true);
+        assertEquals(incident.includes(f2), true);
     });
 });
