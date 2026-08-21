@@ -7,19 +7,25 @@
   <!-- sonar-disable-next-line -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    #canvas2d{position:absolute;width:50%;height:100%;left:0;top:0;border:1px solid black}
-    #canvas3d{position:absolute;width:50%;height:100%;left:50%;top:0;border:1px solid black}
-    #overlay{position:absolute;width:50%;height:100%;left:50%;top:0;z-index:1;color:hsl(60,100%,50%)}
-    #burger{position:absolute;top:8px;left:8px;z-index:10;cursor:pointer;padding:8px;background:rgba(0,0,0,.65);border-radius:4px;line-height:0}
-    #burger span{display:block;width:22px;height:2px;background:#fff;margin:4px 0}
-    #nav{position:absolute;top:46px;left:8px;z-index:10;background:rgba(0,0,0,.82);border-radius:4px;display:none;min-width:180px;overflow:hidden}
-    #nav button,#nav summary{display:block;color:#fff;padding:10px 16px;cursor:pointer;white-space:nowrap;text-decoration:none;outline:0;background:none;border:none;width:100%;text-align:left;font-family:inherit;font-size:inherit}
-    #nav button:hover,#nav summary:hover{background:rgba(255,255,255,.12)}
-    #nav details summary{list-style:none}
-    #nav details summary::-webkit-details-marker{display:none}
-    #nav details summary::after{content:"›";float:right;transition:transform .15s}
-    #nav details[open] summary::after{transform:rotate(90deg)}
-    #nav details button{padding-left:32px;font-size:13px;opacity:.85}
+    #canvas2d,#canvas3d,#overlay{position:absolute;top:0;width:50%;height:100%}
+    #canvas2d{left:0;border:1px solid black}
+    #canvas3d{left:50%;border:1px solid black}
+    #overlay{left:50%;z-index:1}
+    #burger,#nav{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #burger{top:8px;padding:8px;line-height:0;cursor:pointer}
+    #burger:hover{background:#eef1f4}
+    #burger span{display:block;width:22px;height:2px;margin:4px 0;background:#1f2328;transition:.15s}
+    #burger[aria-expanded="true"] span:first-child{transform:translateY(6px) rotate(45deg)}
+    #burger[aria-expanded="true"] span:nth-child(2){opacity:0}
+    #burger[aria-expanded="true"] span:last-child{transform:translateY(-6px) rotate(-45deg)}
+    #nav{top:46px;display:none;min-width:180px;overflow:hidden}
+    #nav button,#nav summary{display:block;width:100%;box-sizing:border-box;padding:10px 16px;color:#1f2328;background:none;border:0;font:inherit;text-align:left;white-space:nowrap;cursor:pointer}
+    #nav button:hover,#nav summary:hover,#nav details[open]>summary{background:#eaedf0}
+    #nav summary{list-style:none}
+    #nav summary::-webkit-details-marker{display:none}
+    #nav .chev{float:right;transition:transform .15s}
+    #nav details[open] .chev{transform:rotate(90deg)}
+    #nav details button{padding-left:32px;opacity:.85}
   </style>
 </head>
 <body>
@@ -34,19 +40,22 @@
 </button>
 <nav id="nav">
   <details>
-    <summary>Fichier</summary>
-    <button type="button" data-load="open">Ouvrir un fichier…</button>
-    <button type="button" data-load="save">Sauver un fichier…</button>
+    <summary>Fichier<span class="chev">›</span></summary>
+    <button type="button" data-load="open">Ouvrir…</button>
+    <button type="button" data-load="save">Sauver…</button>
   </details>
   <details>
-    <summary>Édition</summary>
+    <summary>Édition<span class="chev">›</span></summary>
     <button type="button" data-load="undo">Undo</button>
+    <button type="button" data-load="lines">Lines</button>
+    <button type="button" data-load="labels">Labels</button>
+    <button type="button" data-load="textures">Textures</button>
   </details>
   <details>
-    <summary>Exemples</summary>
+    <summary>Exemples<span class="chev">›</span></summary>
     <button type="button" data-load="cocotte">Cocotte</button>
     <button type="button" data-load="boat">Bateau</button>
-    <button type="button" data-load="test">test</button>
+    <button type="button" data-load="test">Test</button>
   </details>
 </nav>
 
@@ -96,12 +105,6 @@
     }
     loop();
 
-    // Read tag and launch
-    const commandText = document.getElementById("test").content.textContent;
-    globalThis.addEventListener("load", () => {
-      command.command(commandText);
-    });
-
     // Add button actions
     document.querySelectorAll('button[data-load]').forEach(btn => {
       // Le lien entre data-load et dataset.load est une conversion automatique
@@ -123,20 +126,26 @@
       const text = document.getElementById(id).content.textContent;
       command.command(text);
     }
+
+    // Chargement du template "test" au lancement
+    load('test');
   }
 
 </script>
-<!-- Inline models -->
+<!-- Inline commands -->
 <template id="open">read</template>
-<template id="save">write file</template>
+<template id="save">write</template>
 <template id="undo">undo</template>
+<template id="lines">lines</template>
+<template id="labels">labels</template>
+<template id="textures">textures</template>
 <template id="test">
   d 200 200
   lines // overlay labels
   c2d p0 p1 c2d p0 p3 c2d p0 p2 c2d p1 p3
-  o -1 F3 F4 F6 F2
-  split s0 0.5
-  t 1000 ty 180
+  o -1 f0 f1 f5 f7
+  t 1000 r s9 -180 p2 p3 p5
+
 </template>
 <template id="cocotte">
   // Cocotte
