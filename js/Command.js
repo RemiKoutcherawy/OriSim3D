@@ -391,13 +391,19 @@ on('read', (cmd) => {
     });
 });
 on('write', (cmd) => {
-    const filename = cmd.next();
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeFile(filename, cmd.instructions.join('\n')).then(() => console.log('complete'));
 });
 on('writesvg svg', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeSVG(cmd.model, filename, cmd.view3d);
+});
+on('writefold fold', (cmd) => {
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+    ReadWrite.writeFold(cmd.model, filename);
 });
 
 // Toggles

@@ -28,6 +28,8 @@
     #nav .chev{float:right;transition:transform .15s}
     #nav details[open] .chev{transform:rotate(90deg)}
     #nav details button{padding-left:32px;opacity:.85}
+    #nav details details summary{padding-left:32px;opacity:.85}
+    #nav details details button{padding-left:48px}
     #nav button[data-flag]::before{content:"✓ ";opacity:0}
     #nav button[data-flag][data-checked="true"]::before{opacity:1}
   </style>
@@ -48,7 +50,12 @@
   <details>
     <summary>Fichier<span class="chev">›</span></summary>
     <button type="button" data-load="open">Ouvrir…</button>
-    <button type="button" data-load="save">Sauver…</button>
+    <details>
+      <summary>Exporter<span class="chev">›</span></summary>
+      <button type="button" data-load="exportInstructions">Exporter instruction</button>
+      <button type="button" data-load="exportSvg">Exporter SVG</button>
+      <button type="button" data-load="exportFold">Exporter FOLD</button>
+    </details>
   </details>
   <details>
     <summary>Édition<span class="chev">›</span></summary>
@@ -160,7 +167,9 @@
 </script>
 <!-- Inline commands -->
 <template id="open">read</template>
-<template id="save">write</template>
+<template id="exportInstructions">write</template>
+<template id="exportSvg">svg</template>
+<template id="exportFold">writefold</template>
 <template id="undo">undo</template>
 <template id="lines">lines</template>
 <template id="edges">edges</template>

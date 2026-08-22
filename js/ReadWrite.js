@@ -81,17 +81,32 @@ export class ReadWrite {
         return await file.text();
     }
 
-    static async writeFold(model, filename) {
+    static async writeFold(model, filename = 'OriSim3d.fold') {
         const json = this.toJSONFold(model);
         if (typeof Deno !== "undefined") {
             await Deno.writeTextFile(filename, json);
-        } else {
-            const data = new Blob([json], { type: "application/json" });
-            const link = document.createElement("a");
-            link.setAttribute("download", filename);
-            link.setAttribute("href", globalThis.URL.createObjectURL(data));
-            link.click();
+            return json;
         }
+        if (!filename.endsWith('.fold')) filename = `${filename}.fold`;
+        if (globalThis.showSaveFilePicker) {
+            try {
+                const handle = await globalThis.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{description: 'FOLD', accept: {'application/json': ['.fold', '.json']}}],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(json);
+                await writable.close();
+            } catch (e) {
+                if (e.name !== 'AbortError') throw e;
+            }
+            return json;
+        }
+        const data = new Blob([json], { type: "application/json" });
+        const link = document.createElement("a");
+        link.setAttribute("download", filename);
+        link.setAttribute("href", globalThis.URL.createObjectURL(data));
+        link.click();
         return json;
     }
 
