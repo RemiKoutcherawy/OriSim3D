@@ -409,25 +409,28 @@ export class View3d {
         const uModelViewMatrix = this.gl.getUniformLocation(this.gl.program, 'uModelViewMatrix');
         this.gl.uniformMatrix4fv(uModelViewMatrix, false, this.modelView);
 
-        // Overlay
-        if (this.model.overlay) {
-            this.overlay.width = this.overlay.clientWidth;
-            this.overlay.height = this.overlay.clientHeight;
-            const scale = mat4.scale(mat4.create(), mat4.create(), [this.overlay.width / 2, -this.overlay.height / 2, 1]);
-            const translation = mat4.fromTranslation(mat4.create(), [1, -1, 0]);
-            const overlay = mat4.multiply(mat4.create(), scale, translation);
+        this.updateCanvasCoords();
+    }
 
-            // canvasView = overlay * projection * modelView
-            // gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-            const projection = mat4.multiply(mat4.create(), this.projection, this.modelView);
-            this.canvasView = mat4.multiply(mat4.create(), overlay, projection);
-
-            // Set xCanvas, yCanvas to model points
-            for (const p of this.model.points) {
-                const v = Vector3.transformMat4(p, this.canvasView);
-                p.xCanvas = v.x;
-                p.yCanvas = v.y;
-            }
+    // Project model points into overlay/canvas pixel space (xCanvas, yCanvas)
+    updateCanvasCoords() {
+        const el = this.overlay ?? this.canvas3d;
+        if (!el) return;
+        const width = el.clientWidth || el.width || 1;
+        const height = el.clientHeight || el.height || 1;
+        if (this.overlay) {
+            this.overlay.width = width;
+            this.overlay.height = height;
+        }
+        const scale = mat4.scale(mat4.create(), mat4.create(), [width / 2, -height / 2, 1]);
+        const translation = mat4.fromTranslation(mat4.create(), [1, -1, 0]);
+        const overlayMat = mat4.multiply(mat4.create(), scale, translation);
+        const projection = mat4.multiply(mat4.create(), this.projection, this.modelView);
+        this.canvasView = mat4.multiply(mat4.create(), overlayMat, projection);
+        for (const p of this.model.points) {
+            const v = Vector3.transformMat4(p, this.canvasView);
+            p.xCanvas = v.x;
+            p.yCanvas = v.y;
         }
     }
 

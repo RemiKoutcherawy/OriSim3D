@@ -95,19 +95,33 @@ export class ReadWrite {
         return json;
     }
 
-    // Export crease pattern as SVG (2D xf,yf edges)
-    static async writeSVG(model, filename = 'OriSim3d.svg') {
-        const {xMin, yMin, xMax, yMax} = model.get2DBounds();
+    // Export current 3D view as SVG (projected xCanvas, yCanvas edges)
+    static async writeSVG(model, filename = 'OriSim3d.svg', view3d = null) {
+        if (view3d) {
+            view3d.updateCanvasCoords();
+        }
+        let xMin = Infinity, yMin = Infinity, xMax = -Infinity, yMax = -Infinity;
+        for (const p of model.points) {
+            if (p.xCanvas == null || p.yCanvas == null) continue;
+            xMin = Math.min(xMin, p.xCanvas);
+            yMin = Math.min(yMin, p.yCanvas);
+            xMax = Math.max(xMax, p.xCanvas);
+            yMax = Math.max(yMax, p.yCanvas);
+        }
+        if (!Number.isFinite(xMin)) {
+            throw new Error('writeSVG: no projected canvas coordinates (call with view3d or set xCanvas/yCanvas)');
+        }
         const pad = 10;
         const width = Math.max(xMax - xMin, 1) + 2 * pad;
         const height = Math.max(yMax - yMin, 1) + 2 * pad;
         const lines = model.segments.map((s) => {
-            const x1 = (s.p1.xf - xMin + pad).toFixed(2);
-            const y1 = (s.p1.yf - yMin + pad).toFixed(2);
-            const x2 = (s.p2.xf - xMin + pad).toFixed(2);
-            const y2 = (s.p2.yf - yMin + pad).toFixed(2);
+            if (s.p1.xCanvas == null || s.p2.xCanvas == null) return '';
+            const x1 = (s.p1.xCanvas - xMin + pad).toFixed(2);
+            const y1 = (s.p1.yCanvas - yMin + pad).toFixed(2);
+            const x2 = (s.p2.xCanvas - xMin + pad).toFixed(2);
+            const y2 = (s.p2.yCanvas - yMin + pad).toFixed(2);
             return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
-        }).join('\n  ');
+        }).filter(Boolean).join('\n  ');
         const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width.toFixed(2)}" height="${height.toFixed(2)}" viewBox="0 0 ${width.toFixed(2)} ${height.toFixed(2)}" fill="none" stroke="#111" stroke-width="1">
   ${lines}

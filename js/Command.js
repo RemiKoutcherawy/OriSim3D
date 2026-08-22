@@ -20,9 +20,12 @@ export class Command {
     tStart = 0;
     // Eventual CommandArea
     commandArea;
+    // Optional 3D view (for svg export and other view-dependent commands)
+    view3d;
 
-    constructor(model) {
+    constructor(model, view3d = null) {
         this.model = model;
+        this.view3d = view3d;
     }
 
     // The main entry point executes a string of commands
@@ -394,7 +397,7 @@ on('write', (cmd) => {
 on('writesvg svg', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeSVG(cmd.model, filename);
+    ReadWrite.writeSVG(cmd.model, filename, cmd.view3d);
 });
 
 // Toggles

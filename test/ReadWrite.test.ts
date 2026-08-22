@@ -66,12 +66,20 @@ Deno.test("ReadWrite", async (t) => {
         assertEquals(command.model.points.length, 4);
     });
 
-    await t.step('writeSVG exports crease pattern', async () => {
+    await t.step('writeSVG exports 3D view from xCanvas/yCanvas', async () => {
         const model = new Model().init(200, 200);
+        // Simulated 3D projection (as View3d.updateCanvasCoords would set)
+        model.points[0].xCanvas = 10; model.points[0].yCanvas = 20;
+        model.points[1].xCanvas = 110; model.points[1].yCanvas = 20;
+        model.points[2].xCanvas = 110; model.points[2].yCanvas = 120;
+        model.points[3].xCanvas = 10; model.points[3].yCanvas = 120;
         const filename = 'test/test.svg';
         const svg = await ReadWrite.writeSVG(model, filename);
         assertEquals(svg.includes('<svg'), true);
         assertEquals(svg.includes('<line'), true);
+        assertEquals(svg.includes('x1="10.00"'), true, 'uses xCanvas not xf');
+        assertEquals(svg.includes('y1="10.00"'), true, 'uses yCanvas not yf');
+        assertEquals(svg.includes('-200'), false, 'does not use crease-pattern xf');
         assertEquals((await Deno.readTextFile(filename)).startsWith('<?xml'), true);
         await Deno.remove(filename);
     });
