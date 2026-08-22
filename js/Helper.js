@@ -1,6 +1,5 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
-import {Model} from './Model.js';
 
 export class Helper {
     constructor(model, command, canvas2d, view3d, overlay) {
@@ -61,7 +60,7 @@ export class Helper {
     out() {
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
-        this.currentCanvas = this.label = undefined;
+        this.currentCanvas = this.label = this.hinge = undefined;
     }
 
     // Draw only if a point, segment, or face is selected
@@ -101,6 +100,80 @@ export class Helper {
         this.firstY = this.currentY = y;
     }
 
+    // Signed rotation angle (degrees) from ref point to cursor, around segment.
+    rotationLabel(s, refX, refY, x, y) {
+        let distToFirst, distToCurrent;
+        if (this.currentCanvas === '2d') {
+            // Signed distance from the reference point to segment.
+            distToFirst = (refX - s.p1.xf) * (s.p2.yf - s.p1.yf) - (refY - s.p1.yf) * (s.p2.xf - s.p1.xf);
+            // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
+            distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
+        } else {
+            const p1Proj = [s.p1.xCanvas, s.p1.yCanvas], p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
+            distToFirst = (refX - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (refY - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
+            distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
+        }
+        if (Math.abs(distToFirst) < 1e-6) return 0;
+        // Clamp ratio = distToCurrent/distToFirst
+        let ratio = Math.abs(distToCurrent / distToFirst);
+        ratio = Math.round(ratio * 100) / 100;
+        // Angle in degrees
+        let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
+        // Round to step 10
+        angle = Math.round(angle / 10) * 10;
+        // Clamp near-zero angle to 0
+        return Math.abs(angle) < 10 ? 0 : angle;
+    }
+
+    // Face drag: same as rotationLabel but 2D sign is inverted.
+    faceRotationLabel(s, refX, refY, x, y) {
+        let angle = this.rotationLabel(s, refX, refY, x, y);
+        if (this.currentCanvas === '2d' && angle) angle = -angle;
+        return angle;
+    }
+
+    // Target face for fold: prefer unselected adjacent face toward cursor.
+    facePickPoint(f) {
+        if (this.currentCanvas === '2d') {
+            const c = this.faceCentroid(f);
+            return {x: c.xf, y: -c.yf};
+        }
+        const c = this.faceCentroidCanvas(f);
+        return {x: c.xCanvas, y: c.yCanvas};
+    }
+
+    pickTargetFace(candidates, downFace, x, y) {
+        const others = candidates.filter((f) => f !== downFace);
+        if (others.length === 0) return undefined;
+        const selected = new Set(
+            this.model.faces.filter((f) => f.select && f !== downFace),
+        );
+        const towardDest = others.filter((f) => !selected.has(f));
+        const pool = towardDest.length > 0 ? towardDest : others;
+        if (pool.length === 1) return pool[0];
+        let best = pool[0];
+        let bestD = Infinity;
+        for (const f of pool) {
+            const p = this.facePickPoint(f);
+            const d = Math.hypot(x - p.x, y - p.y);
+            if (d < bestD) {
+                bestD = d;
+                best = f;
+            }
+        }
+        return best;
+    }
+
+    adjacentTargetFaces(faces, downFace) {
+        return faces.filter((f) =>
+            f !== downFace && this.model.sharedSegments(downFace, f).length > 0,
+        );
+    }
+
+    hasDragged(threshold = 5) {
+        return Math.hypot(this.currentX - this.firstX, this.currentY - this.firstY) >= threshold;
+    }
+
     move(points, segments, faces, x, y) {
         this.model.hover2d3d(points, segments, faces);
         if (this.downPoint) {
@@ -113,30 +186,56 @@ export class Helper {
                 // The point we move from
                 const p = this.downPoint;
                 p.select = true;
-                let distToFirst, distToCurrent;
-                if (this.currentCanvas === '2d') {
-                    // Signed distance from the first point to segment.
-                    distToFirst = (p.xf - s.p1.xf) * (s.p2.yf - s.p1.yf) - (p.yf - s.p1.yf) * (s.p2.xf - s.p1.xf);
-                    // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
-                    distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
-                } else {
-                    // Get projected coordinates for points
-                    const pProj = [p.xCanvas, p.yCanvas], p1Proj = [s.p1.xCanvas, s.p1.yCanvas], p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
-                    distToFirst = (pProj[0] - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (pProj[1] - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-                    distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-                }
-                // Clamp ratio = distToCurrent/distToFirst
-                let ratio = Math.abs(distToCurrent / distToFirst);
-                ratio = Math.round(ratio * 100) / 100;
-                // Angle in degrees
-                let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
-                // Round to step 10
-                angle = Math.round(angle / 10) * 10;
-                // Clamp near-zero angle to 0
-                this.label = Math.abs(angle) < 10 ? 0 : angle;
+                const refX = this.currentCanvas === '2d' ? p.xf : p.xCanvas;
+                const refY = this.currentCanvas === '2d' ? p.yf : p.yCanvas;
+                this.label = this.rotationLabel(s, refX, refY, x, y);
             }
         } else if (this.downSegment) {
             this.downSegment.hover = true;
+        } else if (this.downFace) {
+            this.downFace.hover = true;
+            if (!this.hasDragged()) {
+                this.hinge = undefined;
+                this.label = undefined;
+            } else {
+                const candidates = this.currentCanvas === '3d'
+                    ? faces
+                    : this.adjacentTargetFaces(faces, this.downFace);
+                const f2 = this.pickTargetFace(candidates, this.downFace, x, y);
+                let hinge;
+                if (f2) {
+                    const shared = this.model.sharedSegments(this.downFace, f2);
+                    if (shared.length > 0) {
+                        const dragStart = this.currentCanvas === '2d'
+                            ? {xf: this.firstX, yf: -this.firstY}
+                            : this.faceCentroid(this.downFace);
+                        const dragEnd = this.currentCanvas === '2d'
+                            ? {xf: x, yf: -y}
+                            : this.faceCentroid(f2);
+                        hinge = shared.length === 1
+                            ? shared[0]
+                            : this.model.nearestSharedSegment(
+                                shared,
+                                (dragStart.xf + dragEnd.xf) / 2,
+                                (dragStart.yf + dragEnd.yf) / 2,
+                            );
+                    }
+                }
+                if (!hinge) {
+                    const mid = this.dragMidpoint();
+                    hinge = this.nearestFaceSegment(this.downFace, mid.x, mid.y);
+                }
+                if (hinge) {
+                    this.model.segments.forEach((sg) => { sg.select = false; });
+                    hinge.select = true;
+                    this.hinge = hinge;
+                    const {refX, refY} = this.mobileFaceRef(this.downFace, hinge);
+                    this.label = this.faceRotationLabel(hinge, refX, refY, x, y);
+                } else {
+                    this.hinge = undefined;
+                    this.label = undefined;
+                }
+            }
         }
         this.currentX = x;
         this.currentY = y;
@@ -145,7 +244,17 @@ export class Helper {
     up(points, segments, faces) {
         this.upPoint = points[0];
         this.upSegment = !this.upPoint ? segments[0] : undefined;
-        this.upFace = !this.upPoint && !this.upSegment ? faces[0] : undefined;
+        if (!this.upPoint && !this.upSegment && this.downFace) {
+            if (this.hasDragged()) {
+                const candidates = this.adjacentTargetFaces(faces, this.downFace);
+                this.upFace = this.pickTargetFace(candidates, this.downFace, this.currentX, this.currentY)
+                    ?? (faces[0] !== this.downFace ? faces[0] : undefined);
+            } else {
+                this.upFace = this.downFace;
+            }
+        } else {
+            this.upFace = !this.upPoint && !this.upSegment ? faces[0] : undefined;
+        }
 
         if (this.downPoint) this.fromPoint();
         else if (this.downSegment) this.fromSegment();
@@ -187,54 +296,128 @@ export class Helper {
     }
 
     fromFace() {
-        if (this.upFace === this.downFace) {
+        if (!this.hasDragged()) {
             this.downFace.select = !this.downFace.select;
             this.command.command(`// face ${this.model.indexOf(this.downFace)} offset ${this.downFace.offset} `);
-        } else if (this.upFace) {
+            return;
+        }
+        if (this.label) {
+            if (this.upFace && this.upFace !== this.downFace) {
+                this.fromFaceToFace(this.downFace, this.upFace);
+            } else {
+                this.fromFaceFold(this.downFace);
+            }
+        } else if (this.upFace && this.upFace !== this.downFace) {
             this.fromFaceToFace(this.downFace, this.upFace);
         } else {
             this.splitSegments();
         }
     }
 
-    // Drag face f1 → face f2: fold mobile flap f2 onto f1 along shared hinge.
+    // Midpoint of the current drag in flat (2d) or canvas (3d) coordinates.
+    dragMidpoint() {
+        if (this.currentCanvas === '2d') {
+            return {
+                x: (this.firstX + this.currentX) / 2,
+                y: -(this.firstY + this.currentY) / 2,
+            };
+        }
+        return {
+            x: (this.firstX + this.currentX) / 2,
+            y: (this.firstY + this.currentY) / 2,
+        };
+    }
+
+    // Edge of face closest to (x, y) in the current canvas space.
+    nearestFaceSegment(face, x, y) {
+        const segs = this.model.segmentsOfFace(face);
+        if (segs.length === 0) return undefined;
+        let best = segs[0];
+        let bestD = Infinity;
+        for (const s of segs) {
+            const d = this.currentCanvas === '2d'
+                ? Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, x, y)
+                : Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, x, y);
+            if (d < bestD) {
+                bestD = d;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    // Fold face around hinge from drag; angle from mouse only.
+    fromFaceFold(face) {
+        const mid = this.dragMidpoint();
+        const hinge = this.hinge ?? this.nearestFaceSegment(face, mid.x, mid.y);
+        if (!hinge) {
+            this.command.command(`// Pli impossible: pas de charnière sur ${this.id(face)}`);
+            return;
+        }
+        this.executeFaceFold(face, hinge);
+    }
+
+    executeFaceFold(face, hinge) {
+        if (!(this.model.isBorderPoint(hinge.p1) && this.model.isBorderPoint(hinge.p2))) {
+            this.command.command(`// Attention: charnière ${this.id(hinge)} pas entièrement sur le bord`);
+        }
+        this.model.segments.forEach((s) => { s.select = false; });
+        hinge.select = true;
+        const selected = this.model.faces.filter((f) => f.select);
+        const pts = selected.length > 0
+            ? this.model.flapPoints(face, hinge, selected)
+            : this.model.flapPoints(face, hinge);
+        if (pts.length === 0) {
+            this.command.command(`// Pli impossible: aucun point mobile sur ${this.id(face)}`);
+            return;
+        }
+        let angle = this.label;
+        if (angle === undefined) {
+            const {refX, refY} = this.mobileFaceRef(face, hinge);
+            angle = this.faceRotationLabel(hinge, refX, refY, this.currentX, this.currentY);
+        }
+        if (!angle) {
+            this.command.command(`// angle nul`);
+            return;
+        }
+        const ptIds = pts.map((p) => this.id(p)).join(' ');
+        this.command.command(`t 1000 r ${this.id(hinge)} ${angle} ${ptIds}`);
+    }
+
+    // Drag face f1 → face f2: fold mobile flap f1 toward f2 along shared hinge.
     fromFaceToFace(f1, f2) {
         const shared = this.model.sharedSegments(f1, f2);
         if (shared.length === 0) {
             this.command.command(`// Pli impossible: pas d'arête commune entre ${this.id(f1)} et ${this.id(f2)}`);
             return;
         }
-        const dragStart = this.currentCanvas === '2d'
-            ? {xf: this.firstX, yf: -this.firstY}
-            : this.faceCentroid(f1);
-        const dragEnd = this.currentCanvas === '2d'
-            ? {xf: this.currentX, yf: -this.currentY}
-            : this.faceCentroid(f2);
-        const hinge = shared.length === 1
-            ? shared[0]
-            : this.model.nearestSharedSegment(
-                shared,
-                (dragStart.xf + dragEnd.xf) / 2,
-                (dragStart.yf + dragEnd.yf) / 2,
-            );
-        if (!(this.model.isBorderPoint(hinge.p1) && this.model.isBorderPoint(hinge.p2))) {
-            this.command.command(`// Attention: charnière ${this.id(hinge)} pas entièrement sur le bord`);
+        let hinge = this.hinge;
+        if (!hinge || !shared.includes(hinge)) {
+            const dragStart = this.currentCanvas === '2d'
+                ? {xf: this.firstX, yf: -this.firstY}
+                : this.faceCentroid(f1);
+            const dragEnd = this.currentCanvas === '2d'
+                ? {xf: this.currentX, yf: -this.currentY}
+                : this.faceCentroid(f2);
+            hinge = shared.length === 1
+                ? shared[0]
+                : this.model.nearestSharedSegment(
+                    shared,
+                    (dragStart.xf + dragEnd.xf) / 2,
+                    (dragStart.yf + dragEnd.yf) / 2,
+                );
         }
-        this.model.segments.forEach((s) => { s.select = false; });
-        hinge.select = true;
-        const pts = this.model.flapPoints(f2, hinge);
-        if (pts.length === 0) {
-            this.command.command(`// Pli impossible: aucun point mobile sur ${this.id(f2)}`);
-            return;
+        this.executeFaceFold(f1, hinge);
+    }
+
+    mobileFaceRef(mobileFace, hinge) {
+        const mobile = mobileFace.points.find((p) => p !== hinge.p1 && p !== hinge.p2);
+        if (this.currentCanvas === '2d') {
+            const c = mobile ? mobile : this.faceCentroid(mobileFace);
+            return {refX: c.xf, refY: c.yf};
         }
-        const delta = this.model.foldRotationDelta(f1, f2, hinge, dragEnd.xf, dragEnd.yf);
-        if (delta === 0) {
-            const angle = Model.dihedralAngle(f1, f2);
-            this.command.command(`// Déjà à plat (dièdre ${angle}°)`);
-            return;
-        }
-        const ptIds = pts.map((p) => this.id(p)).join(' ');
-        this.command.command(`t 1000 r ${this.id(hinge)} ${delta} ${ptIds}`);
+        const c = mobile ? mobile : this.faceCentroidCanvas(mobileFace);
+        return {refX: c.xCanvas, refY: c.yCanvas};
     }
 
     faceCentroid(face) {
@@ -244,6 +427,18 @@ export class Helper {
             yf += p.yf;
         }
         return {xf: xf / face.points.length, yf: yf / face.points.length};
+    }
+
+    faceCentroidCanvas(face) {
+        let xCanvas = 0, yCanvas = 0;
+        for (const p of face.points) {
+            xCanvas += p.xCanvas;
+            yCanvas += p.yCanvas;
+        }
+        return {
+            xCanvas: xCanvas / face.points.length,
+            yCanvas: yCanvas / face.points.length,
+        };
     }
 
     splitSegments() {
@@ -336,13 +531,29 @@ export class Helper {
         };
     }
     // Points, then segments, then faces near xCanvas, yCanvas
-    search3d(xCanvas, yCanvas) {
+    pickFaces3d(xCanvas, yCanvas, contextFace = undefined) {
+        let faces = this.model.faces.filter(f =>
+            Face.contains3d(f, xCanvas, yCanvas, this.view3d),
+        );
+        if (contextFace) {
+            faces = faces.filter(f =>
+                f !== contextFace &&
+                this.model.sharedSegments(contextFace, f).length > 0,
+            );
+        }
+        if (this.view3d?.faceDepth) {
+            faces.sort((a, b) => this.view3d.faceDepth(a) - this.view3d.faceDepth(b));
+        }
+        return faces;
+    }
+
+    search3d(xCanvas, yCanvas, contextFace = undefined) {
         // Points near xCanvas, yCanvas
         const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < 10);
         // Segments near xCanvas, yCanvas
         const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
-        // Face containing xCanvas, yCanvas
-        const faces = this.model.faces.filter(f => Face.contains3d(f, xCanvas, yCanvas, this.view3d));
+        // Faces under cursor: depth-sorted; when contextFace set, adjacent faces only
+        const faces = this.pickFaces3d(xCanvas, yCanvas, contextFace);
         return {points, segments, faces};
     }
     // Down on 3d overlay
@@ -357,7 +568,8 @@ export class Helper {
     move3d(event) {
         this.currentCanvas = '3d';
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
-        const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
+        const contextFace = this.downFace || undefined;
+        const {points, segments, faces} = this.search3d(xCanvas, yCanvas, contextFace);
         // Handle 3d rotation
         if (points.length === 0 && segments.length === 0 && faces.length === 0
             && event.buttons === 1
@@ -381,7 +593,8 @@ export class Helper {
     }
     // Up on 3d overlay
     up3d(event) {
-        const {points, segments, faces} = this.search3d(...Object.values(this.eventCanvas3d(event)));
+        const {xCanvas, yCanvas} = this.eventCanvas3d(event);
+        const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.up(points, segments, faces);
         if (points.length === 0 && segments.length === 0 && faces.length === 0) {
             this.doubleClick();

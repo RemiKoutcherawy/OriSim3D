@@ -63,7 +63,7 @@ export class Model {
         // State run
         this.state = State.run;
         // Options
-        this.labels = true;
+        this.labels = false;
         this.textures = false;
         this.overlay = true; // show points segments and face
         this.edges = true;   // draw segments on overlay (hover and select)
@@ -798,8 +798,13 @@ export class Model {
 
     /**
      * All points on the mobile side of hinge (BFS through faces, never crossing hinge).
+     * @param {import('./Face.js').Face} mobileFace
+     * @param {import('./Segment.js').Segment} hinge
+     * @param {import('./Face.js').Face[] | null} [allowedFaces] when set, BFS stays within these faces
      */
-    flapPoints(mobileFace, hinge) {
+    flapPoints(mobileFace, hinge, allowedFaces = null) {
+        const allowed = allowedFaces ? new Set(allowedFaces) : null;
+        if (allowed && !allowed.has(mobileFace)) return [];
         const flap = new Set();
         const visited = new Set();
         const queue = [mobileFace];
@@ -812,7 +817,7 @@ export class Model {
             for (const s of this.segmentsOfFace(face)) {
                 if (s === hinge) continue;
                 for (const nf of Model.incidentFaces(this, s)) {
-                    if (nf && !visited.has(nf)) {
+                    if (nf && !visited.has(nf) && (!allowed || allowed.has(nf))) {
                         visited.add(nf);
                         queue.push(nf);
                     }

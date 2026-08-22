@@ -475,10 +475,19 @@ export class View3d {
         const projection = mat4.multiply(mat4.create(), this.projection, this.modelView);
         this.canvasView = mat4.multiply(mat4.create(), overlayMat, projection);
         for (const p of this.model.points) {
+            const eye = Vector3.transformMat4(p, this.modelView);
+            p.zEye = eye.z;
             const v = Vector3.transformMat4(p, this.canvasView);
             p.xCanvas = v.x;
             p.yCanvas = v.y;
         }
+    }
+
+    // Mean eye-space z of face vertices; lower = closer to camera.
+    faceDepth(face) {
+        let z = 0;
+        for (const p of face.points) z += p.zEye ?? p.z;
+        return z / face.points.length;
     }
 
     // Render

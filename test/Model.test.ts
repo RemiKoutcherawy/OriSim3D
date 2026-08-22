@@ -690,5 +690,21 @@ Deno.test("Model", async (t) => {
         model.rotate(hinge, 90, flap);
         const delta = model.foldRotationDelta(f0, f1, hinge, f1.points[0].xf, f1.points[0].yf);
         assertEquals(Math.abs(delta), 90);
+
+        // Restrict flap to selected faces only
+        model.splitBy2d(model.points[1], model.points[3]);
+        const f2 = model.faces[2];
+        const f3 = model.faces[3];
+        f0.select = f1.select = true;
+        f2.select = f3.select = false;
+        const border = model.segmentsOfFace(f0).find((s) => model.isBorderSegment(s));
+        const fullFlap = model.flapPoints(f0, border!);
+        const selectedFlap = model.flapPoints(f0, border!, [f0, f1]);
+        assertEquals(fullFlap.length, 3);
+        assertEquals(selectedFlap.length, 2);
+        assertEquals(fullFlap.includes(model.points[2]), true);
+        assertEquals(selectedFlap.includes(model.points[2]), false);
+        assertEquals(fullFlap.includes(model.points[3]), false);
+        assertEquals(selectedFlap.includes(model.points[3]), false);
     });
 });
