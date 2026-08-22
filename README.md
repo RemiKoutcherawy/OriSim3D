@@ -44,6 +44,12 @@ Work in progress, any help is welcome.
 - click drag a point rotates around a selected segment
 - undo via ⌘/Ctrl+Z (no swipe gestures yet)
 
+### Console de commandes (menu Édition → Console)
+
+- Affiche/masque la zone de texte en bas de l'écran
+- Entrée : exécute la ligne courante ; ⌘/Ctrl+Z : undo
+- Les commandes exécutées (souris ou menu) sont recopiées dans la console
+
 ### Commands in the CommandArea 
 - ss selectSegments to select without a mouse
 - sp selectPoints to select without a mouse
