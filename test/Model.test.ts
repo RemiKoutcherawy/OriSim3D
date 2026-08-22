@@ -14,9 +14,15 @@ Deno.test("Model", async (t) => {
     });
     await t.step("serialize / deserialize", () => {
         const model = new Model().init(200, 200);
+        model.points[0].hover = true;
+        model.points[0].select = true;
+        model.points[0].xCanvas = 12;
+        model.points[0].yCanvas = 34;
         // Serialize
         const serialized = model.serialize();
-        assertEquals(serialized.length, 647, "serialized model length");
+        assertEquals(serialized.includes('"hover"'), false, "UI hover excluded from undo snapshots");
+        assertEquals(serialized.includes('"xCanvas"'), false, "UI xCanvas excluded from undo snapshots");
+        assertEquals(JSON.parse(serialized).points.length, 4, "serialized has 4 points");
 
         // Model change should not affect serialized
         model.addPoint(0, 0, 0, 0, 0);
@@ -353,6 +359,10 @@ Deno.test("Model", async (t) => {
             model.splitPerpendicular2d(model.segments[0], p);
             assertEquals(model.faces.length, 2,);
             assertEquals(model.points.length, 6);
+            // Foot outside the segment: infinite-line projection must not throw
+            const outside = model.addPoint(-400, 100, -400, 100, 0);
+            model.splitPerpendicular2d(model.segments[0], outside);
+            assertEquals(model.faces.length >= 2, true);
         });
         await t.step("splitPerpendicular3d", () => {
             const model = new Model().init(200, 200);
@@ -662,5 +672,23 @@ Deno.test("Model", async (t) => {
         assertEquals(incident.length, 2);
         assertEquals(incident.includes(f1), true);
         assertEquals(incident.includes(f2), true);
+    });
+    await t.step('face fold helpers', () => {
+        const model = new Model().init(200, 200);
+        model.splitBy2d(model.points[0], model.points[2]);
+        const f0 = model.faces[0];
+        const f1 = model.faces[1];
+        const shared = model.sharedSegments(f0, f1);
+        assertEquals(shared.length, 1);
+        const hinge = shared[0];
+        const flap = model.flapPoints(f1, hinge);
+        assertEquals(flap.length, 1);
+        assertEquals(flap.includes(hinge.p1), false);
+        const mid = model.nearestSharedSegment(shared, 0, 0);
+        assertEquals(mid, hinge);
+        assertEquals(model.foldRotationDelta(f0, f1, hinge, 100, 100), 0);
+        model.rotate(hinge, 90, flap);
+        const delta = model.foldRotationDelta(f0, f1, hinge, f1.points[0].xf, f1.points[0].yf);
+        assertEquals(Math.abs(delta), 90);
     });
 });

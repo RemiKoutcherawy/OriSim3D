@@ -189,10 +189,23 @@ Deno.test("Helper Tests", async (t) => {
     f1.select = true;
 
     cmds.length = 0;
+    helper.currentCanvas = '2d';
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 50;
+    helper.currentY = 50;
     helper.downFace = model.faces[0];
     helper.upFace = f1;
     helper.fromFace();
-    assertEquals(cmds[0], "// From f0 to f1");
+    assertEquals(cmds[0].startsWith('// Déjà à plat'), true);
+
+    // After folding one flap 90°, face-to-face issues a rotate command
+    const hinge = model.sharedSegments(f0, f1)[0];
+    model.rotate(hinge, 90, model.flapPoints(f1, hinge));
+    cmds.length = 0;
+    helper.fromFaceToFace(f0, f1);
+    assertEquals(cmds.some((c) => c.startsWith('t 1000 r')), true);
+    assertEquals(hinge.select, true);
 
     command.command = original;
   });
@@ -255,4 +268,18 @@ Deno.test("Helper Tests", async (t) => {
       assertEquals(result.faces.length, 1);
     },
   );
+
+  await t.step("splitSegments does not mutate point z", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+    helper.currentCanvas = '2d';
+    helper.firstX = -200;
+    helper.firstY = 0;
+    helper.currentX = 200;
+    helper.currentY = 0;
+    assertEquals(model.points.every((p) => p.z === 0), true);
+    helper.splitSegments();
+    assertEquals(model.points.every((p) => p.z === 0), true, 'flat paper stays z=0');
+  });
 });

@@ -42,8 +42,13 @@ Work in progress, any help is welcome.
 - click drag from a point to a point adds a crease, or if the crease exists, adds a perpendicular crease
 - click drag from a segment to a segment adds a bisector
 - click drag a point rotates around a selected segment
-- swipe from left to right on 2D undo
-- swipe from right to left on 2D turns model
+- undo via ⌘/Ctrl+Z (no swipe gestures yet)
+
+### Console de commandes (menu Édition → Console)
+
+- Affiche/masque la zone de texte en bas de l'écran
+- Entrée : exécute la ligne courante ; ⌘/Ctrl+Z : undo
+- Les commandes exécutées (souris ou menu) sont recopiées dans la console
 
 ### Commands in the CommandArea 
 - ss selectSegments to select without a mouse

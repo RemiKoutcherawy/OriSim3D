@@ -1,5 +1,6 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
+import {Model} from './Model.js';
 
 export class Helper {
     constructor(model, command, canvas2d, view3d, overlay) {
@@ -17,21 +18,24 @@ export class Helper {
         this.upPoint = this.upSegment = this.upFace = undefined;
 
         // Current canvas: 2d or 3d
-        this.currentCanvas = undefined
+        this.currentCanvas = undefined;
         // To test with Deno overlay is null
         if (overlay) {
             // 3d
-            overlay.addEventListener('mousedown', (event) => this.down3d(event));
-            overlay.addEventListener('mousemove', (event) => this.move3d(event));
-            overlay.addEventListener('mouseup', (event) => this.up3d(event));
+            overlay.addEventListener('pointerdown', (event) => this.down3d(event));
+            overlay.addEventListener('pointermove', (event) => this.move3d(event));
+            overlay.addEventListener('pointerup', (event) => this.up3d(event));
+            overlay.addEventListener('pointercancel', (event) => this.out(event));
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
-            overlay.addEventListener('mouseout', (event) => this.out(event));
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
-            // 2d
-            canvas2d.addEventListener('mousedown', (event) => this.down2d(event));
+            // 2d — pointer* covers mouse and touch
+            canvas2d.addEventListener('pointerdown', (event) => {
+                try { canvas2d.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+                this.down2d(event);
+            });
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
-            canvas2d.addEventListener('mouseup', (event) => this.up2d(event));
-            canvas2d.addEventListener('mouseout', (event) => this.out(event));
+            canvas2d.addEventListener('pointerup', (event) => this.up2d(event));
+            canvas2d.addEventListener('pointercancel', (event) => this.out(event));
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
         }
@@ -193,11 +197,53 @@ export class Helper {
         }
     }
 
+    // Drag face f1 → face f2: fold mobile flap f2 onto f1 along shared hinge.
     fromFaceToFace(f1, f2) {
-        this.command.command(`// From ${this.id(f1)} to ${this.id(f2)}`);
-        this.model.faces.filter(f => f.select).forEach(f => {
-            this.command.command(`// Selected ${this.id(f)}`);
-        });
+        const shared = this.model.sharedSegments(f1, f2);
+        if (shared.length === 0) {
+            this.command.command(`// Pli impossible: pas d'arête commune entre ${this.id(f1)} et ${this.id(f2)}`);
+            return;
+        }
+        const dragStart = this.currentCanvas === '2d'
+            ? {xf: this.firstX, yf: -this.firstY}
+            : this.faceCentroid(f1);
+        const dragEnd = this.currentCanvas === '2d'
+            ? {xf: this.currentX, yf: -this.currentY}
+            : this.faceCentroid(f2);
+        const hinge = shared.length === 1
+            ? shared[0]
+            : this.model.nearestSharedSegment(
+                shared,
+                (dragStart.xf + dragEnd.xf) / 2,
+                (dragStart.yf + dragEnd.yf) / 2,
+            );
+        if (!(this.model.isBorderPoint(hinge.p1) && this.model.isBorderPoint(hinge.p2))) {
+            this.command.command(`// Attention: charnière ${this.id(hinge)} pas entièrement sur le bord`);
+        }
+        this.model.segments.forEach((s) => { s.select = false; });
+        hinge.select = true;
+        const pts = this.model.flapPoints(f2, hinge);
+        if (pts.length === 0) {
+            this.command.command(`// Pli impossible: aucun point mobile sur ${this.id(f2)}`);
+            return;
+        }
+        const delta = this.model.foldRotationDelta(f1, f2, hinge, dragEnd.xf, dragEnd.yf);
+        if (delta === 0) {
+            const angle = Model.dihedralAngle(f1, f2);
+            this.command.command(`// Déjà à plat (dièdre ${angle}°)`);
+            return;
+        }
+        const ptIds = pts.map((p) => this.id(p)).join(' ');
+        this.command.command(`t 1000 r ${this.id(hinge)} ${delta} ${ptIds}`);
+    }
+
+    faceCentroid(face) {
+        let xf = 0, yf = 0;
+        for (const p of face.points) {
+            xf += p.xf;
+            yf += p.yf;
+        }
+        return {xf: xf / face.points.length, yf: yf / face.points.length};
     }
 
     splitSegments() {
@@ -212,9 +258,10 @@ export class Helper {
             const inter = Segment.intersectionFlat(first, current, p1, p2);
             if (inter) {
                 const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
-                s.p1.z ||= 0.1;
-                s.p2.z ||= 0.1;
-                const t = Math.round((is2d ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z)) * 100) / 100;
+                // Use local temps so flat paper (z===0) is not mutated as a side effect
+                const z1 = s.p1.z || 0.1;
+                const z2 = s.p2.z || 0.1;
+                const t = Math.round((is2d ? ratio : (ratio * z1) / ((1 - ratio) * z2 + ratio * z1)) * 100) / 100;
                 this.command.command(`split s${i} ${t}`);
             }
         });

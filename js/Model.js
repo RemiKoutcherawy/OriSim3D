@@ -384,7 +384,15 @@ export class Model {
 
     // Split faces by a line perpendicular to [p1,p2] passing by point
     splitPerpendicular2d(s, point) {
-        this.splitAllFacesBySegment2d(point, Segment.project2d(s, point));
+        if (!s || !point) return;
+        // Infinite line through the segment (foot may lie outside [p1,p2])
+        const dx = s.p2.xf - s.p1.xf;
+        const dy = s.p2.yf - s.p1.yf;
+        const l2 = dx * dx + dy * dy;
+        if (l2 === 0) return;
+        const t = ((point.xf - s.p1.xf) * dx + (point.yf - s.p1.yf) * dy) / l2;
+        const foot = new Point(s.p1.xf + t * dx, s.p1.yf + t * dy);
+        this.splitAllFacesBySegment2d(point, foot);
     }
 
     // Split faces by a plane perpendicular to [p1,p2] passing by point
@@ -415,8 +423,10 @@ export class Model {
             const b = Point.distance2d(inter, s2.p1) < Point.distance2d(inter, s2.p2) ? s2.p2 : s2.p1;
             this.bisector2dPoints(a, inter, b);
         } else {
-            // Lines do not cross, parallel: split by line from (p1+p2)/2 oriented by p1p2
-            const middle = {xf: (s1.p1.xf + s2.p1.xf) / 2, yf: (s1.p1.yf + s2.p1.yf) / 2};
+            // Parallel: midline between segment midpoints, oriented like s1
+            const m1 = {xf: (s1.p1.xf + s1.p2.xf) / 2, yf: (s1.p1.yf + s1.p2.yf) / 2};
+            const m2 = {xf: (s2.p1.xf + s2.p2.xf) / 2, yf: (s2.p1.yf + s2.p2.yf) / 2};
+            const middle = {xf: (m1.xf + m2.xf) / 2, yf: (m1.yf + m2.yf) / 2};
             const p1p2 = {xf: s1.p2.xf - s1.p1.xf, yf: s1.p2.yf - s1.p1.yf};
             this.splitAllFacesByLine2d(middle, {xf: middle.xf + p1p2.xf, yf: middle.yf + p1p2.yf});
         }
@@ -424,8 +434,10 @@ export class Model {
 
     // Split faces by a plane between two segments [ap] [pc].
     bisector3dPoints(a, p, c) {
+        const denom = Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
+        if (denom === 0) return;
         // Project [a] on [p c] to get a symmetric point
-        const k = Math.hypot(p.x - a.x, p.y - a.y, p.z - a.z) / Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
+        const k = Math.hypot(p.x - a.x, p.y - a.y, p.z - a.z) / denom;
         // e is on pc symmetric of a
         const e = new Vector3(p.x + k * (c.x - p.x), p.y + k * (c.y - p.y), p.z + k * (c.z - p.z));
         // Define Plane across a and e
@@ -446,10 +458,13 @@ export class Model {
 
     // Rotate around axis Segment, by angle, the list of Points
     rotate(s, angle, list = this.points) {
+        if (!s) return;
         const angleRd = angle * Math.PI / 180;
         const ax = s.p1.x, ay = s.p1.y, az = s.p1.z;
         let nx = s.p2.x - ax, ny = s.p2.y - ay, nz = s.p2.z - az;
-        const n = 1 / Math.hypot(nx, ny, nz);
+        const len = Math.hypot(nx, ny, nz);
+        if (len === 0) return;
+        const n = 1 / len;
         nx *= n;
         ny *= n;
         nz *= n;
@@ -591,7 +606,7 @@ export class Model {
     // Turn the model around axis by angle
     turn(axe, angle) {
         const axes = {x: {p1: {x:0, y:0, z:0}, p2: {x:1, y:0, z:0}}, y: {p1: {x:0, y:0, z:0}, p2: {x:0, y:1, z:0}}, z: {p1: {x:0, y:0, z:0}, p2: {x:0, y:0, z:1}}};
-        const s = typeof axe === 'string' ? (axes[axe.toLowerCase().replace('angle', '')] || axes.x) : axe;
+        const s = typeof axe === 'string' ? (axes[axe.toLowerCase().replaceAll('angle', '')] || axes.x) : axe;
         this.rotate(s, angle, this.points);
     }
 
@@ -682,8 +697,8 @@ export class Model {
 
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
-        // Non-serialized / UI-only fields
-        const exclude = new Set(['hidden']);
+        // Non-serialized / UI-only fields (keep undo snapshots lean)
+        const exclude = new Set(['hidden', 'hover', 'select', 'xCanvas', 'yCanvas']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {
@@ -720,26 +735,6 @@ export class Model {
         return new Model().deserialize(json);
     }
 
-    // Define a reviver to convert points objects into Points instances, and indexes into instance
-    reviver(key, value) {
-        if (key === 'points' && Array.isArray(value) && value.every((p) => p !== null && typeof p === 'object')) {
-            return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
-        }
-        if (key === 'segments') {
-            const pts = this?.points || [];
-            return value.map((segment) => new Segment(pts[segment.p1], pts[segment.p2]));
-        }
-        if (key === 'faces') {
-            const pts = this?.points || [];
-            return value.map((face) => {
-                const newFace = new Face(face.points.map((index) => pts[index]));
-                newFace.offset = face.offset;
-                return newFace;
-            });
-        }
-        return value;
-    }
-
     // Get a segment from two points
     getSegment(p1, p2) {
         return this.segments.find((s) =>
@@ -769,6 +764,93 @@ export class Model {
         const n2 = Model.normal(face2);
         const dot = Math.max(-1, Math.min(1, n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2]));
         return Math.round(Math.acos(dot) * 180 / Math.PI);
+    }
+
+    /**
+     * Segments shared by two faces (candidate hinge for face-to-face fold).
+     */
+    sharedSegments(f1, f2) {
+        return this.segments.filter((s) =>
+            Model.#faceContainsSegment(f1, s) && Model.#faceContainsSegment(f2, s)
+        );
+    }
+
+    /** Sheet border segment (incident to exactly one face). */
+    isBorderSegment(s) {
+        return Model.incidentFaces(this, s).length === 1;
+    }
+
+    /** Point lying on at least one sheet-border segment. */
+    isBorderPoint(p) {
+        return this.searchSegmentsOnePoint(p).some((s) => this.isBorderSegment(s));
+    }
+
+    /** Segments along the boundary of a face. */
+    segmentsOfFace(face) {
+        const segs = [];
+        const len = face.points.length;
+        for (let i = 0; i < len; i++) {
+            const s = this.getSegment(face.points[i], face.points[(i + 1) % len]);
+            if (s) segs.push(s);
+        }
+        return segs;
+    }
+
+    /**
+     * All points on the mobile side of hinge (BFS through faces, never crossing hinge).
+     */
+    flapPoints(mobileFace, hinge) {
+        const flap = new Set();
+        const visited = new Set();
+        const queue = [mobileFace];
+        visited.add(mobileFace);
+        while (queue.length) {
+            const face = queue.shift();
+            for (const p of face.points) {
+                if (p !== hinge.p1 && p !== hinge.p2) flap.add(p);
+            }
+            for (const s of this.segmentsOfFace(face)) {
+                if (s === hinge) continue;
+                for (const nf of Model.incidentFaces(this, s)) {
+                    if (nf && !visited.has(nf)) {
+                        visited.add(nf);
+                        queue.push(nf);
+                    }
+                }
+            }
+        }
+        return [...flap];
+    }
+
+    /** Shared edge closest to (ax, ay) in flat coordinates. */
+    nearestSharedSegment(shared, ax, ay) {
+        let best = shared[0];
+        let bestD = Infinity;
+        for (const s of shared) {
+            const d = Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, ax, ay);
+            if (d < bestD) {
+                bestD = d;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Signed rotation (degrees) to fold mobileFace onto fixedFace around hinge.
+     * Target dihedral 0; sign from drag position relative to hinge in 2D.
+     */
+    foldRotationDelta(fixedFace, mobileFace, hinge, dragXf, dragYf) {
+        const theta = Model.dihedralAngle(fixedFace, mobileFace);
+        if (theta < 1 || theta > 179) return 0;
+        const {p1, p2} = hinge;
+        const sd = (x, y) => (x - p1.xf) * (p2.yf - p1.yf) - (y - p1.yf) * (p2.xf - p1.xf);
+        const mobile = mobileFace.points.find((p) => p !== p1 && p !== p2);
+        const dm = mobile ? sd(mobile.xf, mobile.yf) : 0;
+        const dd = sd(dragXf, dragYf);
+        let sign = -Math.sign(dm || 1);
+        if (Math.abs(dd) > 1e-6 && Math.sign(dd) !== Math.sign(dm || dd)) sign = -sign;
+        return Math.round(sign * -theta);
     }
 
     /**

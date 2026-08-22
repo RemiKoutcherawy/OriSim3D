@@ -41,6 +41,7 @@ Deno.test("ReadWrite", async (t) => {
     await t.step('loadText script fold and empty', () => {
         const model = new Model().init(200, 200);
         model.labels = false;
+        model.edges = true;
         const command = new Command(model);
         const area = {textarea: {value: 'old', selectionStart: 0, selectionEnd: 0}};
         command.commandArea = area;
@@ -55,11 +56,45 @@ Deno.test("ReadWrite", async (t) => {
 
         const json = ReadWrite.toJSONFold(new Model().init(200, 200));
         model.labels = false;
+        model.edges = true;
         const kindFold = ReadWrite.loadText(command, json);
         assertEquals(kindFold, 'fold');
         assertEquals(command.model.points[0] instanceof Point, true);
         assertEquals(command.model.labels, false, 'display flags are kept');
+        assertEquals(command.model.edges, true, 'edges flag is kept');
         assertEquals(area.textarea.value, '');
         assertEquals(command.model.points.length, 4);
+    });
+
+    await t.step('writeSVG exports 3D view from xCanvas/yCanvas', async () => {
+        const model = new Model().init(200, 200);
+        // Simulated 3D projection (as View3d.updateCanvasCoords would set)
+        model.points[0].xCanvas = 10; model.points[0].yCanvas = 20;
+        model.points[1].xCanvas = 110; model.points[1].yCanvas = 20;
+        model.points[2].xCanvas = 110; model.points[2].yCanvas = 120;
+        model.points[3].xCanvas = 10; model.points[3].yCanvas = 120;
+        const filename = 'test/test.svg';
+        const svg = await ReadWrite.writeSVG(model, filename);
+        assertEquals(svg.includes('<svg'), true);
+        assertEquals(svg.includes('<line'), true);
+        assertEquals(svg.includes('x1="10.00"'), true, 'uses xCanvas not xf');
+        assertEquals(svg.includes('y1="10.00"'), true, 'uses yCanvas not yf');
+        assertEquals(svg.includes('-200'), false, 'does not use crease-pattern xf');
+        assertEquals((await Deno.readTextFile(filename)).startsWith('<?xml'), true);
+        await Deno.remove(filename);
+    });
+
+    await t.step('jsonFoldToModel preserves 3D z', () => {
+        const fold = {
+            file_spec: 1.1,
+            frame_attributes: ['3D'],
+            vertices_coords: [[0, 0, 5], [100, 0, 5], [100, 100, 0], [0, 100, 0]],
+            edges_vertices: [[0, 1], [1, 2], [2, 3], [3, 0]],
+            faces_vertices: [[0, 1, 2, 3]],
+        };
+        const model = ReadWrite.jsonFoldToModel(JSON.stringify(fold));
+        assertEquals(model.points.length, 4);
+        const zs = model.points.map((p) => p.z);
+        assertEquals(zs.some((z) => z !== 0), true, '3D fold should keep non-zero z');
     });
 });

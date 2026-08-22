@@ -18,26 +18,20 @@ export class Point {
 
     // Adjust point i 2d coords on segment ab
     static align2dFrom3d(a, b, i) {
-        // Length from a to i in 3d
-        const ai = Math.hypot((i.x - a.x), (i.y - a.y), (i.z - a.z) );
-        // Length from a to b in 3d
         const ab = Math.hypot((b.x - a.x), (b.y - a.y), (b.z - a.z));
-        // Ratio t from
+        if (ab === 0) return;
+        const ai = Math.hypot((i.x - a.x), (i.y - a.y), (i.z - a.z));
         const t = ai / ab;
-        // Set 2d to the same ratio
         i.xf = a.xf + t * (b.xf - a.xf);
         i.yf = a.yf + t * (b.yf - a.yf);
     }
 
     // Adjust point i 3d coords on segment ab
     static align3dFrom2d(a, b, i) {
-        // Length from a to i in 2d
-        const ai = Math.hypot((i.xf - a.xf), (i.yf - a.yf));
-        // Length from a to b in 2d
         const ab = Math.hypot((b.xf - a.xf), (b.yf - a.yf));
-        // Ratio t from
+        if (ab === 0) return;
+        const ai = Math.hypot((i.xf - a.xf), (i.yf - a.yf));
         const t = ai / ab;
-        // Set 3d to the same ratio
         i.x = a.x + t * (b.x - a.x);
         i.y = a.y + t * (b.y - a.y);
         i.z = a.z + t * (b.z - a.z);
@@ -51,6 +45,7 @@ export class Point {
     // Normalize as if Vector 2d
     static normalise(a) {
         const length = Math.hypot(a.xf, a.yf);
+        if (length === 0) return {xf: 0, yf: 0};
         return {xf: a.xf / length, yf: a.yf / length};
     }
 }
