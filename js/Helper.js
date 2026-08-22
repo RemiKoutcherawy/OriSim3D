@@ -197,26 +197,53 @@ export class Helper {
         }
     }
 
-    // Drag face f1 → face f2: fold along shared edge (see spec in project docs).
-    // 1. sharedSegments(f1,f2) — hinge; 0 = impossible, >1 = ambiguous
-    // 2. isBorderSegment(s) on both endpoints — feasibility on sheet border
-    // 3. dihedralAngle(f1,f2) → rotate f2 points around s by signed (180 - θ)
+    // Drag face f1 → face f2: fold mobile flap f2 onto f1 along shared hinge.
     fromFaceToFace(f1, f2) {
         const shared = this.model.sharedSegments(f1, f2);
         if (shared.length === 0) {
             this.command.command(`// Pli impossible: pas d'arête commune entre ${this.id(f1)} et ${this.id(f2)}`);
             return;
         }
-        if (shared.length > 1) {
-            this.command.command(`// Pli ambigu: ${shared.length} arêtes communes entre ${this.id(f1)} et ${this.id(f2)}`);
+        const dragStart = this.currentCanvas === '2d'
+            ? {xf: this.firstX, yf: -this.firstY}
+            : this.faceCentroid(f1);
+        const dragEnd = this.currentCanvas === '2d'
+            ? {xf: this.currentX, yf: -this.currentY}
+            : this.faceCentroid(f2);
+        const hinge = shared.length === 1
+            ? shared[0]
+            : this.model.nearestSharedSegment(
+                shared,
+                (dragStart.xf + dragEnd.xf) / 2,
+                (dragStart.yf + dragEnd.yf) / 2,
+            );
+        if (!(this.model.isBorderPoint(hinge.p1) && this.model.isBorderPoint(hinge.p2))) {
+            this.command.command(`// Attention: charnière ${this.id(hinge)} pas entièrement sur le bord`);
+        }
+        this.model.segments.forEach((s) => { s.select = false; });
+        hinge.select = true;
+        const pts = this.model.flapPoints(f2, hinge);
+        if (pts.length === 0) {
+            this.command.command(`// Pli impossible: aucun point mobile sur ${this.id(f2)}`);
             return;
         }
-        const s = shared[0];
-        const onBorder = this.model.isBorderPoint(s.p1) && this.model.isBorderPoint(s.p2);
-        const angle = Model.dihedralAngle(f1, f2);
-        this.command.command(
-            `// Pli ${this.id(f1)}→${this.id(f2)}: ${this.id(s)} dièdre ${angle}° bord ${onBorder ? 'ok' : 'non'}`
-        );
+        const delta = this.model.foldRotationDelta(f1, f2, hinge, dragEnd.xf, dragEnd.yf);
+        if (delta === 0) {
+            const angle = Model.dihedralAngle(f1, f2);
+            this.command.command(`// Déjà à plat (dièdre ${angle}°)`);
+            return;
+        }
+        const ptIds = pts.map((p) => this.id(p)).join(' ');
+        this.command.command(`t 1000 r ${this.id(hinge)} ${delta} ${ptIds}`);
+    }
+
+    faceCentroid(face) {
+        let xf = 0, yf = 0;
+        for (const p of face.points) {
+            xf += p.xf;
+            yf += p.yf;
+        }
+        return {xf: xf / face.points.length, yf: yf / face.points.length};
     }
 
     splitSegments() {

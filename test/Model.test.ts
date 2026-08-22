@@ -673,4 +673,22 @@ Deno.test("Model", async (t) => {
         assertEquals(incident.includes(f1), true);
         assertEquals(incident.includes(f2), true);
     });
+    await t.step('face fold helpers', () => {
+        const model = new Model().init(200, 200);
+        model.splitBy2d(model.points[0], model.points[2]);
+        const f0 = model.faces[0];
+        const f1 = model.faces[1];
+        const shared = model.sharedSegments(f0, f1);
+        assertEquals(shared.length, 1);
+        const hinge = shared[0];
+        const flap = model.flapPoints(f1, hinge);
+        assertEquals(flap.length, 1);
+        assertEquals(flap.includes(hinge.p1), false);
+        const mid = model.nearestSharedSegment(shared, 0, 0);
+        assertEquals(mid, hinge);
+        assertEquals(model.foldRotationDelta(f0, f1, hinge, 100, 100), 0);
+        model.rotate(hinge, 90, flap);
+        const delta = model.foldRotationDelta(f0, f1, hinge, f1.points[0].xf, f1.points[0].yf);
+        assertEquals(Math.abs(delta), 90);
+    });
 });

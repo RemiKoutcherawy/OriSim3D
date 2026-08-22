@@ -785,6 +785,74 @@ export class Model {
         return this.searchSegmentsOnePoint(p).some((s) => this.isBorderSegment(s));
     }
 
+    /** Segments along the boundary of a face. */
+    segmentsOfFace(face) {
+        const segs = [];
+        const len = face.points.length;
+        for (let i = 0; i < len; i++) {
+            const s = this.getSegment(face.points[i], face.points[(i + 1) % len]);
+            if (s) segs.push(s);
+        }
+        return segs;
+    }
+
+    /**
+     * All points on the mobile side of hinge (BFS through faces, never crossing hinge).
+     */
+    flapPoints(mobileFace, hinge) {
+        const flap = new Set();
+        const visited = new Set();
+        const queue = [mobileFace];
+        visited.add(mobileFace);
+        while (queue.length) {
+            const face = queue.shift();
+            for (const p of face.points) {
+                if (p !== hinge.p1 && p !== hinge.p2) flap.add(p);
+            }
+            for (const s of this.segmentsOfFace(face)) {
+                if (s === hinge) continue;
+                for (const nf of Model.incidentFaces(this, s)) {
+                    if (nf && !visited.has(nf)) {
+                        visited.add(nf);
+                        queue.push(nf);
+                    }
+                }
+            }
+        }
+        return [...flap];
+    }
+
+    /** Shared edge closest to (ax, ay) in flat coordinates. */
+    nearestSharedSegment(shared, ax, ay) {
+        let best = shared[0];
+        let bestD = Infinity;
+        for (const s of shared) {
+            const d = Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, ax, ay);
+            if (d < bestD) {
+                bestD = d;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Signed rotation (degrees) to fold mobileFace onto fixedFace around hinge.
+     * Target dihedral 0; sign from drag position relative to hinge in 2D.
+     */
+    foldRotationDelta(fixedFace, mobileFace, hinge, dragXf, dragYf) {
+        const theta = Model.dihedralAngle(fixedFace, mobileFace);
+        if (theta < 1 || theta > 179) return 0;
+        const {p1, p2} = hinge;
+        const sd = (x, y) => (x - p1.xf) * (p2.yf - p1.yf) - (y - p1.yf) * (p2.xf - p1.xf);
+        const mobile = mobileFace.points.find((p) => p !== p1 && p !== p2);
+        const dm = mobile ? sd(mobile.xf, mobile.yf) : 0;
+        const dd = sd(dragXf, dragYf);
+        let sign = -Math.sign(dm || 1);
+        if (Math.abs(dd) > 1e-6 && Math.sign(dd) !== Math.sign(dm || dd)) sign = -sign;
+        return Math.round(sign * -theta);
+    }
+
     /**
      * Return up to two faces incident to the given segment
      */

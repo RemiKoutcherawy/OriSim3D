@@ -189,10 +189,23 @@ Deno.test("Helper Tests", async (t) => {
     f1.select = true;
 
     cmds.length = 0;
+    helper.currentCanvas = '2d';
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 50;
+    helper.currentY = 50;
     helper.downFace = model.faces[0];
     helper.upFace = f1;
     helper.fromFace();
-    assertEquals(cmds[0].startsWith('// Pli f0→f1:'), true);
+    assertEquals(cmds[0].startsWith('// Déjà à plat'), true);
+
+    // After folding one flap 90°, face-to-face issues a rotate command
+    const hinge = model.sharedSegments(f0, f1)[0];
+    model.rotate(hinge, 90, model.flapPoints(f1, hinge));
+    cmds.length = 0;
+    helper.fromFaceToFace(f0, f1);
+    assertEquals(cmds.some((c) => c.startsWith('t 1000 r')), true);
+    assertEquals(hinge.select, true);
 
     command.command = original;
   });
