@@ -110,7 +110,45 @@ export class ReadWrite {
         return json;
     }
 
-    // Export current 3D view as SVG (projected xCanvas, yCanvas edges)
+    // Face fill color for SVG export (View3d front/back tints when view3d is available)
+    static svgFaceFillColor(face, index, view3d) {
+        if (view3d?.modelView) {
+            const n = Model.normal(face);
+            const mv = view3d.modelView;
+            const nx = mv[0] * n[0] + mv[4] * n[1] + mv[8] * n[2];
+            const ny = mv[1] * n[0] + mv[5] * n[1] + mv[9] * n[2];
+            const nz = mv[2] * n[0] + mv[6] * n[1] + mv[10] * n[2];
+            const nLen = Math.hypot(nx, ny, nz) || 1;
+            const nv = [nx / nLen, ny / nLen, nz / nLen];
+            const front = nv[2] > 0;
+            const lightLen = Math.hypot(0.1, 0.1, 0.75);
+            const directional = (nv[0] * 0.1 + nv[1] * 0.1 + nv[2] * 0.75) / lightLen;
+            const lighting = Math.max(0, front ? 0.1 + directional : 0.1 - directional);
+            const base = front ? [0x70, 0xAC, 0xF3] : [0xFF, 0xFF, 0x00];
+            const channel = (c) => Math.round(Math.min(255, c * lighting)).toString(16).padStart(2, '0');
+            return `#${channel(base[0])}${channel(base[1])}${channel(base[2])}`;
+        }
+        const hue = Math.round((index * 137.508) % 360);
+        return `hsl(${hue}, 70%, 80%)`;
+    }
+
+    static svgFaceDepth(face, view3d) {
+        if (view3d?.modelView) {
+            const mv = view3d.modelView;
+            let z = 0;
+            for (const p of face.points) {
+                z += mv[2] * p.x + mv[6] * p.y + mv[10] * p.z + mv[14];
+            }
+            return z / face.points.length;
+        }
+        let z = 0;
+        for (const p of face.points) {
+            z += p.z;
+        }
+        return z / face.points.length;
+    }
+
+    // Export current 3D view as SVG (projected xCanvas, yCanvas faces and edges)
     static async writeSVG(model, filename = 'OriSim3d.svg', view3d = null) {
         if (view3d) {
             view3d.updateCanvasCoords();
@@ -129,6 +167,16 @@ export class ReadWrite {
         const pad = 10;
         const width = Math.max(xMax - xMin, 1) + 2 * pad;
         const height = Math.max(yMax - yMin, 1) + 2 * pad;
+        const toSvg = (p) => `${(p.xCanvas - xMin + pad).toFixed(2)},${(p.yCanvas - yMin + pad).toFixed(2)}`;
+        const faces = [...model.faces].sort((a, b) =>
+            ReadWrite.svgFaceDepth(a, view3d) - ReadWrite.svgFaceDepth(b, view3d));
+        const polygons = faces.map((f, index) => {
+            const pts = f.points;
+            if (!pts?.length || pts.some(p => p.xCanvas == null || p.yCanvas == null)) return '';
+            const points = pts.map(toSvg).join(' ');
+            const fill = ReadWrite.svgFaceFillColor(f, index, view3d);
+            return `<polygon points="${points}" fill="${fill}" stroke="none"/>`;
+        }).filter(Boolean).join('\n  ');
         const lines = model.segments.map((s) => {
             if (s.p1.xCanvas == null || s.p2.xCanvas == null) return '';
             const x1 = (s.p1.xCanvas - xMin + pad).toFixed(2);
@@ -139,6 +187,7 @@ export class ReadWrite {
         }).filter(Boolean).join('\n  ');
         const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width.toFixed(2)}" height="${height.toFixed(2)}" viewBox="0 0 ${width.toFixed(2)} ${height.toFixed(2)}" fill="none" stroke="#111" stroke-width="1">
+  ${polygons}
   ${lines}
 </svg>
 `;

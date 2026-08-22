@@ -76,6 +76,7 @@ Deno.test("ReadWrite", async (t) => {
         const filename = 'test/test.svg';
         const svg = await ReadWrite.writeSVG(model, filename);
         assertEquals(svg.includes('<svg'), true);
+        assertEquals(svg.includes('<polygon'), true);
         assertEquals(svg.includes('<line'), true);
         assertEquals(svg.includes('x1="10.00"'), true, 'uses xCanvas not xf');
         assertEquals(svg.includes('y1="10.00"'), true, 'uses yCanvas not yf');
