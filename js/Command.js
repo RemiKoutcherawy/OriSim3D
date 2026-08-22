@@ -61,10 +61,10 @@ export class Command {
     // Tokenize, split the input String in Array of String
     tokenize(input) {
         const cleaned = input
-            .replace(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
-            .replace(/;/g, ' ')       // Ignore trailing/embedded semicolons
-            .replace(/^\s*$/gm, '')   // Remove spaces only lines
-            .replace(/\n{2,}/g, '\n') // Remove empty lines
+            .replaceAll(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
+            .replaceAll(';', ' ')       // Ignore trailing/embedded semicolons
+            .replaceAll(/^\s*$/gm, '')   // Remove spaces only lines
+            .replaceAll(/\n{2,}/g, '\n') // Remove empty lines
             .trim();                  // Remove leading/trailing whitespace
         return cleaned.match(/\S+|\n/g) || [];
     }

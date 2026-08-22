@@ -606,7 +606,7 @@ export class Model {
     // Turn the model around axis by angle
     turn(axe, angle) {
         const axes = {x: {p1: {x:0, y:0, z:0}, p2: {x:1, y:0, z:0}}, y: {p1: {x:0, y:0, z:0}, p2: {x:0, y:1, z:0}}, z: {p1: {x:0, y:0, z:0}, p2: {x:0, y:0, z:1}}};
-        const s = typeof axe === 'string' ? (axes[axe.toLowerCase().replace('angle', '')] || axes.x) : axe;
+        const s = typeof axe === 'string' ? (axes[axe.toLowerCase().replaceAll('angle', '')] || axes.x) : axe;
         this.rotate(s, angle, this.points);
     }
 
