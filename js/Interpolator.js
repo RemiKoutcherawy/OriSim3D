@@ -1,4 +1,5 @@
-// Maps from time to time
+// ReadWrite: js/Interpolator.js
+//  Maps from time to time
 // interpolate(tn) returns t for tn.
 // t and tn should start at 0 and end at 1
 // between 0 and 1, t can be < 0 (anticipate) and >1 (overshoot)

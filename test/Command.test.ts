@@ -421,17 +421,6 @@ Deno.test('Command', async (t) => {
         assertEquals(model.state, State.run);
     });
 
-    await t.step('writefold command', async () => {
-        const filename = 'test/cmd-export.fold';
-        try { await Deno.remove(filename); } catch { /* absent */ }
-        const cmd = new Command(new Model().init(200, 200));
-        cmd.command(`writefold ${filename}`).anim();
-        await new Promise((r) => setTimeout(r, 20));
-        const text = await Deno.readTextFile(filename);
-        assertEquals(text.includes('vertices_coords'), true);
-        await Deno.remove(filename);
-    });
-
     // execute one instruction directly from tokenTodo
     await t.step('execute', () => {
         cde.command('d 200 200').anim();

@@ -384,15 +384,7 @@ export class Model {
 
     // Split faces by a line perpendicular to [p1,p2] passing by point
     splitPerpendicular2d(s, point) {
-        if (!s || !point) return;
-        // Infinite line through the segment (foot may lie outside [p1,p2])
-        const dx = s.p2.xf - s.p1.xf;
-        const dy = s.p2.yf - s.p1.yf;
-        const l2 = dx * dx + dy * dy;
-        if (l2 === 0) return;
-        const t = ((point.xf - s.p1.xf) * dx + (point.yf - s.p1.yf) * dy) / l2;
-        const foot = new Point(s.p1.xf + t * dx, s.p1.yf + t * dy);
-        this.splitAllFacesBySegment2d(point, foot);
+        this.splitAllFacesBySegment2d(point, Segment.project2d(s, point));
     }
 
     // Split faces by a plane perpendicular to [p1,p2] passing by point
@@ -423,10 +415,8 @@ export class Model {
             const b = Point.distance2d(inter, s2.p1) < Point.distance2d(inter, s2.p2) ? s2.p2 : s2.p1;
             this.bisector2dPoints(a, inter, b);
         } else {
-            // Parallel: midline between segment midpoints, oriented like s1
-            const m1 = {xf: (s1.p1.xf + s1.p2.xf) / 2, yf: (s1.p1.yf + s1.p2.yf) / 2};
-            const m2 = {xf: (s2.p1.xf + s2.p2.xf) / 2, yf: (s2.p1.yf + s2.p2.yf) / 2};
-            const middle = {xf: (m1.xf + m2.xf) / 2, yf: (m1.yf + m2.yf) / 2};
+            // Lines do not cross, parallel: split by line from (p1+p2)/2 oriented by p1p2
+            const middle = {xf: (s1.p1.xf + s2.p1.xf) / 2, yf: (s1.p1.yf + s2.p1.yf) / 2};
             const p1p2 = {xf: s1.p2.xf - s1.p1.xf, yf: s1.p2.yf - s1.p1.yf};
             this.splitAllFacesByLine2d(middle, {xf: middle.xf + p1p2.xf, yf: middle.yf + p1p2.yf});
         }
@@ -606,7 +596,7 @@ export class Model {
     // Turn the model around axis by angle
     turn(axe, angle) {
         const axes = {x: {p1: {x:0, y:0, z:0}, p2: {x:1, y:0, z:0}}, y: {p1: {x:0, y:0, z:0}, p2: {x:0, y:1, z:0}}, z: {p1: {x:0, y:0, z:0}, p2: {x:0, y:0, z:1}}};
-        const s = typeof axe === 'string' ? (axes[axe.toLowerCase().replaceAll('angle', '')] || axes.x) : axe;
+        const s = typeof axe === 'string' ? (axes[axe.toLowerCase().replace('angle', '')] || axes.x) : axe;
         this.rotate(s, angle, this.points);
     }
 
@@ -764,98 +754,6 @@ export class Model {
         const n2 = Model.normal(face2);
         const dot = Math.max(-1, Math.min(1, n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2]));
         return Math.round(Math.acos(dot) * 180 / Math.PI);
-    }
-
-    /**
-     * Segments shared by two faces (candidate hinge for face-to-face fold).
-     */
-    sharedSegments(f1, f2) {
-        return this.segments.filter((s) =>
-            Model.#faceContainsSegment(f1, s) && Model.#faceContainsSegment(f2, s)
-        );
-    }
-
-    /** Sheet border segment (incident to exactly one face). */
-    isBorderSegment(s) {
-        return Model.incidentFaces(this, s).length === 1;
-    }
-
-    /** Point lying on at least one sheet-border segment. */
-    isBorderPoint(p) {
-        return this.searchSegmentsOnePoint(p).some((s) => this.isBorderSegment(s));
-    }
-
-    /** Segments along the boundary of a face. */
-    segmentsOfFace(face) {
-        const segs = [];
-        const len = face.points.length;
-        for (let i = 0; i < len; i++) {
-            const s = this.getSegment(face.points[i], face.points[(i + 1) % len]);
-            if (s) segs.push(s);
-        }
-        return segs;
-    }
-
-    /**
-     * All points on the mobile side of hinge (BFS through faces, never crossing hinge).
-     * @param {import('./Face.js').Face} mobileFace
-     * @param {import('./Segment.js').Segment} hinge
-     * @param {import('./Face.js').Face[] | null} [allowedFaces] when set, BFS stays within these faces
-     */
-    flapPoints(mobileFace, hinge, allowedFaces = null) {
-        const allowed = allowedFaces ? new Set(allowedFaces) : null;
-        if (allowed && !allowed.has(mobileFace)) return [];
-        const flap = new Set();
-        const visited = new Set();
-        const queue = [mobileFace];
-        visited.add(mobileFace);
-        while (queue.length) {
-            const face = queue.shift();
-            for (const p of face.points) {
-                if (p !== hinge.p1 && p !== hinge.p2) flap.add(p);
-            }
-            for (const s of this.segmentsOfFace(face)) {
-                if (s === hinge) continue;
-                for (const nf of Model.incidentFaces(this, s)) {
-                    if (nf && !visited.has(nf) && (!allowed || allowed.has(nf))) {
-                        visited.add(nf);
-                        queue.push(nf);
-                    }
-                }
-            }
-        }
-        return [...flap];
-    }
-
-    /** Shared edge closest to (ax, ay) in flat coordinates. */
-    nearestSharedSegment(shared, ax, ay) {
-        let best = shared[0];
-        let bestD = Infinity;
-        for (const s of shared) {
-            const d = Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, ax, ay);
-            if (d < bestD) {
-                bestD = d;
-                best = s;
-            }
-        }
-        return best;
-    }
-
-    /**
-     * Signed rotation (degrees) to fold mobileFace onto fixedFace around hinge.
-     * Target dihedral 0; sign from drag position relative to hinge in 2D.
-     */
-    foldRotationDelta(fixedFace, mobileFace, hinge, dragXf, dragYf) {
-        const theta = Model.dihedralAngle(fixedFace, mobileFace);
-        if (theta < 1 || theta > 179) return 0;
-        const {p1, p2} = hinge;
-        const sd = (x, y) => (x - p1.xf) * (p2.yf - p1.yf) - (y - p1.yf) * (p2.xf - p1.xf);
-        const mobile = mobileFace.points.find((p) => p !== p1 && p !== p2);
-        const dm = mobile ? sd(mobile.xf, mobile.yf) : 0;
-        const dd = sd(dragXf, dragYf);
-        let sign = -Math.sign(dm || 1);
-        if (Math.abs(dd) > 1e-6 && Math.sign(dd) !== Math.sign(dm || dd)) sign = -sign;
-        return Math.round(sign * -theta);
     }
 
     /**

@@ -20,12 +20,9 @@ export class Command {
     tStart = 0;
     // Eventual CommandArea
     commandArea;
-    // Optional 3D view (for svg export and other view-dependent commands)
-    view3d;
 
-    constructor(model, view3d = null) {
+    constructor(model) {
         this.model = model;
-        this.view3d = view3d;
     }
 
     // The main entry point executes a string of commands
@@ -62,7 +59,6 @@ export class Command {
     tokenize(input) {
         const cleaned = input
             .replaceAll(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
-            .replaceAll(';', ' ')       // Ignore trailing/embedded semicolons
             .replaceAll(/^\s*$/gm, '')   // Remove spaces only lines
             .replaceAll(/\n{2,}/g, '\n') // Remove empty lines
             .trim();                  // Remove leading/trailing whitespace
@@ -334,16 +330,8 @@ on('by by3d', (cmd) => take(cmd, 'p', 2, 'by3d needs 2 points', (a, b) => cmd.mo
 on('by2d', (cmd) => take(cmd, 'p', 2, 'by2d needs 2 points', (a, b) => cmd.model.splitBy2d(a, b)));
 on('c3d across3d', (cmd) => take(cmd, 'p', 2, 'c3d needs 2 points', (a, b) => cmd.model.splitCross3d(a, b)));
 on('c2d across2d', (cmd) => take(cmd, 'p', 2, 'c2d needs 2 points', (a, b) => cmd.model.splitCross2d(a, b)));
-on('p2d perpendicular2d', (cmd) => {
-    const s = cmd.token('s');
-    const p = cmd.token('p');
-    if (s && p) cmd.model.splitPerpendicular2d(s, p);
-});
-on('p3d perpendicular3d', (cmd) => {
-    const s = cmd.token('s');
-    const p = cmd.token('p');
-    if (s && p) cmd.model.splitPerpendicular3d(s, p);
-});
+on('p2d perpendicular2d', (cmd) => cmd.model.splitPerpendicular2d(cmd.token('s'), cmd.token('p')));
+on('p3d perpendicular3d', (cmd) => cmd.model.splitPerpendicular3d(cmd.token('s'), cmd.token('p')));
 on('bisector2d b2d', (cmd) => take(cmd, 's', 2, 'bisector2d needs 2 segments', (a, b) => cmd.model.bisector2d(a, b)));
 on('bisector3d b3d', (cmd) => take(cmd, 's', 2, 'bisector3d needs 2 segments', (s1, s2) => cmd.model.bisector3d(s1.p1, s1.p2, s2.p1, s2.p2)));
 on('bisector2dPoints', (cmd) => take(cmd, 'p', 3, 'bisector2dPoints needs 3 points', (a, b, c) => cmd.model.bisector2dPoints(a, b, c)));
@@ -352,15 +340,8 @@ on('split splitSegment2d', splitSegment);
 
 on('r rotate', rotate);
 on('m move', move);
-on('mop moveOnPoint', (cmd) => {
-    const pts = cmd.tokens('p');
-    if (pts.length >= 2) cmd.model.moveOnPoint(pts[0], pts);
-});
-on('mos moveOnSegment', (cmd) => {
-    const s = cmd.token('s');
-    const pts = cmd.tokens('p');
-    if (s && pts.length) cmd.model.moveOnSegment(s, pts);
-});
+on('mop moveOnPoint', (cmd) => {const pts = cmd.tokens('p');cmd.model.moveOnPoint(pts[0], pts);});
+on('mos moveOnSegment', (cmd) => cmd.model.moveOnSegment(cmd.token('s'), cmd.tokens('p')));
 on('a adjust', (cmd) => {
     const pts = cmd.tokens('p');
     cmd.model.adjustList(pts.length === 0 ? cmd.model.points : pts);
@@ -395,12 +376,12 @@ on('write', (cmd) => {
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeFile(filename, cmd.instructions.join('\n')).then(() => console.log('complete'));
 });
-on('writesvg svg', (cmd) => {
+on('writeSvg svg', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeSVG(cmd.model, filename, cmd.view3d);
+    ReadWrite.writeSVG(cmd.model, filename);
 });
-on('writefold fold', (cmd) => {
+on('writeFold fold', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeFold(cmd.model, filename);

@@ -185,19 +185,8 @@ Deno.test("Helper Tests", async (t) => {
     f0.select = false;
     helper.downFace = f0;
     helper.upFace = f0;
-    helper.firstX = helper.currentX = 100;
-    helper.firstY = helper.currentY = -100;
     helper.fromFace();
     assertEquals(f0.select, true);
-    assertEquals(cmds.some((c) => c.startsWith("t 1000 r")), false);
-
-    // Spurious label on click must not rotate
-    cmds.length = 0;
-    f0.select = false;
-    helper.label = 90;
-    helper.fromFace();
-    assertEquals(f0.select, true);
-    assertEquals(cmds.some((c) => c.startsWith("t 1000 r")), false);
 
     // Split face so we have 2 faces for face-to-face test
     model.splitBy2d(model.points[0], model.points[2]);
@@ -205,67 +194,10 @@ Deno.test("Helper Tests", async (t) => {
     f1.select = true;
 
     cmds.length = 0;
-    helper.currentCanvas = '2d';
-    helper.firstX = 0;
-    helper.firstY = 0;
-    helper.currentX = 50;
-    helper.currentY = 50;
     helper.downFace = model.faces[0];
     helper.upFace = f1;
     helper.fromFace();
-    assertEquals(cmds.some((c) => c.startsWith('t 1000 r')), true);
-
-    // After folding one flap 90°, face-to-face issues a rotate command
-    const hinge = model.sharedSegments(f0, f1)[0];
-    model.rotate(hinge, 90, model.flapPoints(f1, hinge));
-    helper.currentCanvas = '2d';
-    helper.currentX = 150;
-    helper.currentY = 150;
-    cmds.length = 0;
-    helper.fromFaceToFace(f0, f1);
-    assertEquals(cmds.some((c) => c.startsWith('t 1000 r')), true);
-    assertEquals(hinge.select, true);
-
-    // Fold without target face: hinge from drag, angle from mouse
-    cmds.length = 0;
-    helper.firstX = 100;
-    helper.firstY = -100;
-    helper.currentX = 150;
-    helper.currentY = -50;
-    helper.downFace = f0;
-    helper.upFace = f0;
-    const mid = helper.dragMidpoint();
-    const foldHinge = helper.nearestFaceSegment(f0, mid.x, mid.y);
-    helper.hinge = foldHinge;
-    const ref = helper.mobileFaceRef(f0, foldHinge);
-    helper.label = helper.faceRotationLabel(
-      foldHinge, ref.refX, ref.refY, helper.currentX, helper.currentY,
-    );
-    helper.fromFace();
-    assertEquals(cmds.some((c) => c.startsWith("t 1000 r")), true);
-
-    // Selected faces only: flap must not reach beyond f0 ∪ f1
-    model.splitBy2d(model.points[1], model.points[3]);
-    f0.select = f1.select = true;
-    model.faces[2].select = model.faces[3].select = false;
-    const border = model.segmentsOfFace(f0).find((s) => model.isBorderSegment(s))!;
-    cmds.length = 0;
-    helper.currentCanvas = "2d";
-    helper.firstX = 50;
-    helper.firstY = -150;
-    helper.currentX = 50;
-    helper.currentY = -50;
-    helper.downFace = f0;
-    helper.upFace = f0;
-    helper.hinge = border;
-    const ref2 = helper.mobileFaceRef(f0, border);
-    helper.label = helper.faceRotationLabel(
-      border, ref2.refX, ref2.refY, helper.currentX, helper.currentY,
-    );
-    helper.fromFace();
-    const rotateCmd = cmds.find((c) => c.startsWith("t 1000 r"))!;
-    assertEquals(rotateCmd.includes("p2"), false);
-    assertEquals(rotateCmd.includes("p3"), false);
+    assertEquals(cmds[0], "// From f0 to f1");
 
     command.command = original;
   });
@@ -328,74 +260,4 @@ Deno.test("Helper Tests", async (t) => {
       assertEquals(result.faces.length, 1);
     },
   );
-
-  await t.step("pickFaces3d() depth sort and adjacent filter", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    model.splitBy2d(model.points[0], model.points[2]);
-    model.splitBy2d(model.points[1], model.points[3]);
-    const f0 = model.faces[0];
-    const adjacent = model.faces.filter(
-      (f) => f !== f0 && model.sharedSegments(f0, f).length > 0,
-    );
-    const distant = model.faces.filter(
-      (f) => f !== f0 && model.sharedSegments(f0, f).length === 0,
-    );
-    assertEquals(adjacent.length > 0, true);
-    assertEquals(distant.length > 0, true);
-
-    const mockView3d = new MockView3d(model);
-    for (const p of model.points) {
-      p.xCanvas = 100;
-      p.yCanvas = 100;
-    }
-    for (const p of adjacent[0].points) (p as { zEye: number }).zEye = -10;
-    for (const p of distant[0].points) (p as { zEye: number }).zEye = -50;
-
-    const helper = new Helper(model, command, null, mockView3d, null);
-    const all = helper.pickFaces3d(100, 100);
-    assertEquals(all[0], distant[0]);
-
-    const filtered = helper.pickFaces3d(100, 100, f0);
-    assertEquals(filtered.length, adjacent.length);
-    assertEquals(filtered.includes(distant[0]), false);
-    assertEquals(filtered[0], adjacent[0]);
-  });
-
-  await t.step("pickTargetFace prefers destination over other selected face", () => {
-    const model = new Model().init(200, 200);
-    model.splitBy2d(model.points[0], model.points[2]);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    const f0 = model.faces[0];
-    const f1 = model.faces[1];
-    f0.select = f1.select = true;
-    helper.currentCanvas = "2d";
-    // Cursor near f1 centroid but f2 (unselected) is the drag destination
-    const f1c = helper.facePickPoint(f1);
-    const towardF1 = helper.pickTargetFace([f1], f0, f1c.x, f1c.y);
-    assertEquals(towardF1, f1);
-    // With both adjacent faces, unselected wins even near selected centroid
-    model.splitBy2d(model.points[1], model.points[3]);
-    const f2 = model.faces[2];
-    f2.select = false;
-    const picked = helper.pickTargetFace([f1, f2], f0, f1c.x, f1c.y);
-    assertEquals(picked, f2);
-    const sharedDest = model.sharedSegments(f0, f2)[0];
-    assertEquals(sharedDest !== model.sharedSegments(f0, f1)[0], true);
-  });
-
-  await t.step("splitSegments does not mutate point z", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    helper.currentCanvas = '2d';
-    helper.firstX = -200;
-    helper.firstY = 0;
-    helper.currentX = 200;
-    helper.currentY = 0;
-    assertEquals(model.points.every((p) => p.z === 0), true);
-    helper.splitSegments();
-    assertEquals(model.points.every((p) => p.z === 0), true, 'flat paper stays z=0');
-  });
 });

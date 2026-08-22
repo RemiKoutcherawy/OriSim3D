@@ -42,7 +42,7 @@ Work in progress, any help is welcome.
 - click drag from a point to a point adds a crease, or if the crease exists, adds a perpendicular crease
 - click drag from a segment to a segment adds a bisector
 - click drag a point rotates around a selected segment
-- undo via ⌘/Ctrl+Z (no swipe gestures yet)
+- undo via ⌘/Ctrl+Z
 
 ### Console de commandes (menu Édition → Console)
 

@@ -33,7 +33,7 @@ export class ReadWrite {
 
     // Load a command script or a FOLD JSON into an existing Command
     static loadText(command, text) {
-        const trimmed = String(text ?? '').replaceAll('\uFEFF', '').trim();
+        const trimmed = String(text ?? '').replace(/^\uFEFF/, '').trim();
         if (!trimmed) return 'empty';
         if (trimmed.startsWith('{')) {
             try {
