@@ -192,7 +192,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.downFace = model.faces[0];
     helper.upFace = f1;
     helper.fromFace();
-    assertEquals(cmds[0], "// From f0 to f1");
+    assertEquals(cmds[0].startsWith('// Pli f0→f1:'), true);
 
     command.command = original;
   });

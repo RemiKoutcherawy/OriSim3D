@@ -1,5 +1,6 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
+import {Model} from './Model.js';
 
 export class Helper {
     constructor(model, command, canvas2d, view3d, overlay) {
@@ -196,11 +197,26 @@ export class Helper {
         }
     }
 
+    // Drag face f1 → face f2: fold along shared edge (see spec in project docs).
+    // 1. sharedSegments(f1,f2) — hinge; 0 = impossible, >1 = ambiguous
+    // 2. isBorderSegment(s) on both endpoints — feasibility on sheet border
+    // 3. dihedralAngle(f1,f2) → rotate f2 points around s by signed (180 - θ)
     fromFaceToFace(f1, f2) {
-        this.command.command(`// From ${this.id(f1)} to ${this.id(f2)}`);
-        this.model.faces.filter(f => f.select).forEach(f => {
-            this.command.command(`// Selected ${this.id(f)}`);
-        });
+        const shared = this.model.sharedSegments(f1, f2);
+        if (shared.length === 0) {
+            this.command.command(`// Pli impossible: pas d'arête commune entre ${this.id(f1)} et ${this.id(f2)}`);
+            return;
+        }
+        if (shared.length > 1) {
+            this.command.command(`// Pli ambigu: ${shared.length} arêtes communes entre ${this.id(f1)} et ${this.id(f2)}`);
+            return;
+        }
+        const s = shared[0];
+        const onBorder = this.model.isBorderPoint(s.p1) && this.model.isBorderPoint(s.p2);
+        const angle = Model.dihedralAngle(f1, f2);
+        this.command.command(
+            `// Pli ${this.id(f1)}→${this.id(f2)}: ${this.id(s)} dièdre ${angle}° bord ${onBorder ? 'ok' : 'non'}`
+        );
     }
 
     splitSegments() {

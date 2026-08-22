@@ -767,6 +767,25 @@ export class Model {
     }
 
     /**
+     * Segments shared by two faces (candidate hinge for face-to-face fold).
+     */
+    sharedSegments(f1, f2) {
+        return this.segments.filter((s) =>
+            Model.#faceContainsSegment(f1, s) && Model.#faceContainsSegment(f2, s)
+        );
+    }
+
+    /** Sheet border segment (incident to exactly one face). */
+    isBorderSegment(s) {
+        return Model.incidentFaces(this, s).length === 1;
+    }
+
+    /** Point lying on at least one sheet-border segment. */
+    isBorderPoint(p) {
+        return this.searchSegmentsOnePoint(p).some((s) => this.isBorderSegment(s));
+    }
+
+    /**
      * Return up to two faces incident to the given segment
      */
     static incidentFaces(model, segment) {
