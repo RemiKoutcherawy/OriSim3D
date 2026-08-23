@@ -1,5 +1,7 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
+import {Vector3} from './Vector3.js';
+import * as mat4 from './lib/mat4.js';
 
 export class Helper {
     constructor(model, command, canvas2d, view3d, overlay) {
@@ -15,6 +17,8 @@ export class Helper {
         // Point, segment, or face selected on down
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
+        // Drag of an already-selected point in 3D → move command
+        this.moving = false;
 
         // Current canvas: 2d or 3d
         this.currentCanvas = undefined;
@@ -61,6 +65,7 @@ export class Helper {
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
         this.currentCanvas = this.label = undefined;
+        this.moving = false;
     }
 
     // Draw only if a point, segment, or face is selected
@@ -71,7 +76,7 @@ export class Helper {
         const context = (this.currentCanvas === '2d' ? this.canvas2d : this.overlay).getContext('2d');
         context.lineWidth = 4;
         context.lineCap = 'round';
-        context.strokeStyle = 'green';
+        context.strokeStyle = this.moving ? 'orange' : 'green';
         context.beginPath();
         context.moveTo(this.firstX, this.firstY);
         context.lineTo(this.currentX, this.currentY);
@@ -98,6 +103,8 @@ export class Helper {
         this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;
         this.firstX = this.currentX = x;
         this.firstY = this.currentY = y;
+        // 3D move only starts from a point that is already selected
+        this.moving = this.currentCanvas === '3d' && !!(this.downPoint && this.downPoint.select);
     }
 
     // Signed rotation angle (degrees) from ref point to cursor, around segment.
@@ -129,9 +136,9 @@ export class Helper {
         this.model.hover2d3d(points, segments, faces);
         if (this.downPoint) {
             this.downPoint.hover = true;
-            // From Point with selected segment(s)
+            // Rotation preview only when not dragging a selected point to move it
             const s = this.model.segments.find(s => s.select);
-            if (s) {
+            if (s && !this.moving) {
                 // Deselect other segments
                 this.model.segments.filter(sg => sg.select && sg !== s).forEach(sg => sg.select = false);
                 // The point we move from
@@ -165,6 +172,10 @@ export class Helper {
     }
 
     fromPoint() {
+        if (this.moving) {
+            this.moveSelectedPoint();
+            return;
+        }
         if (this.upPoint) {
             if (this.downPoint === this.upPoint) {
                 this.downPoint.select = !this.downPoint.select;
@@ -177,6 +188,43 @@ export class Helper {
         } else if (this.upSegment) {
             this.sendCmd('p', this.upSegment, this.downPoint);
         }
+    }
+
+    // Click on a selected point: deselect. Drag: move in 3D then adjust and check.
+    moveSelectedPoint() {
+        const dist = Math.hypot(this.currentX - this.firstX, this.currentY - this.firstY);
+        if (dist < 4) {
+            this.downPoint.select = !this.downPoint.select;
+            return;
+        }
+        const {dx, dy, dz} = this.dragToWorld();
+        if (dx === 0 && dy === 0 && dz === 0) return;
+        this.command.command(`move ${dx} ${dy} ${dz} ${this.id(this.downPoint)} adjust check`);
+    }
+
+    dragToWorld() {
+        const round = (n) => Math.round(n * 10) / 10;
+        const delta = this.currentCanvas === '3d'
+            ? this.canvasDragToWorld3d(this.firstX, this.firstY, this.currentX, this.currentY, this.downPoint)
+            : {dx: this.currentX - this.firstX, dy: -(this.currentY - this.firstY), dz: 0};
+        return {dx: round(delta.dx), dy: round(delta.dy), dz: round(delta.dz)};
+    }
+
+    // Unproject overlay drag at the point's projected depth (screen-parallel plane).
+    canvasDragToWorld3d(x0, y0, x1, y1, point) {
+        const fallback = {dx: x1 - x0, dy: -(y1 - y0), dz: 0};
+        const m = this.view3d?.canvasView;
+        if (!m || !point) return fallback;
+        const inv = mat4.invert(mat4.create(), m);
+        if (!inv) return fallback;
+        const z = Vector3.transformMat4(point, m).z;
+        const world0 = Vector3.transformMat4({x: x0, y: y0, z}, inv);
+        const world1 = Vector3.transformMat4({x: x1, y: y1, z}, inv);
+        return {
+            dx: world1.x - world0.x,
+            dy: world1.y - world0.y,
+            dz: world1.z - world0.z,
+        };
     }
 
     fromSegment() {

@@ -162,4 +162,17 @@ Deno.test("Vector3", async (t) => {
         assertEquals(res.y, 2);
         assertEquals(res.z, 3);
     });
+
+    await t.step("mat4.invert identity and translation", () => {
+        const ident = mat4.invert(mat4.create(), mat4.create());
+        assertEquals(ident !== null, true);
+        assertEquals([...ident!], [...mat4.create()]);
+
+        const t = mat4.fromTranslation(mat4.create(), [10, 20, 30]);
+        const inv = mat4.invert(mat4.create(), t);
+        const back = mat4.multiply(mat4.create(), t, inv!);
+        for (let i = 0; i < 16; i++) {
+            assertEquals(Math.abs(back[i] - mat4.create()[i]) < 1e-6, true);
+        }
+    });
 });

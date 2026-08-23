@@ -1,6 +1,7 @@
 import { Model } from "../js/Model.js";
 import { Command } from "../js/Command.js";
 import { Helper } from "../js/Helper.js";
+import * as mat4 from "../js/lib/mat4.js";
 
 import { assertEquals } from "@std/assert";
 
@@ -260,4 +261,130 @@ Deno.test("Helper Tests", async (t) => {
       assertEquals(result.faces.length, 1);
     },
   );
+
+  await t.step("down on selected 3d point enters move mode", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+    const p0 = model.points[0];
+
+    helper.currentCanvas = "3d";
+    p0.select = false;
+    helper.down([p0], [], [], 10, 20);
+    assertEquals(helper.moving, false);
+
+    p0.select = true;
+    helper.down([p0], [], [], 10, 20);
+    assertEquals(helper.moving, true);
+    assertEquals(helper.downPoint, p0);
+
+    helper.currentCanvas = "2d";
+    helper.down([p0], [], [], 10, 20);
+    assertEquals(helper.moving, false);
+  });
+
+  await t.step("fromPoint move sends move adjust check", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+    const cmds: string[] = [];
+    const original = command.command.bind(command);
+    command.command = (cde) => {
+      cmds.push(cde);
+      return original(cde);
+    };
+
+    const p0 = model.points[0];
+    p0.select = true;
+    helper.currentCanvas = "3d";
+    helper.moving = true;
+    helper.downPoint = p0;
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 10;
+    helper.currentY = -20;
+    helper.fromPoint();
+    assertEquals(cmds[0], "move 10 20 0 p0 adjust check");
+
+    // Move wins over crease even if the pointer is over another point
+    cmds.length = 0;
+    helper.moving = true;
+    helper.downPoint = p0;
+    helper.upPoint = model.points[1];
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 10;
+    helper.currentY = 0;
+    helper.fromPoint();
+    assertEquals(cmds[0], "move 10 0 0 p0 adjust check");
+
+    command.command = original;
+  });
+
+  await t.step("fromPoint move click without drag toggles select", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null, null);
+    const cmds: string[] = [];
+    command.command = (cde) => {
+      cmds.push(cde);
+      return command;
+    };
+
+    const p0 = model.points[0];
+    p0.select = true;
+    helper.moving = true;
+    helper.downPoint = p0;
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 1;
+    helper.currentY = 1;
+    helper.fromPoint();
+    assertEquals(p0.select, false);
+    assertEquals(cmds.length, 0);
+  });
+
+  await t.step("canvasDragToWorld3d unprojects at constant depth", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, { canvasView: mat4.create() }, null);
+    const p = model.points[0];
+    p.x = 10;
+    p.y = 20;
+    p.z = 30;
+    const delta = helper.canvasDragToWorld3d(10, 20, 15, 25, p);
+    assertEquals(Math.round(delta.dx), 5);
+    assertEquals(Math.round(delta.dy), 5);
+    assertEquals(Math.round(delta.dz), 0);
+  });
+
+  await t.step("draw() uses orange while moving a selected point", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    let strokeStyle = "";
+    const overlay = {
+      getContext: () => ({
+        beginPath() {},
+        moveTo() {},
+        lineTo() {},
+        stroke() {
+          strokeStyle = this.strokeStyle;
+        },
+        fill() {},
+        arc() {},
+        fillText() {},
+      }),
+    };
+    const helper = new Helper(model, command, null, null, null);
+    helper.overlay = overlay;
+    helper.currentCanvas = "3d";
+    helper.downPoint = model.points[0];
+    helper.moving = true;
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 10;
+    helper.currentY = 10;
+    helper.draw();
+    assertEquals(strokeStyle, "orange");
+  });
 });
