@@ -77,6 +77,12 @@ export class View3d {
     wTexBack = 1;
     hTexBack = 1;
 
+    // WebGL Textures
+    texPlaceholderFront = null;
+    texImageFront = null;
+    texPlaceholderBack = null;
+    texImageBack = null;
+
     // Arrays
     vtx = []; // vertex coords
     ftx = []; // front texture coords
@@ -154,68 +160,128 @@ export class View3d {
     // Textures
     initTextures() {
         const gl = this.gl;
-        // Create a texture object Front
-        const textureFront = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, textureFront);
-        // Placeholder One-Pixel Color Blue 70ACF3
+
+        // Front placeholder (Blue 70ACF3)
+        this.texPlaceholderFront = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texPlaceholderFront);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
+
+        // Front image texture (defaults to blue placeholder until loaded)
+        this.texImageFront = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texImageFront);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
+        this.wTexFront = 1;
+        this.hTexFront = 1;
+
+        // Back placeholder (Yellow FFFF00A8)
+        this.texPlaceholderBack = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texPlaceholderBack);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFF, 0xFF, 0x00, 0xA8]));
+
+        // Back image texture (defaults to yellow placeholder until loaded)
+        this.texImageBack = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texImageBack);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFF, 0xFF, 0x00, 0xA8]));
+        this.wTexBack = 1;
+        this.hTexBack = 1;
+
         const uSamplerFront = gl.getUniformLocation(gl.program, 'uSamplerFront');
         gl.uniform1i(uSamplerFront, 0);
-        const imageFront = new Image();
-        const imageElement = globalThis.document.getElementById('front');
-        if (imageElement?.src) {
-            imageFront.onload = () => {
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, textureFront);
-                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageFront);
-                this.wTexFront = imageFront.width;
-                this.hTexFront = imageFront.height;
-            };
-            imageFront.src = imageElement.src;
-        } else {
-            this.wTexFront = 1;
-            this.hTexFront = 1;
-        }
-
-        // Create a texture object Back
-        const textureBack = gl.createTexture();
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, textureBack);
-        // Placeholder one-pixel Color Yellow #FFFF00FF ou FFFF00A8 Pink #FBD3DE
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFF, 0xFF, 0x00, 0xA8]));
         const uSamplerBack = gl.getUniformLocation(gl.program, 'uSamplerBack');
         gl.uniform1i(uSamplerBack, 1);
-        const imageBack = new Image();
-        const imageBackElement = globalThis.document.getElementById('back');
-        if (imageBackElement?.src) {
-            imageBack.onload = () => {
-                gl.activeTexture(gl.TEXTURE1);
-                // Flip the image Y coordinate
-                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-                gl.bindTexture(gl.TEXTURE_2D, textureBack);
-                // One of the dimensions is not a power of 2, so set the filtering to render it.
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageBack);
-                // Textures dimensions
-                this.wTexBack = imageBack.width;
-                this.hTexBack = imageBack.height;
-            }
-            imageBack.src = imageBackElement.src;
-        } else {
-                this.wTexBack = 1;
-                this.hTexBack = 1;
-        }
+
+        this.loadTextureImage('front', 'textures/front.jpg', this.texImageFront, (w, h) => {
+            this.wTexFront = w;
+            this.hTexFront = h;
+        });
+        this.loadTextureImage('back', 'textures/back.jpg', this.texImageBack, (w, h) => {
+            this.wTexBack = w;
+            this.hTexBack = h;
+        });
+
         // Recompute texture coords
         this.initBuffers();
         // First Render
         this.render();
+    }
+
+    // Load from #id img in index.html, else fetch(defaultUrl)
+    async loadTextureImage(id, defaultUrl, glTexture, setSize) {
+        const image = await this.resolveTextureImage(id, defaultUrl);
+        if (!image) return;
+        this.uploadImageTexture(glTexture, image);
+        const w = image.width ?? image.naturalWidth ?? 1;
+        const h = image.height ?? image.naturalHeight ?? 1;
+        setSize(w, h);
+        this.initBuffers();
+        this.render();
+    }
+
+    async resolveTextureImage(id, defaultUrl) {
+        const el = globalThis.document?.getElementById(id);
+        if (el?.src) {
+            const fromElement = await this.tryImageElement(el);
+            if (fromElement) return fromElement;
+            const fromElementUrl = await this.fetchImage(el.src);
+            if (fromElementUrl) return fromElementUrl;
+        }
+        return await this.fetchImage(defaultUrl);
+    }
+
+    tryImageElement(el) {
+        return new Promise((resolve) => {
+            if (!el.src) {
+                resolve(null);
+                return;
+            }
+            const finish = (ok) => {
+                el.onload = null;
+                el.onerror = null;
+                resolve(ok && el.naturalWidth > 0 ? el : null);
+            };
+            if (el.complete) {
+                finish(el.naturalWidth > 0);
+                return;
+            }
+            el.onload = () => finish(true);
+            el.onerror = () => finish(false);
+        });
+    }
+
+    async fetchImage(url) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            const blob = await res.blob();
+            if (!blob.type.startsWith('image/')) return null;
+            if (globalThis.createImageBitmap) {
+                return await createImageBitmap(blob);
+            }
+            return await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    URL.revokeObjectURL(img.src);
+                    resolve(img);
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(img.src);
+                    resolve(null);
+                };
+                img.src = URL.createObjectURL(blob);
+            });
+        } catch {
+            return null;
+        }
+    }
+
+    uploadImageTexture(glTexture, image) {
+        const gl = this.gl;
+        gl.bindTexture(gl.TEXTURE_2D, glTexture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
     }
 
     // Perspective and background
@@ -390,26 +456,38 @@ export class View3d {
         const uModelViewMatrix = this.gl.getUniformLocation(this.gl.program, 'uModelViewMatrix');
         this.gl.uniformMatrix4fv(uModelViewMatrix, false, this.modelView);
 
-        // Overlay
-        if (this.model.overlay) {
-            this.overlay.width = this.overlay.clientWidth;
-            this.overlay.height = this.overlay.clientHeight;
-            const scale = mat4.scale(mat4.create(), mat4.create(), [this.overlay.width / 2, -this.overlay.height / 2, 1]);
-            const translation = mat4.fromTranslation(mat4.create(), [1, -1, 0]);
-            const overlay = mat4.multiply(mat4.create(), scale, translation);
+        this.updateCanvasCoords();
+    }
 
-            // canvasView = overlay * projection * modelView
-            // gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-            const projection = mat4.multiply(mat4.create(), this.projection, this.modelView);
-            this.canvasView = mat4.multiply(mat4.create(), overlay, projection);
-
-            // Set xCanvas, yCanvas to model points
-            for (const p of this.model.points) {
-                const v = Vector3.transformMat4(p, this.canvasView);
-                p.xCanvas = v.x;
-                p.yCanvas = v.y;
-            }
+    // Project model points into overlay/canvas pixel space (xCanvas, yCanvas)
+    updateCanvasCoords() {
+        const el = this.overlay ?? this.canvas3d;
+        if (!el) return;
+        const width = el.clientWidth || el.width || 1;
+        const height = el.clientHeight || el.height || 1;
+        if (this.overlay) {
+            this.overlay.width = width;
+            this.overlay.height = height;
         }
+        const scale = mat4.scale(mat4.create(), mat4.create(), [width / 2, -height / 2, 1]);
+        const translation = mat4.fromTranslation(mat4.create(), [1, -1, 0]);
+        const overlayMat = mat4.multiply(mat4.create(), scale, translation);
+        const projection = mat4.multiply(mat4.create(), this.projection, this.modelView);
+        this.canvasView = mat4.multiply(mat4.create(), overlayMat, projection);
+        for (const p of this.model.points) {
+            const eye = Vector3.transformMat4(p, this.modelView);
+            p.zEye = eye.z;
+            const v = Vector3.transformMat4(p, this.canvasView);
+            p.xCanvas = v.x;
+            p.yCanvas = v.y;
+        }
+    }
+
+    // Mean eye-space z of face vertices; lower = closer to camera.
+    faceDepth(face) {
+        let z = 0;
+        for (const p of face.points) z += p.zEye ?? p.z;
+        return z / face.points.length;
     }
 
     // Render
@@ -419,6 +497,12 @@ export class View3d {
         // Faces with texture shader
         gl.useProgram(gl.program);
         gl.bindVertexArray(this.vao);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.model.textures ? this.texImageFront : this.texPlaceholderFront);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.model.textures ? this.texImageBack : this.texPlaceholderBack);
 
         // Clear and draw triangles
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -442,8 +526,10 @@ export class View3d {
         const context2d = this.overlay.getContext('2d');
         context2d.clearRect(0, 0, this.overlay.clientWidth, this.overlay.clientHeight)
         if (this.model.overlay) {
-            // this.drawSegments(this.model.segments, 'black', 1); // done by webgl
-            this.drawSegments(this.model.segments); // Hover and select
+            // Black segments are done by webgl, see this.model.lines
+            if (this.model.edges) {
+                this.drawSegments(this.model.segments); // Hover and select
+            }
             this.drawPoints(this.model.points);
             this.drawFaces(this.model.faces);    // Only for hover and select
             if (this.model.labels) {
@@ -481,24 +567,27 @@ export class View3d {
         }
     }
 
-    // Draw faces
+    // Draw faces: selected faces stay light red (as in View2d); hovering adds
+    // a highlighted border, the face equivalent of the size bump used for
+    // points and segments, so a hovered face still shows whether it is selected.
     drawFaces(faces) {
         const context2d = this.overlay.getContext('2d');
-        for (const f of faces) {
+        const priority = f => f.select ? 2 : f.hover ? 1 : 0;
+        const ordered = [...faces].sort((a, b) => priority(a) - priority(b));
+        for (const f of ordered) {
+            if (!f.select && !f.hover) continue;
+            const pts = f.points;
+            if (!pts || pts.length === 0) continue;
+            context2d.beginPath();
+            context2d.moveTo(pts[0].xCanvas, pts[0].yCanvas);
+            pts.forEach(p => context2d.lineTo(p.xCanvas, p.yCanvas));
+            context2d.closePath();
+            context2d.fillStyle = f.select ? 'rgba(255,0,0,0.35)' : 'rgba(0,102,255,0.3)';
+            context2d.fill();
             if (f.hover) {
-                context2d.fillStyle = 'pink';
-                const pts = f.points;
-                context2d.beginPath();
-                let xCanvas = pts[0].xCanvas;
-                let yCanvas = pts[0].yCanvas;
-                context2d.moveTo(xCanvas, yCanvas);
-                pts.forEach((p) => {
-                    xCanvas = p.xCanvas;
-                    yCanvas = p.yCanvas;
-                    context2d.lineTo(xCanvas, yCanvas);
-                })
-                context2d.closePath();
-                context2d.fill();
+                context2d.lineWidth = 4;
+                context2d.strokeStyle = f.select ? 'red' : 'blue';
+                context2d.stroke();
             }
         }
     }

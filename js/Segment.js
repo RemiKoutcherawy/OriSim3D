@@ -10,39 +10,6 @@ export class Segment {
         this.select = false;
     }
 
-    /**
-     * Return up to two faces incident to the given segment
-     */
-    static incidentFaces(model, segment) {
-        if (!model || !segment) return [];
-        const faces = [];
-        if (!model.faces) return faces;
-        for (const face of model.faces) {
-            if (this.#faceContainsSegment(face, segment)) {
-                if (!faces.includes(face)) {
-                    faces.push(face);
-                }
-                if (faces.length === 2) break;
-            }
-        }
-        return faces;
-    }
-
-    /**
-     * Check if a face contains the given segment (in any order)
-     */
-    static #faceContainsSegment(face, segment) {
-        const pts = face.points || [];
-        for (let i = 0; i < pts.length; i++) {
-            const a = pts[i];
-            const b = pts[(i + 1) % pts.length];
-            if ((a === segment.p1 && b === segment.p2) || (a === segment.p2 && b === segment.p1)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     // 2d distance from Segment to Point
     static distance2d(x1, y1, x2, y2, x, y) {
         // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment

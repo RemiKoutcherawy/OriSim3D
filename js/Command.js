@@ -58,9 +58,9 @@ export class Command {
     // Tokenize, split the input String in Array of String
     tokenize(input) {
         const cleaned = input
-            .replace(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
-            .replace(/^\s*$/gm, '')   // Remove spaces only lines
-            .replace(/\n{2,}/g, '\n') // Remove empty lines
+            .replaceAll(/(:?\/\/|<!--)[^\r\n]*/g, '') // Remove comments
+            .replaceAll(/^\s*$/gm, '')   // Remove spaces only lines
+            .replaceAll(/\n{2,}/g, '\n') // Remove empty lines
             .trim();                  // Remove leading/trailing whitespace
         return cleaned.match(/\S+|\n/g) || [];
     }
@@ -262,6 +262,7 @@ function take(cmd, prefix, n, label, apply) {
     const list = cmd.tokens(prefix);
     if (list.length !== n) {
         console.log(label, list.length, cmd.tokenTodo.slice(cmd.iToken, cmd.iToken + n + 1).join(' '));
+        return;
     }
     apply(...list);
 }
@@ -371,21 +372,28 @@ on('read', (cmd) => {
     });
 });
 on('write', (cmd) => {
-    const filename = cmd.next();
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeFile(filename, cmd.instructions.join('\n')).then(() => console.log('complete'));
 });
-on('writesvg svg', (cmd) => {
+on('writeSvg svg', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeSVG(cmd.model, filename);
 });
+on('writeFold fold', (cmd) => {
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+    ReadWrite.writeFold(cmd.model, filename);
+});
 
 // Toggles
-on('labels', (cmd) => { cmd.model['labels'] = !cmd.model['labels'] });
-on('textures', (cmd) => { cmd.model['textures'] = !cmd.model['textures'] });
-on('overlay', (cmd) => { cmd.model['overlay'] = !cmd.model['overlay'] });
-on('lines', (cmd) => { cmd.model['lines'] = !cmd.model['lines'] });
-on('snap', (cmd) => { cmd.model['snap'] = !cmd.model['snap'] });
+on('labels', (cmd) => { cmd.model.labels = !cmd.model.labels; });
+on('textures', (cmd) => { cmd.model.textures = !cmd.model.textures; });
+on('overlay', (cmd) => { cmd.model.overlay = !cmd.model.overlay; });
+on('edges', (cmd) => { cmd.model.edges = !cmd.model.edges; });
+on('lines', (cmd) => { cmd.model.lines = !cmd.model.lines; });
+on('snap', (cmd) => { cmd.model.snap = !cmd.model.snap; });
 
 // Interpolator
 on('il', (cmd) => { cmd.interpolator = Interpolator.LinearInterpolator });

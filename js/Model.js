@@ -40,6 +40,7 @@ export class Model {
         this.labels = false;
         this.textures = false;
         this.overlay = false; // show points segments and face
+        this.edges = false;   // draw segments on overlay (hover and select)
         this.lines = false;   // render lines on 3d
         this.snap = false;     // snap nearest points
     }
@@ -62,9 +63,10 @@ export class Model {
         // State run
         this.state = State.run;
         // Options
-        this.labels = true;
+        this.labels = false;
         this.textures = false;
         this.overlay = true; // show points segments and face
+        this.edges = true;   // draw segments on overlay (hover and select)
         this.lines = true;   // render lines on 3d
         this.snap = true;    // snap nearest points
         return this;
@@ -422,8 +424,10 @@ export class Model {
 
     // Split faces by a plane between two segments [ap] [pc].
     bisector3dPoints(a, p, c) {
+        const denom = Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
+        if (denom === 0) return;
         // Project [a] on [p c] to get a symmetric point
-        const k = Math.hypot(p.x - a.x, p.y - a.y, p.z - a.z) / Math.hypot(p.x - c.x, p.y - c.y, p.z - c.z);
+        const k = Math.hypot(p.x - a.x, p.y - a.y, p.z - a.z) / denom;
         // e is on pc symmetric of a
         const e = new Vector3(p.x + k * (c.x - p.x), p.y + k * (c.y - p.y), p.z + k * (c.z - p.z));
         // Define Plane across a and e
@@ -444,10 +448,13 @@ export class Model {
 
     // Rotate around axis Segment, by angle, the list of Points
     rotate(s, angle, list = this.points) {
+        if (!s) return;
         const angleRd = angle * Math.PI / 180;
         const ax = s.p1.x, ay = s.p1.y, az = s.p1.z;
         let nx = s.p2.x - ax, ny = s.p2.y - ay, nz = s.p2.z - az;
-        const n = 1 / Math.hypot(nx, ny, nz);
+        const len = Math.hypot(nx, ny, nz);
+        if (len === 0) return;
+        const n = 1 / len;
         nx *= n;
         ny *= n;
         nz *= n;
@@ -531,7 +538,7 @@ export class Model {
     searchFacesWithAB(a, b) {
         const seg = this.getSegment(a, b);
         if (seg) {
-            const list = Segment.incidentFaces(this, seg);
+            const list = Model.incidentFaces(this, seg);
             if (list.length > 0) return list;
         }
         // Fallback: faces that contain both vertices
@@ -680,8 +687,8 @@ export class Model {
 
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
-        // Non-serialized / UI-only fields
-        const exclude = new Set(['hidden']);
+        // Non-serialized / UI-only fields (keep undo snapshots lean)
+        const exclude = new Set(['hidden', 'hover', 'select', 'xCanvas', 'yCanvas']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {
@@ -718,30 +725,67 @@ export class Model {
         return new Model().deserialize(json);
     }
 
-    // Define a reviver to convert points objects into Points instances, and indexes into instance
-    reviver(key, value) {
-        if (key === 'points' && Array.isArray(value) && value.every((p) => p !== null && typeof p === 'object')) {
-            return value.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
-        }
-        if (key === 'segments') {
-            const pts = this?.points || [];
-            return value.map((segment) => new Segment(pts[segment.p1], pts[segment.p2]));
-        }
-        if (key === 'faces') {
-            const pts = this?.points || [];
-            return value.map((face) => {
-                const newFace = new Face(face.points.map((index) => pts[index]));
-                newFace.offset = face.offset;
-                return newFace;
-            });
-        }
-        return value;
-    }
-
     // Get a segment from two points
     getSegment(p1, p2) {
         return this.segments.find((s) =>
             (s.p1 === p1 && s.p2 === p2) || (s.p1 === p2 && s.p2 === p1)
         );
+    }
+
+    // Compute 3D unit normal vector [nx, ny, nz]
+    static normal(face) {
+        const pts = face?.points || face || [];
+        if (pts.length < 3) return [0, 0, 1];
+        let nx = 0, ny = 0, nz = 0;
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i], b = pts[(i + 1) % pts.length];
+            nx += (a.y - b.y) * (a.z + b.z);
+            ny += (a.z - b.z) * (a.x + b.x);
+            nz += (a.x - b.x) * (a.y + b.y);
+        }
+        const len = Math.hypot(nx, ny, nz);
+        if (len < 1e-6) return [0, 0, 1];
+        return [nx / len, ny / len, nz / len];
+    }
+
+    // Compute dihedral angle in degrees between two faces
+    static dihedralAngle(face1, face2) {
+        const n1 = Model.normal(face1);
+        const n2 = Model.normal(face2);
+        const dot = Math.max(-1, Math.min(1, n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2]));
+        return Math.round(Math.acos(dot) * 180 / Math.PI);
+    }
+
+    /**
+     * Return up to two faces incident to the given segment
+     */
+    static incidentFaces(model, segment) {
+        if (!model || !segment) return [];
+        const faces = [];
+        if (!model.faces) return faces;
+        for (const face of model.faces) {
+            if (Model.#faceContainsSegment(face, segment)) {
+                if (!faces.includes(face)) {
+                    faces.push(face);
+                }
+                if (faces.length === 2) break;
+            }
+        }
+        return faces;
+    }
+
+    /**
+     * Check if a face contains the given segment (in any order)
+     */
+    static #faceContainsSegment(face, segment) {
+        const pts = face.points || [];
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i];
+            const b = pts[(i + 1) % pts.length];
+            if ((a === segment.p1 && b === segment.p2) || (a === segment.p2 && b === segment.p1)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

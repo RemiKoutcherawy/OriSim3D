@@ -17,21 +17,24 @@ export class Helper {
         this.upPoint = this.upSegment = this.upFace = undefined;
 
         // Current canvas: 2d or 3d
-        this.currentCanvas = undefined
+        this.currentCanvas = undefined;
         // To test with Deno overlay is null
         if (overlay) {
             // 3d
-            overlay.addEventListener('mousedown', (event) => this.down3d(event));
-            overlay.addEventListener('mousemove', (event) => this.move3d(event));
-            overlay.addEventListener('mouseup', (event) => this.up3d(event));
+            overlay.addEventListener('pointerdown', (event) => this.down3d(event));
+            overlay.addEventListener('pointermove', (event) => this.move3d(event));
+            overlay.addEventListener('pointerup', (event) => this.up3d(event));
+            overlay.addEventListener('pointercancel', (event) => this.out(event));
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
-            overlay.addEventListener('mouseout', (event) => this.out(event));
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
-            // 2d
-            canvas2d.addEventListener('mousedown', (event) => this.down2d(event));
+            // 2d — pointer* covers mouse and touch
+            canvas2d.addEventListener('pointerdown', (event) => {
+                try { canvas2d.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+                this.down2d(event);
+            });
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
-            canvas2d.addEventListener('mouseup', (event) => this.up2d(event));
-            canvas2d.addEventListener('mouseout', (event) => this.out(event));
+            canvas2d.addEventListener('pointerup', (event) => this.up2d(event));
+            canvas2d.addEventListener('pointercancel', (event) => this.out(event));
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
         }
@@ -55,7 +58,6 @@ export class Helper {
 
     // init properties
     out() {
-        this.firstX = this.firstY = this.currentX = this.currentY = undefined;
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
         this.currentCanvas = this.label = undefined;
@@ -98,6 +100,31 @@ export class Helper {
         this.firstY = this.currentY = y;
     }
 
+    // Signed rotation angle (degrees) from ref point to cursor, around segment.
+    rotationLabel(s, refX, refY, x, y) {
+        let distToFirst, distToCurrent;
+        if (this.currentCanvas === '2d') {
+            // Signed distance from the reference point to segment.
+            distToFirst = (refX - s.p1.xf) * (s.p2.yf - s.p1.yf) - (refY - s.p1.yf) * (s.p2.xf - s.p1.xf);
+            // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
+            distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
+        } else {
+            const p1Proj = [s.p1.xCanvas, s.p1.yCanvas], p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
+            distToFirst = (refX - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (refY - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
+            distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
+        }
+        if (Math.abs(distToFirst) < 1e-6) return 0;
+        // Clamp ratio = distToCurrent/distToFirst
+        let ratio = Math.abs(distToCurrent / distToFirst);
+        ratio = Math.round(ratio * 100) / 100;
+        // Angle in degrees
+        let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
+        // Round to step 10
+        angle = Math.round(angle / 10) * 10;
+        // Clamp near-zero angle to 0
+        return Math.abs(angle) < 10 ? 0 : angle;
+    }
+
     move(points, segments, faces, x, y) {
         this.model.hover2d3d(points, segments, faces);
         if (this.downPoint) {
@@ -110,27 +137,9 @@ export class Helper {
                 // The point we move from
                 const p = this.downPoint;
                 p.select = true;
-                let distToFirst, distToCurrent;
-                if (this.currentCanvas === '2d') {
-                    // Signed distance from the first point to segment.
-                    distToFirst = (p.xf - s.p1.xf) * (s.p2.yf - s.p1.yf) - (p.yf - s.p1.yf) * (s.p2.xf - s.p1.xf);
-                    // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
-                    distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
-                } else {
-                    // Get projected coordinates for points
-                    const pProj = [p.xCanvas, p.yCanvas], p1Proj = [s.p1.xCanvas, s.p1.yCanvas], p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
-                    distToFirst = (pProj[0] - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (pProj[1] - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-                    distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-                }
-                // Clamp ratio = distToCurrent/distToFirst
-                let ratio = Math.abs(distToCurrent / distToFirst);
-                ratio = Math.round(ratio * 100) / 100;
-                // Angle in degrees
-                let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
-                // Round to step 10
-                angle = Math.round(angle / 10) * 10;
-                // Clamp near-zero angle to 0
-                this.label = Math.abs(angle) < 10 ? 0 : angle;
+                const refX = this.currentCanvas === '2d' ? p.xf : p.xCanvas;
+                const refY = this.currentCanvas === '2d' ? p.yf : p.yCanvas;
+                this.label = this.rotationLabel(s, refX, refY, x, y);
             }
         } else if (this.downSegment) {
             this.downSegment.hover = true;
@@ -201,6 +210,27 @@ export class Helper {
         });
     }
 
+    faceCentroid(face) {
+        let xf = 0, yf = 0;
+        for (const p of face.points) {
+            xf += p.xf;
+            yf += p.yf;
+        }
+        return {xf: xf / face.points.length, yf: yf / face.points.length};
+    }
+
+    faceCentroidCanvas(face) {
+        let xCanvas = 0, yCanvas = 0;
+        for (const p of face.points) {
+            xCanvas += p.xCanvas;
+            yCanvas += p.yCanvas;
+        }
+        return {
+            xCanvas: xCanvas / face.points.length,
+            yCanvas: yCanvas / face.points.length,
+        };
+    }
+
     splitSegments() {
         this.command.command(`// To another face Split`);
         const is2d = this.currentCanvas === '2d';
@@ -213,9 +243,10 @@ export class Helper {
             const inter = Segment.intersectionFlat(first, current, p1, p2);
             if (inter) {
                 const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
-                s.p1.z ||= 0.1;
-                s.p2.z ||= 0.1;
-                const t = Math.round((is2d ? ratio : (ratio * s.p1.z) / ((1 - ratio) * s.p2.z + ratio * s.p1.z)) * 100) / 100;
+                // Use local temps so flat paper (z===0) is not mutated as a side effect
+                const z1 = s.p1.z || 0.1;
+                const z2 = s.p2.z || 0.1;
+                const t = Math.round((is2d ? ratio : (ratio * z1) / ((1 - ratio) * z2 + ratio * z1)) * 100) / 100;
                 this.command.command(`split s${i} ${t}`);
             }
         });
@@ -290,13 +321,29 @@ export class Helper {
         };
     }
     // Points, then segments, then faces near xCanvas, yCanvas
-    search3d(xCanvas, yCanvas) {
+    pickFaces3d(xCanvas, yCanvas, contextFace = undefined) {
+        let faces = this.model.faces.filter(f =>
+            Face.contains3d(f, xCanvas, yCanvas, this.view3d),
+        );
+        if (contextFace) {
+            faces = faces.filter(f =>
+                f !== contextFace &&
+                this.model.sharedSegments(contextFace, f).length > 0,
+            );
+        }
+        if (this.view3d?.faceDepth) {
+            faces.sort((a, b) => this.view3d.faceDepth(a) - this.view3d.faceDepth(b));
+        }
+        return faces;
+    }
+
+    search3d(xCanvas, yCanvas, contextFace = undefined) {
         // Points near xCanvas, yCanvas
         const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < 10);
         // Segments near xCanvas, yCanvas
         const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
-        // Face containing xCanvas, yCanvas
-        const faces = this.model.faces.filter(f => Face.contains3d(f, xCanvas, yCanvas, this.view3d));
+        // Faces under cursor: depth-sorted; when contextFace set, adjacent faces only
+        const faces = this.pickFaces3d(xCanvas, yCanvas, contextFace);
         return {points, segments, faces};
     }
     // Down on 3d overlay
@@ -311,7 +358,8 @@ export class Helper {
     move3d(event) {
         this.currentCanvas = '3d';
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
-        const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
+        const contextFace = this.downFace || undefined;
+        const {points, segments, faces} = this.search3d(xCanvas, yCanvas, contextFace);
         // Handle 3d rotation
         if (points.length === 0 && segments.length === 0 && faces.length === 0
             && event.buttons === 1
@@ -335,7 +383,8 @@ export class Helper {
     }
     // Up on 3d overlay
     up3d(event) {
-        const {points, segments, faces} = this.search3d(...Object.values(this.eventCanvas3d(event)));
+        const {xCanvas, yCanvas} = this.eventCanvas3d(event);
+        const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.up(points, segments, faces);
         if (points.length === 0 && segments.length === 0 && faces.length === 0) {
             this.doubleClick();

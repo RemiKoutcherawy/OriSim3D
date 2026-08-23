@@ -15,7 +15,12 @@ class MockView3d {
     model.points[0].xCanvas = -200; model.points[0].yCanvas = -200;
     model.points[1].xCanvas = 200; model.points[1].yCanvas = -200;
     model.points[2].xCanvas = 200; model.points[2].yCanvas = 200;
-    model.points[3].xCanvas = -200; model.points[0].yCanvas = 200;
+    model.points[3].xCanvas = -200; model.points[3].yCanvas = 200;
+  }
+  faceDepth(face: { points: { zEye?: number; z?: number }[] }) {
+    let z = 0;
+    for (const p of face.points) z += p.zEye ?? 0;
+    return z / face.points.length;
   }
 }
 
