@@ -172,6 +172,8 @@ Deno.test("ReadWrite", async (t) => {
         assertEquals((svg.match(/<g /g) || []).length, 2, 'one <g> cell per step');
         assertEquals((svg.match(/<polygon/g) || []).length, 2, '1 face per step');
         assertEquals(svg.includes('width="300"'), true, '2 cols * 150 cellSize');
+        assertEquals(svg.includes('fill="#'), true, 'uses front/back hex tinting, like writeSvg');
+        assertEquals(svg.includes('hsl('), false, 'does not fall back to the arbitrary rainbow HSL colors');
     });
 
     await t.step('writeDiagrams writes the instruction sheet to disk', async () => {

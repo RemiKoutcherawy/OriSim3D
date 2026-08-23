@@ -226,6 +226,7 @@ export class ReadWrite {
 
     // Simple orthographic (x,y) -> canvas projection for a model with no live WebGL view,
     // e.g. a headless step snapshot from Command.replaySteps. y is flipped (SVG y grows down).
+    // Looks straight down world z, so it pairs with the identity view3d used for face colors.
     static projectOrtho(model) {
         for (const p of model.points) {
             p.xCanvas = p.x;
@@ -233,15 +234,22 @@ export class ReadWrite {
         }
     }
 
+    // Identity modelView: front/back face tinting (svgFaceFillColor) matches world-space z,
+    // consistent with projectOrtho looking straight down z.
+    static ORTHO_VIEW3D = {
+        modelView: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]),
+    };
+
     // Lay out a sequence of Model snapshots as a grid of 3D-view SVG cells, one cell per step:
-    // reuses buildSVG (the same renderer as writeSVG) so both stay in sync.
+    // reuses buildSVG (the same renderer as writeSVG) so both stay in sync, including the
+    // same front/back blue/yellow face tinting instead of an arbitrary rainbow fallback.
     static diagramsToSVG(models, {cols = 4, cellSize = 220, pad = 12} = {}) {
         const rows = Math.max(1, Math.ceil(models.length / cols));
         const width = cols * cellSize;
         const height = rows * cellSize;
         const cells = models.map((model, i) => {
             ReadWrite.projectOrtho(model);
-            const {width: w, height: h, content} = ReadWrite.buildSVG(model, null);
+            const {width: w, height: h, content} = ReadWrite.buildSVG(model, ReadWrite.ORTHO_VIEW3D);
             const scale = (cellSize - 2 * pad) / Math.max(w, h);
             const col = i % cols, row = Math.floor(i / cols);
             const ox = col * cellSize + (cellSize - w * scale) / 2;
