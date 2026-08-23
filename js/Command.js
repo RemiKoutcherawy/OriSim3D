@@ -20,9 +20,17 @@ export class Command {
     tStart = 0;
     // Eventual CommandArea
     commandArea;
+    // Optional 3D view (for svg export and other view-dependent commands)
+    /** @type {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} */
+    view3d;
 
-    constructor(model) {
+    /**
+     * @param {import('./Model.js').Model} model
+     * @param {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} [view3d]
+     */
+    constructor(model, view3d = null) {
         this.model = model;
+        this.view3d = view3d;
     }
 
     // The main entry point executes a string of commands
@@ -379,7 +387,7 @@ on('write', (cmd) => {
 on('writeSvg svg', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeSVG(cmd.model, filename);
+    ReadWrite.writeSVG(cmd.model, filename, cmd.view3d);
 });
 on('writeFold fold', (cmd) => {
     const token = cmd.peek();
