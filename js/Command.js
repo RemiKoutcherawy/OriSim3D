@@ -211,7 +211,7 @@ export class Command {
             this.pushUndo();
             this.iToken++;
             this.duration = Number.parseFloat(this.next());
-            if (this.instantReplay || !(this.duration > 0)) {
+            if (this.instantReplay || this.duration <= 0) {
                 this.tpi = 0;
                 this.tni = 1;
                 while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {

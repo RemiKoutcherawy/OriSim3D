@@ -93,7 +93,7 @@ export class Helper {
 
     // Logic begins here
     down(points, segments, faces, x, y, event) {
-        this.shiftKey = !!(event && event.shiftKey);
+        this.shiftKey = !!event?.shiftKey;
         this.downPoint = points[0];
         this.downSegment = !this.downPoint ? segments[0] : undefined;
         this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;

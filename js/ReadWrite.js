@@ -260,13 +260,24 @@ export class ReadWrite {
             }];
         }
         let json = JSON.stringify(FOLD, undefined, 2);
+        return ReadWrite.compactJsonNumberArrays(json);
+    }
 
-        // Cosmetic
-        let reg = /\[[\n\s]*(-?\d+(?:\.\d+)?),[\n\s]*(-?\d+(?:\.\d+)?)[\n\s]*]/mg;
-        json = json.replaceAll(reg, (_match, g1, g2) => `[${g1},${g2}]`);
-        reg = /\[\s*-?\d+(?:\.\d+)?(?:\s*,\s*-?\d+(?:\.\d+)?)*\s*]/g;
-        json = json.replaceAll(reg, (match) => match.replaceAll(/[\n\s]*/g, ''));
-
+    // Collapse whitespace inside leaf number arrays for readable .fold files
+    static compactJsonNumberArrays(json) {
+        let previous;
+        do {
+            previous = json;
+            json = json.replaceAll(/\[([^[\]]*)]/g, (match, inner) => {
+                const trimmed = inner.trim();
+                if (!trimmed) return '[]';
+                const parts = trimmed.split(',');
+                if (!parts.every((part) => /^-?\d+(?:\.\d+)?$/.test(part.trim()))) {
+                    return match;
+                }
+                return `[${parts.map((part) => part.trim()).join(',')}]`;
+            });
+        } while (json !== previous);
         return json;
     }
 
@@ -314,7 +325,7 @@ export class ReadWrite {
             .filter(Boolean);
     }
 
-    static async writeDiagrams(scriptText, filename = 'OriSim3d-diagrams.svg', {view3d = null} = {}) {
+    static async writeDiagrams(scriptText, filename = 'OriSim3d-diagrams.svg') {
         const {Command} = await import('./Command.js');
         const steps = ReadWrite.parsePlaybookSteps(scriptText);
         const model = new Model().init(200, 200);
@@ -327,14 +338,13 @@ export class ReadWrite {
             command.command(steps[i]);
             command.drain();
             const {body} = ReadWrite.creasePatternSVGContent(model, {pad: 16});
-            const caption = steps[i].replaceAll(/&/g, '&amp;').replaceAll(/</g, '&lt;').replaceAll(/"/g, '&quot;');
+            const caption = steps[i].replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
             pages.push(`<g transform="translate(0, ${i * pageH})">
   <rect x="0" y="0" width="${pageW}" height="${pageH}" fill="#fff" stroke="#ccc"/>
   <text x="16" y="28" font-size="14" font-family="sans-serif" fill="#333">Step ${i + 1}/${steps.length}</text>
   <text x="16" y="48" font-size="11" font-family="monospace" fill="#555">${caption}</text>
   <g transform="translate(10, 60)">${body}</g>
 </g>`);
-            void view3d;
         }
         const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${Math.max(pages.length, 1) * pageH}" viewBox="0 0 ${pageW} ${Math.max(pages.length, 1) * pageH}">
@@ -378,7 +388,7 @@ ${pages.join('\n')}
                 Array.isArray(f.frame_classes) && f.frame_classes.includes('foldedForm') && Array.isArray(f.vertices_coords))
             : null;
         let is3d = is3dKey;
-        if (folded && folded.vertices_coords.length === model.points.length) {
+        if (folded?.vertices_coords?.length === model.points.length) {
             folded.vertices_coords.forEach((xyz, i) => {
                 const p = model.points[i];
                 p.x = xyz[0];
