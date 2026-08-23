@@ -139,4 +139,49 @@ Deno.test("ReadWrite", async (t) => {
         const zs = model.points.map((p) => p.z);
         assertEquals(zs.some((z) => z !== 0), true, '3D fold should keep non-zero z');
     });
+
+    await t.step('jsonFoldToModel reads a flat-foldable crease pattern with M/V/B assignment', () => {
+        // Single interior vertex, 4 creases, alternating mountain/valley (Kawasaki-valid)
+        const fold = {
+            file_spec: 1.1,
+            frame_classes: ['creasePattern'],
+            vertices_coords: [[0, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]],
+            edges_vertices: [[0, 1], [0, 2], [0, 3], [0, 4], [1, 2], [2, 3], [3, 4], [4, 1]],
+            edges_assignment: ['M', 'v', 'M', 'V', 'B', 'B', 'B', 'B'],
+            faces_vertices: [[0, 1, 2], [0, 2, 3], [0, 3, 4], [0, 4, 1]],
+        };
+        const model = ReadWrite.jsonFoldToModel(JSON.stringify(fold));
+        assertEquals(model.segments.length, 8);
+        assertEquals(model.segments[0].assignment, 'M');
+        assertEquals(model.segments[1].assignment, 'V', 'lowercase v is normalized to V');
+        assertEquals(model.segments[2].assignment, 'M');
+        assertEquals(model.segments[3].assignment, 'V');
+        assertEquals(model.segments[4].assignment, 'B', 'boundary edge');
+        // Loaded as a flat crease pattern: still unfolded (z=0)
+        assertEquals(model.points.every((p) => p.z === 0), true, 'crease pattern loads flat');
+    });
+
+    await t.step('jsonFoldToModel defaults missing or invalid assignment to U', () => {
+        const fold = {
+            vertices_coords: [[0, 0], [1, 0], [1, 1]],
+            edges_vertices: [[0, 1], [1, 2], [2, 0]],
+            edges_assignment: ['M', 'bogus'], // third edge has no entry at all
+            faces_vertices: [[0, 1, 2]],
+        };
+        const model = ReadWrite.jsonFoldToModel(JSON.stringify(fold));
+        assertEquals(model.segments[0].assignment, 'M');
+        assertEquals(model.segments[1].assignment, 'U', 'invalid assignment falls back to U');
+        assertEquals(model.segments[2].assignment, 'U', 'missing assignment falls back to U');
+    });
+
+    await t.step('jsonFoldToModel reads real M/V/B assignment from models/box.fold', async () => {
+        const text = await ReadWrite.readFileAsText('models/box.fold');
+        const model = ReadWrite.jsonFoldToModel(text as string);
+        const counts: Record<string, number> = {M: 0, V: 0, B: 0, U: 0, F: 0};
+        for (const s of model.segments) counts[s.assignment] = (counts[s.assignment] ?? 0) + 1;
+        assertEquals(counts.M > 0, true, 'has mountain creases');
+        assertEquals(counts.V > 0, true, 'has valley creases');
+        assertEquals(counts.B > 0, true, 'has boundary edges');
+        assertEquals(counts.U, 0, 'every edge in the file got a real assignment');
+    });
 });

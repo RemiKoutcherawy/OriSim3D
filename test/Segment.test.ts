@@ -434,3 +434,8 @@ Deno.test("Segment.length2d", async (t) => {
       assertEquals(length, 5, "Length should be 5");
     });
   });
+
+Deno.test("Segment crease assignment defaults to unassigned", () => {
+  const seg = new Segment(new Point(0, 0), new Point(10, 0));
+  assertEquals(seg.assignment, "U");
+});

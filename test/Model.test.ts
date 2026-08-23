@@ -53,6 +53,18 @@ Deno.test("Model", async (t) => {
         assertEquals(deserializedReordered.segments[0].p1 instanceof Point, true);
         assertEquals(deserializedReordered.faces[0].points[0] instanceof Point, true);
     });
+    await t.step("serialize / deserialize round-trips segment crease assignment", () => {
+        const model = new Model().init(200, 200);
+        assertEquals(model.segments[0].assignment, 'U', 'default assignment is U');
+        model.segments[0].assignment = 'M';
+        model.segments[1].assignment = 'V';
+        const serialized = model.serialize();
+        assertEquals(serialized.includes('"assignment":"M"'), true, 'assignment kept in undo snapshots');
+        const restored = Model.deserialize(serialized);
+        assertEquals(restored.segments[0].assignment, 'M');
+        assertEquals(restored.segments[1].assignment, 'V');
+        assertEquals(restored.segments[2].assignment, 'U');
+    });
     await t.step("snapshotPositions / restorePositions", () => {
         const model = new Model().init(200, 200);
         const snapshot = model.snapshotPositions();

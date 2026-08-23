@@ -8,6 +8,8 @@ export class Segment {
         this.p2 = p2;
         this.hover = false;
         this.select = false;
+        // FOLD crease assignment: M mountain, V valley, B boundary, F flat, U unassigned
+        this.assignment = 'U';
     }
 
     // 2d distance from Segment to Point

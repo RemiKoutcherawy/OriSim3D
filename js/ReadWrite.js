@@ -285,8 +285,13 @@ export class ReadWrite {
         const fold = JSON.parse(json, reviverFold);
         const model = new Model();
         model.points = fold.vertices_coords;
-        model.segments = fold.edges_vertices.map((edge) => {
-            return new Segment(model.points[edge[0]], model.points[edge[1]]);
+        // Valid FOLD crease assignments; anything else (or missing) stays 'U' unassigned
+        const VALID_ASSIGNMENTS = new Set(['M', 'V', 'B', 'F', 'U']);
+        model.segments = fold.edges_vertices.map((edge, i) => {
+            const segment = new Segment(model.points[edge[0]], model.points[edge[1]]);
+            const assignment = fold.edges_assignment?.[i]?.toUpperCase?.();
+            if (assignment && VALID_ASSIGNMENTS.has(assignment)) segment.assignment = assignment;
+            return segment;
         });
         model.faces = fold.faces_vertices.map((face) => {
             return new Face(face.map((index) => model.points[index]));
