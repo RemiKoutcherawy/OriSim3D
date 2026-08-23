@@ -416,7 +416,7 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.points[2].y), Math.round(model.points[0].y));
     });
 
-    await t.step('zoom and fit', () => {
+    await t.step('animated zoom and fit', () => {
         const cdeZoom = new Command(model);
         cdeZoom.command('d 200 200').anim();
         cdeZoom.command('z 2 0 0').anim();
@@ -425,7 +425,7 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.points[1].x), 200);
     });
 
-    await t.step('animated ty interpolates like rotate', () => {
+    await t.step('animated turn around Y: ty angle', () => {
         const m = new Model().init(200, 200);
         const cmd = new Command(m);
         const clock = installClock(1000);
@@ -449,7 +449,7 @@ Deno.test('Command', async (t) => {
         }
     });
 
-    await t.step('animated tx tz reach the same result as instant', () => {
+    await t.step('animated tx tz', () => {
         for (const cde of ['tx 90', 'tz -45']) {
             const instant = new Model().init(200, 200);
             new Command(instant).command(cde).anim();
@@ -474,7 +474,7 @@ Deno.test('Command', async (t) => {
         }
     });
 
-    await t.step('animated fit interpolates like zoom', () => {
+    await t.step('animated fit', () => {
         const m = new Model().init(200, 200);
         const cmd = new Command(m);
         cmd.command('z 2 0 0').anim();

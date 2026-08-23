@@ -208,7 +208,7 @@
 <template id="open">read</template>
 <template id="exportInstructions">write</template>
 <template id="exportSvg">svg</template>
-<template id="exportFold">writefold</template>
+<template id="exportFold">writeFold</template>
 <template id="undo">undo</template>
 <template id="lines">lines</template>
 <template id="edges">edges</template>
@@ -222,7 +222,9 @@
   across2d p1 p2
   across2d p0 p1
   t 1000 r s6 -160 p2 p8 p3
-  t 100 fit
+  t 1000 fit
+  t 1000 ty 180
+  t 1000 ty -180
   by3d p1 p6
   t 1000 r s11 160 p2 a p5
   t 1000 r s11 -160 p2 a p5
