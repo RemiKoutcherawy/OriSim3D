@@ -4,8 +4,7 @@ import { assertEquals } from '@std/assert';
 
 function run(text: string) {
     const model = new Model().init(200, 200);
-    const view = { angleX: 0, angleY: 0, angleZ: 0, scale: 1, translationX: 0, translationY: 0 };
-    const cde = new Command(model, view);
+    const cde = new Command(model);
     cde.command(text);
     let n = 0;
     while (cde.anim() && n++ < 50_000) { /* drain commands */ }
