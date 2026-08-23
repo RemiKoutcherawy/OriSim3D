@@ -1,4 +1,5 @@
 import {assertEquals, assert} from "@std/assert";
+import {describe, it} from "jsr:@std/testing/bdd";
 import {Model} from "../js/Model.js";
 import {Point} from "../js/Point.js";
 import {Command} from "../js/Command.js";
@@ -16,8 +17,8 @@ function bookFoldModel() {
     return {model, crease};
 }
 
-Deno.test("Folder", async (t) => {
-    await t.step("book fold maps the moving half onto the fixed face", () => {
+describe("Folder", () => {
+    it("book fold maps the moving half onto the fixed face", () => {
         const {model} = bookFoldModel();
         assertEquals(model.faces.length, 2);
         const result = Folder.fold(model);
@@ -40,7 +41,7 @@ Deno.test("Folder", async (t) => {
         assertEquals(model.points[0].xf, -200);
     });
 
-    await t.step("valley book fold stacks the moving face above the other", () => {
+    it("valley book fold stacks the moving face above the other", () => {
         const {model} = bookFoldModel();
         const result = Folder.fold(model);
         const or = result.overlapRelation;
@@ -51,7 +52,7 @@ Deno.test("Folder", async (t) => {
         assert(offsets[0] !== offsets[1], `offsets should differ: ${offsets}`);
     });
 
-    await t.step("mountain is the opposite of valley", () => {
+    it("mountain is the opposite of valley", () => {
         const valley = bookFoldModel();
         Folder.fold(valley.model);
         const mountain = bookFoldModel();
@@ -64,7 +65,7 @@ Deno.test("Folder", async (t) => {
         );
     });
 
-    await t.step("fold without estimation keeps z-order at 0", () => {
+    it("fold without estimation keeps z-order at 0", () => {
         const {model} = bookFoldModel();
         Folder.fold(model, {fullEstimation: false});
         assertEquals(model.faces[0].offset, 0);
@@ -73,7 +74,7 @@ Deno.test("Folder", async (t) => {
         assertEquals(Math.round(right[0].x), -200);
     });
 
-    await t.step("two sequential folds (quarter sheet)", () => {
+    it("two sequential folds (quarter sheet)", () => {
         const model = new Model().init(200, 200);
         model.splitBy2d(new Point(0, -200), new Point(0, 200));
         model.splitBy2d(new Point(-200, 0), new Point(200, 0));
@@ -83,7 +84,6 @@ Deno.test("Folder", async (t) => {
         }
         const result = Folder.fold(model);
         assert(result.answerCount >= 1);
-        // All four corners of the square should land in the same quadrant
         const corners = [model.points[0], model.points[1], model.points[2], model.points[3]];
         const xs = corners.map((p) => Math.round(p.x));
         const ys = corners.map((p) => Math.round(p.y));
@@ -91,7 +91,7 @@ Deno.test("Folder", async (t) => {
         assertEquals(new Set(ys).size, 1, `corners y ${ys}`);
     });
 
-    await t.step("command foldcp / mountain / valley", () => {
+    it("command foldcp / mountain / valley", () => {
         const model = new Model().init(200, 200);
         const cmd = new Command(model);
         cmd.command("d 200 200").anim();
@@ -110,7 +110,7 @@ Deno.test("Folder", async (t) => {
         assertEquals(Math.round(right[0].x), -200);
     });
 
-    await t.step("serialize keeps Segment.type", () => {
+    it("serialize keeps Segment.type", () => {
         const {model, crease} = bookFoldModel();
         const json = model.serialize();
         const restored = Model.deserialize(json);
@@ -121,7 +121,7 @@ Deno.test("Folder", async (t) => {
         assertEquals(crease.type, FoldType.VALLEY);
     });
 
-    await t.step("FOLD import keeps edges_assignment", () => {
+    it("FOLD import keeps edges_assignment", () => {
         const model = new Model().init(200, 200);
         model.splitBy2d(new Point(0, -200), new Point(0, 200));
         const crease = model.segments.find((s) =>

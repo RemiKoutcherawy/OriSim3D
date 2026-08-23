@@ -68,40 +68,36 @@ class SubFace {
     sortFaceOverlapOrder(orMat) {
         this.answerStacks = [];
         this.sortedFaces = this.faces.map(() => null);
+        if (this.#undefinedCount(orMat) === 0 || this.faces.length > MAX_SUBFACE_FACES) {
+            this.allFaceOrderDecided = true;
+            return 0;
+        }
+        this.#seedConstraints(orMat);
+        this.#sort(0);
+        return this.answerStacks.length;
+    }
+
+    #undefinedCount(orMat) {
         let pending = 0;
         for (let i = 0; i < this.faces.length; i++) {
             for (let j = i + 1; j < this.faces.length; j++) {
                 if (orMat[this.faces[i].tmpInt][this.faces[j].tmpInt] === OR.UNDEFINED) pending++;
             }
         }
-        if (pending === 0) {
-            this.allFaceOrderDecided = true;
-            return 0;
-        }
-        if (this.faces.length > MAX_SUBFACE_FACES) {
-            this.allFaceOrderDecided = true;
-            return 0;
-        }
+        return pending;
+    }
 
+    #seedConstraints(orMat) {
         for (const f of this.faces) {
             f.condition2s = [];
-            f.condition3s = [];
-            f.condition4s = [];
-            for (const cond of this.condition3s) {
-                if (f.tmpInt === cond.other) f.condition3s.push(cond);
-            }
-            for (const cond of this.condition4s) {
-                if (f.tmpInt === cond.upper1 || f.tmpInt === cond.upper2) f.condition4s.push(cond);
-            }
-            for (const other of this.faces) {
-                if (orMat[f.tmpInt][other.tmpInt] === OR.LOWER) f.condition2s.push(other.tmpInt);
-            }
+            f.condition3s = this.condition3s.filter((c) => f.tmpInt === c.other);
+            f.condition4s = this.condition4s.filter((c) => f.tmpInt === c.upper1 || f.tmpInt === c.upper2);
+            f.condition2s = this.faces
+                .filter((other) => orMat[f.tmpInt][other.tmpInt] === OR.LOWER)
+                .map((other) => other.tmpInt);
             f.alreadyStacked = false;
             f.tmpInt2 = -1;
         }
-
-        this.#sort(0);
-        return this.answerStacks.length;
     }
 
     #sort(index) {
@@ -178,7 +174,6 @@ export class Folder {
         this.holdCondition4s();
         this.estimation(this.overlapRelation);
 
-        const size = this.model.faces.length;
         const work = Folder.matrixCopy(this.overlapRelation);
         for (const sub of this.subFaces) sub.sortFaceOverlapOrder(work);
 
@@ -276,7 +271,7 @@ export class Folder {
         const faces = this.model.faces;
         const size = faces.length;
         const eps = Math.max(this.#paperSize() * 1e-5, EPS);
-        this.overlapRelation = Array.from({length: size}, () => Array(size).fill(OR.NO_OVERLAP));
+        this.overlapRelation = Array.from({length: size}, () => new Array(size).fill(OR.NO_OVERLAP));
         for (let i = 0; i < size; i++) {
             this.overlapRelation[i][i] = OR.NO_OVERLAP;
             for (let j = i + 1; j < size; j++) {
@@ -317,19 +312,21 @@ export class Folder {
         for (const fI of this.model.faces) {
             for (const he of this.#halfedges(fI)) {
                 if (!he.pairFace) continue;
-                const fJ = he.pairFace;
-                if (this.overlapRelation[fI.tmpInt][fJ.tmpInt] !== OR.LOWER) continue;
-                for (const fK of this.model.faces) {
-                    if (fK === fI || fK === fJ) continue;
-                    if (!this.#lineCrossesFace(fK, he)) continue;
-                    const cond = new Condition3(fI.tmpInt, fJ.tmpInt, fK.tmpInt);
-                    fK.condition3s = fK.condition3s || [];
-                    fK.condition3s.push(new Condition3(cond.upper, cond.lower, cond.other));
-                    for (const sub of this.subFaces) {
-                        if (sub.faces.includes(fI) && sub.faces.includes(fJ) && sub.faces.includes(fK)) {
-                            sub.condition3s.push(cond);
-                        }
-                    }
+                if (this.overlapRelation[fI.tmpInt][he.pairFace.tmpInt] !== OR.LOWER) continue;
+                this.#recordCondition3(fI, he.pairFace, he);
+            }
+        }
+    }
+
+    #recordCondition3(fI, fJ, he) {
+        for (const fK of this.model.faces) {
+            if (fK === fI || fK === fJ || !this.#lineCrossesFace(fK, he)) continue;
+            const cond = new Condition3(fI.tmpInt, fJ.tmpInt, fK.tmpInt);
+            fK.condition3s = fK.condition3s || [];
+            fK.condition3s.push(new Condition3(cond.upper, cond.lower, cond.other));
+            for (const sub of this.subFaces) {
+                if (sub.faces.includes(fI) && sub.faces.includes(fJ) && sub.faces.includes(fK)) {
+                    sub.condition3s.push(cond);
                 }
             }
         }
@@ -340,31 +337,30 @@ export class Folder {
     holdCondition4s() {
         const internals = this.model.segments.filter((s) => Model.incidentFaces(this.model, s).length === 2);
         for (let i = 0; i < internals.length; i++) {
-            const e0 = internals[i];
-            const [left0, right0] = this.#edgeSides(e0);
-            if (!left0 || !right0) continue;
             for (let j = i + 1; j < internals.length; j++) {
-                const e1 = internals[j];
-                const [left1, right1] = this.#edgeSides(e1);
-                if (!left1 || !right1) continue;
-                if (!segmentsOverlap(this.#foldedSeg(e0), this.#foldedSeg(e1))) continue;
-
-                const upper0 = this.overlapRelation[left0.tmpInt][right0.tmpInt] === OR.UPPER ? right0 : left0;
-                const lower0 = upper0 === left0 ? right0 : left0;
-                const upper1 = this.overlapRelation[left1.tmpInt][right1.tmpInt] === OR.UPPER ? right1 : left1;
-                const lower1 = upper1 === left1 ? right1 : left1;
-                const cond = new Condition4(upper0.tmpInt, lower0.tmpInt, upper1.tmpInt, lower1.tmpInt);
-                let overlap = false;
-                for (const sub of this.subFaces) {
-                    if (sub.faces.includes(left0) && sub.faces.includes(right0)
-                        && sub.faces.includes(left1) && sub.faces.includes(right1)) {
-                        sub.condition4s.push(cond);
-                        overlap = true;
-                    }
-                }
-                if (overlap) this.condition4s.push(cond);
+                this.#recordCondition4(internals[i], internals[j]);
             }
         }
+    }
+
+    #recordCondition4(e0, e1) {
+        const [left0, right0] = this.#edgeSides(e0);
+        const [left1, right1] = this.#edgeSides(e1);
+        if (!left0 || !right0 || !left1 || !right1) return;
+        if (!segmentsOverlap(this.#foldedSeg(e0), this.#foldedSeg(e1))) return;
+        const [upper0, lower0] = this.#upperLower(left0, right0);
+        const [upper1, lower1] = this.#upperLower(left1, right1);
+        const cond = new Condition4(upper0.tmpInt, lower0.tmpInt, upper1.tmpInt, lower1.tmpInt);
+        const shared = this.subFaces.filter((sub) =>
+            sub.faces.includes(left0) && sub.faces.includes(right0)
+            && sub.faces.includes(left1) && sub.faces.includes(right1)
+        );
+        shared.forEach((sub) => sub.condition4s.push(cond));
+        if (shared.length) this.condition4s.push(cond);
+    }
+
+    #upperLower(a, b) {
+        return this.overlapRelation[a.tmpInt][b.tmpInt] === OR.UPPER ? [b, a] : [a, b];
     }
 
     estimation(orMat) {
@@ -380,21 +376,25 @@ export class Folder {
         let changed = false;
         for (const fI of this.model.faces) {
             for (const he of this.#halfedges(fI)) {
-                if (!he.pairFace) continue;
-                const fJ = he.pairFace;
-                for (const fK of this.model.faces) {
-                    if (fK === fI || fK === fJ) continue;
-                    if (!this.#lineCrossesFace(fK, he, 0.0001)) continue;
-                    const ik = orMat[fI.tmpInt][fK.tmpInt];
-                    const jk = orMat[fJ.tmpInt][fK.tmpInt];
-                    if (ik !== OR.UNDEFINED && jk === OR.UNDEFINED) {
-                        this.#setOR(orMat, fJ.tmpInt, fK.tmpInt, ik, true);
-                        changed = true;
-                    } else if (jk !== OR.UNDEFINED && ik === OR.UNDEFINED) {
-                        this.#setOR(orMat, fI.tmpInt, fK.tmpInt, jk, true);
-                        changed = true;
-                    }
-                }
+                if (he.pairFace && this.#propagateAcrossCrease(orMat, fI, he)) changed = true;
+            }
+        }
+        return changed;
+    }
+
+    #propagateAcrossCrease(orMat, fI, he) {
+        let changed = false;
+        const fJ = he.pairFace;
+        for (const fK of this.model.faces) {
+            if (fK === fI || fK === fJ || !this.#lineCrossesFace(fK, he, 0.0001)) continue;
+            const ik = orMat[fI.tmpInt][fK.tmpInt];
+            const jk = orMat[fJ.tmpInt][fK.tmpInt];
+            if (ik !== OR.UNDEFINED && jk === OR.UNDEFINED) {
+                this.#setOR(orMat, fJ.tmpInt, fK.tmpInt, ik, true);
+                changed = true;
+            } else if (jk !== OR.UNDEFINED && ik === OR.UNDEFINED) {
+                this.#setOR(orMat, fI.tmpInt, fK.tmpInt, jk, true);
+                changed = true;
             }
         }
         return changed;
@@ -404,102 +404,64 @@ export class Folder {
     #estimateBy3faces2(orMat) {
         let changed = false;
         for (const sub of this.subFaces) {
-            let local;
-            do {
-                local = false;
-                outer: for (let i = 0; i < sub.faces.length; i++) {
-                    for (let j = i + 1; j < sub.faces.length; j++) {
-                        const a = sub.faces[i].tmpInt, b = sub.faces[j].tmpInt;
-                        if (orMat[a][b] === OR.NO_OVERLAP || orMat[a][b] !== OR.UNDEFINED) continue;
-                        for (let k = 0; k < sub.faces.length; k++) {
-                            if (k === i || k === j) continue;
-                            const c = sub.faces[k].tmpInt;
-                            if (orMat[a][c] === OR.UPPER && orMat[c][b] === OR.UPPER) {
-                                orMat[a][b] = OR.UPPER;
-                                orMat[b][a] = OR.LOWER;
-                                local = changed = true;
-                                break outer;
-                            }
-                            if (orMat[a][c] === OR.LOWER && orMat[c][b] === OR.LOWER) {
-                                orMat[a][b] = OR.LOWER;
-                                orMat[b][a] = OR.UPPER;
-                                local = changed = true;
-                                break outer;
-                            }
-                        }
-                    }
-                }
-            } while (local);
+            const ids = sub.faces.map((f) => f.tmpInt);
+            while (closeOneTransitive(ids, orMat)) changed = true;
         }
         return changed;
     }
 
     #estimateBy4faces(orMat) {
         const changed = [false];
-        for (const cond of this.condition4s) {
-            if (orMat[cond.lower1][cond.upper2] === OR.LOWER) {
-                this.#setLowerIfUndefined(orMat, cond.upper1, cond.upper2, changed);
-                this.#setLowerIfUndefined(orMat, cond.upper1, cond.lower2, changed);
-                this.#setLowerIfUndefined(orMat, cond.lower1, cond.lower2, changed);
-            }
-            if (orMat[cond.lower2][cond.upper1] === OR.LOWER) {
-                this.#setLowerIfUndefined(orMat, cond.upper2, cond.upper1, changed);
-                this.#setLowerIfUndefined(orMat, cond.upper2, cond.lower1, changed);
-                this.#setLowerIfUndefined(orMat, cond.lower2, cond.lower1, changed);
-            }
-            if (orMat[cond.upper1][cond.upper2] === OR.LOWER && orMat[cond.upper2][cond.lower1] === OR.LOWER) {
-                this.#setLowerIfUndefined(orMat, cond.upper1, cond.lower2, changed);
-                this.#setLowerIfUndefined(orMat, cond.lower2, cond.lower1, changed);
-            }
-            if (orMat[cond.upper1][cond.lower2] === OR.LOWER && orMat[cond.lower2][cond.lower1] === OR.LOWER) {
-                this.#setLowerIfUndefined(orMat, cond.upper1, cond.upper2, changed);
-                this.#setLowerIfUndefined(orMat, cond.upper2, cond.lower1, changed);
-            }
-            if (orMat[cond.upper2][cond.upper1] === OR.LOWER && orMat[cond.upper1][cond.lower2] === OR.LOWER) {
-                this.#setLowerIfUndefined(orMat, cond.upper2, cond.lower1, changed);
-                this.#setLowerIfUndefined(orMat, cond.lower1, cond.lower2, changed);
-            }
-            if (orMat[cond.upper2][cond.lower1] === OR.LOWER && orMat[cond.lower1][cond.lower2] === OR.LOWER) {
-                this.#setLowerIfUndefined(orMat, cond.upper2, cond.upper1, changed);
-                this.#setLowerIfUndefined(orMat, cond.upper1, cond.lower2, changed);
-            }
-        }
+        for (const cond of this.condition4s) this.#applyCondition4(orMat, cond, changed);
         return changed[0];
+    }
+
+    #applyCondition4(orMat, cond, changed) {
+        const lower = (i, j) => this.#setLowerIfUndefined(orMat, i, j, changed);
+        const isLower = (i, j) => orMat[i][j] === OR.LOWER;
+        if (isLower(cond.lower1, cond.upper2)) {
+            lower(cond.upper1, cond.upper2);
+            lower(cond.upper1, cond.lower2);
+            lower(cond.lower1, cond.lower2);
+        }
+        if (isLower(cond.lower2, cond.upper1)) {
+            lower(cond.upper2, cond.upper1);
+            lower(cond.upper2, cond.lower1);
+            lower(cond.lower2, cond.lower1);
+        }
+        if (isLower(cond.upper1, cond.upper2) && isLower(cond.upper2, cond.lower1)) {
+            lower(cond.upper1, cond.lower2);
+            lower(cond.lower2, cond.lower1);
+        }
+        if (isLower(cond.upper1, cond.lower2) && isLower(cond.lower2, cond.lower1)) {
+            lower(cond.upper1, cond.upper2);
+            lower(cond.upper2, cond.lower1);
+        }
+        if (isLower(cond.upper2, cond.upper1) && isLower(cond.upper1, cond.lower2)) {
+            lower(cond.upper2, cond.lower1);
+            lower(cond.lower1, cond.lower2);
+        }
+        if (isLower(cond.upper2, cond.lower1) && isLower(cond.lower1, cond.lower2)) {
+            lower(cond.upper2, cond.upper1);
+            lower(cond.upper1, cond.lower2);
+        }
     }
 
     findAnswer(subFaceIndex, orMat) {
         if (this.overlapRelations.length >= MAX_ANSWERS) return;
         const sub = this.subFaces[subFaceIndex];
         const last = subFaceIndex === this.subFaces.length - 1;
-
         const accept = (mat) => {
             if (last) this.overlapRelations.push(Folder.matrixCopy(mat));
             else this.findAnswer(subFaceIndex + 1, mat);
         };
-
         if (sub.allFaceOrderDecided) {
             accept(orMat);
             return;
         }
         for (const stack of sub.answerStacks) {
-            let ok = true;
-            for (let i = 0; i < stack.length && ok; i++) {
-                for (let j = i + 1; j < stack.length; j++) {
-                    if (orMat[stack[i].tmpInt][stack[j].tmpInt] === OR.LOWER) {
-                        ok = false;
-                        break;
-                    }
-                }
-            }
-            if (!ok) continue;
-            const pass = Folder.matrixCopy(orMat);
-            for (let i = 0; i < stack.length; i++) {
-                for (let j = i + 1; j < stack.length; j++) {
-                    pass[stack[i].tmpInt][stack[j].tmpInt] = OR.UPPER;
-                    pass[stack[j].tmpInt][stack[i].tmpInt] = OR.LOWER;
-                }
-            }
-            accept(pass);
+            if (!stackCompatible(stack, orMat)) continue;
+            accept(applyStack(stack, orMat));
         }
     }
 
@@ -512,8 +474,7 @@ export class Folder {
             const inner = centroid(this.#folded(face));
             const group = faces.filter((f) => pointInPolygon(inner, this.#folded(f), eps));
             if (group.length === 0) continue;
-            const same = locals.find((s) => sameFaceSet(s.faces, group));
-            if (!same) locals.push(new SubFace(group));
+            if (!locals.some((s) => sameFaceSet(s.faces, group))) locals.push(new SubFace(group));
         }
         return locals;
     }
@@ -694,9 +655,56 @@ function sameFaceSet(a, b) {
     return a.length === b.length && a.every((f) => b.includes(f));
 }
 
+function closeOneTransitive(ids, orMat) {
+    for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+            if (closePairVia(ids, ids[i], ids[j], orMat)) return true;
+        }
+    }
+    return false;
+}
+
+function closePairVia(ids, a, b, orMat) {
+    if (orMat[a][b] !== OR.UNDEFINED) return false;
+    for (const c of ids) {
+        if (c === a || c === b) continue;
+        if (orMat[a][c] === OR.UPPER && orMat[c][b] === OR.UPPER) {
+            orMat[a][b] = OR.UPPER;
+            orMat[b][a] = OR.LOWER;
+            return true;
+        }
+        if (orMat[a][c] === OR.LOWER && orMat[c][b] === OR.LOWER) {
+            orMat[a][b] = OR.LOWER;
+            orMat[b][a] = OR.UPPER;
+            return true;
+        }
+    }
+    return false;
+}
+
+function stackCompatible(stack, orMat) {
+    for (let i = 0; i < stack.length; i++) {
+        for (let j = i + 1; j < stack.length; j++) {
+            if (orMat[stack[i].tmpInt][stack[j].tmpInt] === OR.LOWER) return false;
+        }
+    }
+    return true;
+}
+
+function applyStack(stack, orMat) {
+    const pass = Folder.matrixCopy(orMat);
+    for (let i = 0; i < stack.length; i++) {
+        for (let j = i + 1; j < stack.length; j++) {
+            pass[stack[i].tmpInt][stack[j].tmpInt] = OR.UPPER;
+            pass[stack[j].tmpInt][stack[i].tmpInt] = OR.LOWER;
+        }
+    }
+    return pass;
+}
+
 function ranksFromMatrix(orMat) {
     const n = orMat.length;
-    const rank = Array(n).fill(0);
+    const rank = new Array(n).fill(0);
     for (let pass = 0; pass < n; pass++) {
         let changed = false;
         for (let i = 0; i < n; i++) {
