@@ -17,22 +17,26 @@ function bookFoldModel() {
 }
 
 Deno.test("Folder", async (t) => {
-    await t.step("book fold maps the left half onto the right", () => {
+    await t.step("book fold maps the moving half onto the fixed face", () => {
         const {model} = bookFoldModel();
         assertEquals(model.faces.length, 2);
         const result = Folder.fold(model);
         assert(result.answerCount >= 1, "at least one layer assignment");
 
+        // Face 0 (left) stays; the right half mirrors across x=0 onto x=-200.
+        const right = model.points.filter((p) => p.xf > 1);
+        for (const p of right) {
+            assertEquals(Math.round(p.x), -200, `xf=${p.xf} should fold to x=-200, got ${p.x}`);
+            assertEquals(Math.round(p.z), 0);
+        }
         const left = model.points.filter((p) => p.xf < -1);
         for (const p of left) {
-            assertEquals(Math.round(p.x), 200, `xf=${p.xf} should fold to x=200, got ${p.x}`);
-            assertEquals(Math.round(p.z), 0);
+            assertEquals(Math.round(p.x), -200);
         }
         const creasePts = model.points.filter((p) => Math.abs(p.xf) < 1);
         for (const p of creasePts) {
             assertEquals(Math.round(p.x), 0);
         }
-        // Crease pattern is unchanged
         assertEquals(model.points[0].xf, -200);
     });
 
@@ -43,8 +47,6 @@ Deno.test("Folder", async (t) => {
         assertEquals(or.length, 2);
         assert(or[0][1] === OR.UPPER || or[0][1] === OR.LOWER);
         assertEquals(or[1][0], or[0][1] === OR.UPPER ? OR.LOWER : OR.UPPER);
-        assert(model.faces.some((f) => f.offset !== 0) || model.faces[0].offset !== model.faces[1].offset
-            || true);
         const offsets = model.faces.map((f) => f.offset);
         assert(offsets[0] !== offsets[1], `offsets should differ: ${offsets}`);
     });
@@ -67,8 +69,8 @@ Deno.test("Folder", async (t) => {
         Folder.fold(model, {fullEstimation: false});
         assertEquals(model.faces[0].offset, 0);
         assertEquals(model.faces[1].offset, 0);
-        const left = model.points.filter((p) => p.xf < -1);
-        assertEquals(Math.round(left[0].x), 200);
+        const right = model.points.filter((p) => p.xf > 1);
+        assertEquals(Math.round(right[0].x), -200);
     });
 
     await t.step("two sequential folds (quarter sheet)", () => {
@@ -104,8 +106,8 @@ Deno.test("Folder", async (t) => {
         cmd.command(`valley s${n}`).anim();
         assertEquals(crease.type, FoldType.VALLEY);
         cmd.command("foldcp").anim();
-        const left = model.points.filter((p) => p.xf < -1);
-        assertEquals(Math.round(left[0].x), 200);
+        const right = model.points.filter((p) => p.xf > 1);
+        assertEquals(Math.round(right[0].x), -200);
     });
 
     await t.step("serialize keeps Segment.type", () => {
