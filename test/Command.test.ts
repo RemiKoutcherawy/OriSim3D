@@ -187,6 +187,16 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(pt.z), 30);
     });
 
+    await t.step('command move adjust check as sent by Helper', () => {
+        cde.command('d 200 200').anim();
+        const pt = model.points[2];
+        cde.command('move 10 0 0 p2 adjust check');
+        while (cde.anim()) { /* drain */ }
+        assertEquals(Math.round(pt.x), 200);
+        assertEquals(Math.round(pt.y), 200);
+        assertEquals(pt.select, false);
+    });
+
     await t.step('command adjust', () => {
         cde.command('d 200 200').anim();
         const pt = model.points[2];

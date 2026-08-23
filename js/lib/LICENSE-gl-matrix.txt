@@ -1,6 +1,6 @@
 mat4.js and vec3.js in this directory are extracted from gl-matrix 3.4.4
 (https://www.npmjs.com/package/gl-matrix), reformatted to match this
-project's code style. Only the functions used by View3d.js are kept.
+project's code style. Only the functions used by the app are kept.
 
 Copyright (c) 2015-2025, Brandon Jones, Colin MacKenzie IV.
 
