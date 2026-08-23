@@ -262,7 +262,7 @@ Deno.test("Helper Tests", async (t) => {
     },
   );
 
-  await t.step("down on selected point enters move mode in 2d and 3d", () => {
+  await t.step("down on selected point enters move mode in 3d only", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
     const helper = new Helper(model, command, null, null, null);
@@ -280,10 +280,10 @@ Deno.test("Helper Tests", async (t) => {
 
     helper.currentCanvas = "2d";
     helper.down([p0], [], [], 10, 20);
-    assertEquals(helper.moving, true);
+    assertEquals(helper.moving, false);
   });
 
-  await t.step("fromPoint move sends move adjust check", () => {
+  await t.step("fromPoint move sends move check", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
     const helper = new Helper(model, command, null, null, null);
@@ -304,7 +304,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 10;
     helper.currentY = -20;
     helper.fromPoint();
-    assertEquals(cmds[0], "move 10 20 0 p0 adjust p0 check");
+    assertEquals(cmds[0], "move 10 20 0 p0 check");
 
     // Move wins over crease even if the pointer is over another point
     cmds.length = 0;
@@ -316,7 +316,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 10;
     helper.currentY = 0;
     helper.fromPoint();
-    assertEquals(cmds[0], "move 10 0 0 p0 adjust p0 check");
+    assertEquals(cmds[0], "move 10 0 0 p0 check");
 
     command.command = original;
   });
@@ -391,87 +391,5 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentY = 10;
     helper.draw();
     assertEquals(strokeStyle, "orange");
-  });
-
-  await t.step("constrain2dToSegment projects onto an incident segment", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    const p0 = model.points[0]; // (-200,-200), segments to p1 (400,0) and p3 (0,400)
-    const delta = helper.constrain2dToSegment(p0, 80, 10);
-    assertEquals(Math.round(delta.dy), 0);
-    assertEquals(delta.dx > 0, true);
-    assertEquals(delta.dx <= 80, true);
-  });
-
-  await t.step("fromPoint 2d move sends move2d along the segment", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    const cmds: string[] = [];
-    command.command = (cde) => {
-      cmds.push(cde);
-      return command;
-    };
-    const p0 = model.points[0];
-    p0.select = true;
-    helper.currentCanvas = "2d";
-    helper.moving = true;
-    helper.downPoint = p0;
-    helper.firstX = p0.xf;
-    helper.firstY = -p0.yf;
-    helper.currentX = p0.xf + 50;
-    helper.currentY = -p0.yf;
-    helper.fromPoint();
-    assertEquals(cmds[0].startsWith("move2d 50 0 p0 adjust p0 check"), true, cmds[0]);
-  });
-
-  await t.step("Shift or moveAll includes other selected points", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    const cmds: string[] = [];
-    command.command = (cde) => {
-      cmds.push(cde);
-      return command;
-    };
-    const p0 = model.points[0];
-    const p1 = model.points[1];
-    p0.select = true;
-    p1.select = true;
-    helper.currentCanvas = "3d";
-    helper.moving = true;
-    helper.shiftKey = true;
-    helper.downPoint = p0;
-    helper.firstX = 0;
-    helper.firstY = 0;
-    helper.currentX = 10;
-    helper.currentY = 0;
-    helper.fromPoint();
-    assertEquals(cmds[0], "move 10 0 0 p0 p1 adjust p0 p1 check");
-  });
-
-  await t.step("Alt or adjustLinked also adjusts neighbors", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    const cmds: string[] = [];
-    command.command = (cde) => {
-      cmds.push(cde);
-      return command;
-    };
-    const p0 = model.points[0];
-    p0.select = true;
-    helper.currentCanvas = "3d";
-    helper.moving = true;
-    helper.altKey = true;
-    helper.downPoint = p0;
-    helper.firstX = 0;
-    helper.firstY = 0;
-    helper.currentX = 10;
-    helper.currentY = 0;
-    helper.fromPoint();
-    // p0 linked to p1 (s0) and p3 (s3)
-    assertEquals(cmds[0], "move 10 0 0 p0 adjust p0 p1 p3 check");
   });
 });

@@ -400,15 +400,13 @@ Deno.test('Command', async (t) => {
             snap: model.snap,
             textures: model.textures,
         };
-        cde.command('labels overlay lines snap textures moveAll adjustLinked');
+        cde.command('labels overlay lines snap textures');
         while (cde.anim()) { /* wait */ }
         assertEquals(model.labels, !before.labels);
         assertEquals(model.overlay, !before.overlay);
         assertEquals(model.lines, !before.lines);
         assertEquals(model.snap, !before.snap);
         assertEquals(model.textures, !before.textures);
-        assertEquals(model.moveAll, true);
-        assertEquals(model.adjustLinked, true);
     });
 
     await t.step('selectPoints selectSegments selectFaces', () => {

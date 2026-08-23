@@ -446,8 +446,6 @@ on('overlay', (cmd) => { cmd.model.overlay = !cmd.model.overlay; });
 on('edges', (cmd) => { cmd.model.edges = !cmd.model.edges; });
 on('lines', (cmd) => { cmd.model.lines = !cmd.model.lines; });
 on('snap', (cmd) => { cmd.model.snap = !cmd.model.snap; });
-on('moveAll', (cmd) => { cmd.model.moveAll = !cmd.model.moveAll; });
-on('adjustLinked', (cmd) => { cmd.model.adjustLinked = !cmd.model.adjustLinked; });
 
 // Interpolator
 on('il', (cmd) => { cmd.interpolator = Interpolator.LinearInterpolator });

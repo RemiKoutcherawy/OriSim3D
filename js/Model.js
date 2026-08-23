@@ -43,8 +43,6 @@ export class Model {
         this.edges = false;   // draw segments on overlay (hover and select)
         this.lines = false;   // render lines on 3d
         this.snap = false;     // snap nearest points
-        this.moveAll = false;  // move all selected points
-        this.adjustLinked = false; // also adjust points linked by a segment
     }
 
     // Initialize with 2d coordinates
@@ -71,8 +69,6 @@ export class Model {
         this.edges = true;   // draw segments on overlay (hover and select)
         this.lines = true;   // render lines on 3d
         this.snap = true;    // snap nearest points
-        this.moveAll = false;
-        this.adjustLinked = false;
         return this;
     }
 
