@@ -363,6 +363,12 @@ on('split splitSegment2d', splitSegment);
 
 on('r rotate', rotate);
 on('m move', move);
+on('m2d move2d', (cmd) => {
+    const d = cmd.dt;
+    const dx = Number(cmd.next()) * d;
+    const dy = Number(cmd.next()) * d;
+    cmd.model.movePoints2d(dx, dy, cmd.tokens('p'));
+});
 on('mop moveOnPoint', (cmd) => {const pts = cmd.tokens('p');cmd.model.moveOnPoint(pts[0], pts);});
 on('mos moveOnSegment', (cmd) => cmd.model.moveOnSegment(cmd.token('s'), cmd.tokens('p')));
 on('a adjust', (cmd) => {
@@ -417,6 +423,8 @@ on('overlay', (cmd) => { cmd.model.overlay = !cmd.model.overlay; });
 on('edges', (cmd) => { cmd.model.edges = !cmd.model.edges; });
 on('lines', (cmd) => { cmd.model.lines = !cmd.model.lines; });
 on('snap', (cmd) => { cmd.model.snap = !cmd.model.snap; });
+on('moveAll', (cmd) => { cmd.model.moveAll = !cmd.model.moveAll; });
+on('adjustLinked', (cmd) => { cmd.model.adjustLinked = !cmd.model.adjustLinked; });
 
 // Interpolator
 on('il', (cmd) => { cmd.interpolator = Interpolator.LinearInterpolator });

@@ -17,6 +17,15 @@ Deno.test("Face", async (t) => {
         assertEquals(area, 200 * 200, "Area2d should be 200 * 200");
     });
 
+    await t.step("isConvex2d", () => {
+        assertEquals(Face.isConvex2d(face), true);
+        const concave = new Face([
+            p0, p1, p2,
+            new Point(50, -50, 50, -50, 0),
+        ]);
+        assertEquals(Face.isConvex2d(concave), false);
+    });
+
     await t.step("distance2dLineToPoint", () => {
         const p1 = new Point(0, 0);
         const p2 = new Point(100, 100);

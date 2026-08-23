@@ -17,8 +17,11 @@ export class Helper {
         // Point, segment, or face selected on down
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
-        // Drag of an already-selected point in 3D → move command
+        // Drag of an already-selected point → move command
         this.moving = false;
+        this.moveSegment = undefined;
+        this.shiftKey = false;
+        this.altKey = false;
 
         // Current canvas: 2d or 3d
         this.currentCanvas = undefined;
@@ -66,6 +69,10 @@ export class Helper {
         this.upPoint = this.upSegment = this.upFace = undefined;
         this.currentCanvas = this.label = undefined;
         this.moving = false;
+        this.moveSegment = undefined;
+        this.shiftKey = false;
+        this.altKey = false;
+        this.rawX = this.rawY = undefined;
     }
 
     // Draw only if a point, segment, or face is selected
@@ -101,10 +108,15 @@ export class Helper {
         this.downPoint = points[0];
         this.downSegment = !this.downPoint ? segments[0] : undefined;
         this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;
-        this.firstX = this.currentX = x;
-        this.firstY = this.currentY = y;
-        // 3D move only starts from a point that is already selected
-        this.moving = this.currentCanvas === '3d' && !!(this.downPoint && this.downPoint.select);
+        this.firstX = this.currentX = this.rawX = x;
+        this.firstY = this.currentY = this.rawY = y;
+        // Move starts from a point that is already selected (2D and 3D)
+        this.moving = !!(this.downPoint && this.downPoint.select);
+        this.moveSegment = undefined;
+        if (this.moving && this.downPoint) {
+            const segs = this.model.searchSegmentsOnePoint(this.downPoint);
+            this.moveSegment = segs.find(s => s.select);
+        }
     }
 
     // Signed rotation angle (degrees) from ref point to cursor, around segment.
@@ -151,8 +163,17 @@ export class Helper {
         } else if (this.downSegment) {
             this.downSegment.hover = true;
         }
-        this.currentX = x;
-        this.currentY = y;
+        this.currentX = this.rawX = x;
+        this.currentY = this.rawY = y;
+        if (this.moving && this.currentCanvas === '2d' && this.downPoint) {
+            const c = this.constrain2dToSegment(
+                this.downPoint,
+                x - this.firstX,
+                -(y - this.firstY),
+            );
+            this.currentX = this.firstX + c.dx;
+            this.currentY = this.firstY - c.dy;
+        }
     }
 
     up(points, segments, faces) {
@@ -190,16 +211,134 @@ export class Helper {
         }
     }
 
-    // Click on a selected point: deselect. Drag: move in 3D then adjust and check.
+    // Click on a selected point: deselect. Drag: move then adjust and check.
     moveSelectedPoint() {
-        const dist = Math.hypot(this.currentX - this.firstX, this.currentY - this.firstY);
+        const dist = Math.hypot(
+            (this.rawX ?? this.currentX) - this.firstX,
+            (this.rawY ?? this.currentY) - this.firstY,
+        );
         if (dist < 4) {
             this.downPoint.select = !this.downPoint.select;
             return;
         }
-        const {dx, dy, dz} = this.dragToWorld();
-        if (dx === 0 && dy === 0 && dz === 0) return;
-        this.command.command(`move ${dx} ${dy} ${dz} ${this.id(this.downPoint)} adjust check`);
+        const moveIds = this.idsOf(this.pointsToMove());
+        const adjIds = this.idsOf(this.pointsToAdjust());
+        const round = (n) => Math.round(n * 10) / 10;
+        let cmd;
+        if (this.currentCanvas === '2d') {
+            const {dx, dy} = this.constrain2dToSegment(
+                this.downPoint,
+                this.currentX - this.firstX,
+                -(this.currentY - this.firstY),
+            );
+            if (round(dx) === 0 && round(dy) === 0) return;
+            cmd = `move2d ${round(dx)} ${round(dy)} ${moveIds} adjust ${adjIds} check`;
+        } else {
+            const {dx, dy, dz} = this.dragToWorld();
+            if (dx === 0 && dy === 0 && dz === 0) return;
+            cmd = `move ${dx} ${dy} ${dz} ${moveIds} adjust ${adjIds} check`;
+        }
+        this.command.command(cmd);
+    }
+
+    idsOf(objs) {
+        return objs.map(o => this.id(o)).join(' ');
+    }
+
+    useMoveAll() {
+        return this.shiftKey || this.model.moveAll;
+    }
+
+    useAdjustLinked() {
+        return this.altKey || this.model.adjustLinked;
+    }
+
+    pointsToMove() {
+        if (this.useMoveAll()) {
+            const selected = this.model.points.filter(p => p.select);
+            if (this.downPoint && !selected.includes(this.downPoint)) selected.unshift(this.downPoint);
+            return selected.length ? selected : [this.downPoint];
+        }
+        return [this.downPoint];
+    }
+
+    pointsToAdjust() {
+        const pts = [...this.pointsToMove()];
+        if (this.useAdjustLinked()) {
+            for (const p of [...pts]) {
+                for (const s of this.model.searchSegmentsOnePoint(p)) {
+                    const other = s.p1 === p ? s.p2 : s.p1;
+                    if (!pts.includes(other)) pts.push(other);
+                }
+            }
+        }
+        return pts;
+    }
+
+    pickMoveSegment(point, dx, dy) {
+        const segs = this.model.searchSegmentsOnePoint(point);
+        if (segs.length === 0) return undefined;
+        if (this.moveSegment && segs.includes(this.moveSegment)) return this.moveSegment;
+        const selected = segs.find(s => s.select);
+        if (selected) return selected;
+        let best = segs[0], bestScore = -1;
+        for (const s of segs) {
+            const other = s.p1 === point ? s.p2 : s.p1;
+            const vx = other.xf - point.xf, vy = other.yf - point.yf;
+            const len = Math.hypot(vx, vy) || 1;
+            const score = Math.abs(dx * vx + dy * vy) / len;
+            if (score > bestScore) {
+                bestScore = score;
+                best = s;
+            }
+        }
+        return best;
+    }
+
+    facesRemainConvex2d(point, dx, dy) {
+        const faces = this.model.faces.filter(f => f.points.includes(point));
+        const signs = faces.map(f => Math.sign(Face.area2dFlat(f.points)));
+        point.xf += dx;
+        point.yf += dy;
+        let ok = true;
+        for (let i = 0; i < faces.length; i++) {
+            const area = Face.area2dFlat(faces[i].points);
+            if (!Face.isConvex2d(faces[i]) || Math.sign(area) !== signs[i]) {
+                ok = false;
+                break;
+            }
+        }
+        point.xf -= dx;
+        point.yf -= dy;
+        return ok;
+    }
+
+    // Project 2D drag onto an incident segment; clamp so faces stay convex.
+    constrain2dToSegment(point, dx, dy) {
+        const zero = {dx: 0, dy: 0};
+        if (!point) return zero;
+        const s = this.pickMoveSegment(point, dx, dy);
+        if (!s) return zero;
+        this.moveSegment = s;
+        const other = s.p1 === point ? s.p2 : s.p1;
+        const vx = other.xf - point.xf, vy = other.yf - point.yf;
+        const len2 = vx * vx + vy * vy;
+        if (len2 < 1e-12) return zero;
+        const len = Math.sqrt(len2);
+        let t = (dx * vx + dy * vy) / len2;
+        const tmax = Math.max(0, 1 - Math.min(0.02, 2 / len));
+        t = Math.max(0, Math.min(t, tmax));
+        const ok = (tt) => this.facesRemainConvex2d(point, tt * vx, tt * vy);
+        if (!ok(t)) {
+            let lo = 0, hi = t;
+            for (let i = 0; i < 16; i++) {
+                const mid = (lo + hi) / 2;
+                if (ok(mid)) lo = mid;
+                else hi = mid;
+            }
+            t = lo;
+        }
+        return {dx: t * vx, dy: t * vy};
     }
 
     dragToWorld() {
@@ -306,6 +445,11 @@ export class Helper {
         this.command.command(`${base}${suffix} ${args.join(' ')}`);
     }
 
+    readKeys(event) {
+        if (event?.shiftKey !== undefined) this.shiftKey = !!event.shiftKey;
+        if (event?.altKey !== undefined) this.altKey = !!event.altKey;
+    }
+
     // Rotate selected points around selected segment
     rotatePoints() {
         const s = this.model.segments.find(s => s.select);
@@ -341,6 +485,7 @@ export class Helper {
     // Down on flat 2d
     down2d(event) {
         this.currentCanvas = '2d';
+        this.readKeys(event);
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate
@@ -348,12 +493,14 @@ export class Helper {
     // Move on flat 2d
     move2d(event) {
         this.currentCanvas = '2d';
+        this.readKeys(event);
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.move(points, segments, faces, xf, -yf);
     }
     // Up on flat 2d
     up2d(event) {
+        this.readKeys(event);
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.up(points, segments, faces);
@@ -397,6 +544,7 @@ export class Helper {
     // Down on 3d overlay
     down3d(event) {
         this.currentCanvas = '3d';
+        this.readKeys(event);
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.down(points, segments, faces, xCanvas, yCanvas);
@@ -405,6 +553,7 @@ export class Helper {
     // Move on 3d overlay
     move3d(event) {
         this.currentCanvas = '3d';
+        this.readKeys(event);
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const contextFace = this.downFace || undefined;
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas, contextFace);
@@ -431,6 +580,7 @@ export class Helper {
     }
     // Up on 3d overlay
     up3d(event) {
+        this.readKeys(event);
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.up(points, segments, faces);

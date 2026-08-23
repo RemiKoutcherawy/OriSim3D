@@ -34,15 +34,21 @@ Work in progress, any help is welcome.
 - splitSegment: split a segment in by 'ratio': split s1 ratio 0.5
 - rotate: rotate around 'Seg' with 'Angle' all 'Points': rotate s1 angle p1 p2 p3...
 - move: move points: move dx dy dz p1 p2 p3...
+- move2d: move points on the crease pattern: move2d dx dy p1 p2 p3...
 - adjust: move points in 3D to equal 2D length of segments: adjust p1 p2 p3...
 - offset: offset by d a list of faces on faces: offset d p1 p2 p3...
+- moveAll: toggle moving all selected points when dragging one
+- adjustLinked: toggle also adjusting points linked by a segment
 
 ### Helper interprets mouse moves to make commands
 - click selects point, segment, face, or marks them
 - click drag from a point to a point adds a crease, or if the crease exists, adds a perpendicular crease
 - click drag from a segment to a segment adds a bisector
 - click drag a point rotates around a selected segment
-- click drag an already-selected point in 3D moves it (`move` then `adjust` and `check`); the drag line is orange
+- click drag an already-selected point moves it (`move` / `move2d` then `adjust` on that point and `check`); the drag line is orange
+- in 2D the point slides only along an incident segment so faces stay convex
+- Shift (or toggle `moveAll`) also moves the other selected points
+- Alt (or toggle `adjustLinked`) also adjusts points linked by a segment
 - undo via ⌘/Ctrl+Z
 
 ### Console de commandes (menu Édition → Console)
@@ -59,5 +65,7 @@ Work in progress, any help is welcome.
 - overlay
 - edges
 - lines
+- moveAll
+- adjustLinked
 - undo ⌘+Z
 - check
