@@ -364,6 +364,11 @@ Deno.test("Helper Tests", async (t) => {
     let strokeStyle = "";
     const overlay = {
       getContext: () => ({
+        lineWidth: 0,
+        lineCap: "",
+        strokeStyle: "",
+        fillStyle: "",
+        font: "",
         beginPath() {},
         moveTo() {},
         lineTo() {},
