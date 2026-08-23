@@ -55,7 +55,13 @@ Tests are `.ts` files under `test/` using `@std/assert` (mapped in `deno.json`),
 **Persistence** (`js/ReadWrite.js`):
 - Reads/writes models as either the native line-based command-script text format or FOLD-spec JSON (`vertices_coords`/`edges_vertices`/`faces_vertices`). `models/*.txt` are saved command scripts; `models/*.fold` is FOLD JSON.
 
-**`Java/`**: legacy Java/JS reference sources (an origami-folding algorithm port, e.g. `GeomUtil.java`, `Folder.js`) kept for algorithmic reference — not wired into the running app.
+**Folder** (`js/Folder.js`, source `Java/Folder_withCommentByMitani.java`):
+- Port of Mitani/ORIPA `Folder.fold()` onto `Model`/`Face`/`Segment`/`Point`.
+- `simpleFoldWithoutZorder` writes the 2D folded form into `Point.x,y` (`z = 0`), leaving crease-pattern `xf,yf` untouched.
+- Overlap matrix + 3/4-face constraints fill `Face.offset` (already consumed by `View3d`).
+- Crease type lives on `Segment.type` (`M`/`V`/`B`), set by commands `mountain`/`valley` or FOLD `edges_assignment`.
+- Command: `foldcp` / `mitani` (do not use `fold` — that alias writes a FOLD file).
+- Subfaces are sampled from folded-face centroids (no planar arrangement rebuild). Fine for typical CPs; stacked-edge cases may miss condition-4 regions.
 
 ## Coordinate convention
 

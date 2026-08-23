@@ -692,7 +692,11 @@ export class Model {
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {
-            if (value instanceof Segment) return {p1: pointIndex.get(value.p1), p2: pointIndex.get(value.p2)};
+            if (value instanceof Segment) {
+                const out = {p1: pointIndex.get(value.p1), p2: pointIndex.get(value.p2)};
+                if (value.type) out.type = value.type;
+                return out;
+            }
             if (value instanceof Face) return {points: value.points.map((p) => pointIndex.get(p)), offset: value.offset};
             if (exclude.has(key)) return undefined;
             return value;
@@ -709,7 +713,9 @@ export class Model {
             model.points = data.points.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
         }
         if (Array.isArray(data.segments)) {
-            model.segments = data.segments.map((segment) => new Segment(model.points[segment.p1], model.points[segment.p2]));
+            model.segments = data.segments.map((segment) =>
+                new Segment(model.points[segment.p1], model.points[segment.p2], segment.type)
+            );
         }
         if (Array.isArray(data.faces)) {
             model.faces = data.faces.map((face) => {

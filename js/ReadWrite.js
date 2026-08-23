@@ -229,6 +229,10 @@ export class ReadWrite {
         });
         const edges_assignment = [];
         segments.forEach((s) => {
+            if (s.type) {
+                edges_assignment.push(s.type);
+                return;
+            }
             const faces = model.searchFacesWithAB(s.p1, s.p2);
             edges_assignment.push(faces.length === 1 ? "B" : "F");
         });
@@ -285,8 +289,9 @@ export class ReadWrite {
         const fold = JSON.parse(json, reviverFold);
         const model = new Model();
         model.points = fold.vertices_coords;
-        model.segments = fold.edges_vertices.map((edge) => {
-            return new Segment(model.points[edge[0]], model.points[edge[1]]);
+        model.segments = fold.edges_vertices.map((edge, i) => {
+            const assignment = fold.edges_assignment?.[i];
+            return new Segment(model.points[edge[0]], model.points[edge[1]], assignment);
         });
         model.faces = fold.faces_vertices.map((face) => {
             return new Face(face.map((index) => model.points[index]));
