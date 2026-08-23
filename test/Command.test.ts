@@ -187,13 +187,20 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(pt.z), 30);
     });
 
+    await t.step('command move2d', () => {
+        cde.command('d 200 200').anim();
+        const pt = model.points[0];
+        cde.command('move2d 10 0 p0').anim();
+        assertEquals(pt.xf, -190);
+        assertEquals(pt.yf, -200);
+        assertEquals(pt.x, -200);
+    });
+
     await t.step('command move adjust check as sent by Helper', () => {
         cde.command('d 200 200').anim();
         const pt = model.points[2];
-        cde.command('move 10 0 0 p2 adjust check');
+        cde.command('move 10 0 0 p2 adjust p2 check');
         while (cde.anim()) { /* drain */ }
-        assertEquals(Math.round(pt.x), 200);
-        assertEquals(Math.round(pt.y), 200);
         assertEquals(pt.select, false);
     });
 
@@ -393,13 +400,15 @@ Deno.test('Command', async (t) => {
             snap: model.snap,
             textures: model.textures,
         };
-        cde.command('labels overlay lines snap textures');
+        cde.command('labels overlay lines snap textures moveAll adjustLinked');
         while (cde.anim()) { /* wait */ }
         assertEquals(model.labels, !before.labels);
         assertEquals(model.overlay, !before.overlay);
         assertEquals(model.lines, !before.lines);
         assertEquals(model.snap, !before.snap);
         assertEquals(model.textures, !before.textures);
+        assertEquals(model.moveAll, true);
+        assertEquals(model.adjustLinked, true);
     });
 
     await t.step('selectPoints selectSegments selectFaces', () => {

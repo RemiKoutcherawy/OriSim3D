@@ -504,6 +504,14 @@ Deno.test("Model", async (t) => {
         assertEquals(Math.round(p0.y), -196, 'Got:' + p0.y);
         assertEquals(Math.round(p0.z), 6, 'Got:' + p0.z);
     });
+    await t.step("movePoints2d", () => {
+        const model = new Model().init(200, 200);
+        const p0 = model.points[0];
+        model.movePoints2d(10, -5, [p0]);
+        assertEquals(p0.xf, -190);
+        assertEquals(p0.yf, -205);
+        assertEquals(p0.x, -200);
+    });
     await t.step("moveOnPoint", () => {
         const model = new Model().init(200, 200);
         const p0 = model.points[0];

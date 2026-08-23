@@ -19,6 +19,21 @@ export class Face {
         return area / 2;
     }
 
+    // All turns the same way (colinear vertices ignored)
+    static isConvex2d(face) {
+        const pts = face.points;
+        if (pts.length < 3) return true;
+        let sign = 0;
+        for (let i = 0; i < pts.length; i++) {
+            const z = Face.distance2dLineToPoint(pts[i], pts[(i + 1) % pts.length], pts[(i + 2) % pts.length]);
+            if (Math.abs(z) < 1e-9) continue;
+            const s = Math.sign(z);
+            if (sign === 0) sign = s;
+            else if (s !== sign) return false;
+        }
+        return true;
+    }
+
     // Distance 2d from line AB to point C
     static distance2dLineToPoint(a, b, c) {
         // Cross-product AC x AB give z > 0 if C is on the right, ACB is CCW

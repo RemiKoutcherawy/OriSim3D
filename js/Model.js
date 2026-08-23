@@ -43,6 +43,8 @@ export class Model {
         this.edges = false;   // draw segments on overlay (hover and select)
         this.lines = false;   // render lines on 3d
         this.snap = false;     // snap nearest points
+        this.moveAll = false;  // move all selected points
+        this.adjustLinked = false; // also adjust points linked by a segment
     }
 
     // Initialize with 2d coordinates
@@ -69,6 +71,8 @@ export class Model {
         this.edges = true;   // draw segments on overlay (hover and select)
         this.lines = true;   // render lines on 3d
         this.snap = true;    // snap nearest points
+        this.moveAll = false;
+        this.adjustLinked = false;
         return this;
     }
 
@@ -552,6 +556,15 @@ export class Model {
             p.x += dx;
             p.y += dy;
             p.z += dz;
+        });
+    }
+
+    // Move a list of points on the crease pattern (xf, yf)
+    movePoints2d(dx, dy, points) {
+        if (points.length === 0) points = this.points;
+        points.forEach((p) => {
+            p.xf += dx;
+            p.yf += dy;
         });
     }
 
