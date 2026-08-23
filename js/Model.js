@@ -555,15 +555,6 @@ export class Model {
         });
     }
 
-    // Move a list of points on the crease pattern (xf, yf)
-    movePoints2d(dx, dy, points) {
-        if (points.length === 0) points = this.points;
-        points.forEach((p) => {
-            p.xf += dx;
-            p.yf += dy;
-        });
-    }
-
     // Move on a point 'p0' all following list of points
     moveOnPoint(p0, points) {
         points.forEach((p) => {

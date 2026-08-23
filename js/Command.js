@@ -381,12 +381,6 @@ on('split splitSegment2d', splitSegment);
 
 on('r rotate', rotate);
 on('m move', move);
-on('m2d move2d', (cmd) => {
-    const d = cmd.dt;
-    const dx = Number(cmd.next()) * d;
-    const dy = Number(cmd.next()) * d;
-    cmd.model.movePoints2d(dx, dy, cmd.tokens('p'));
-});
 on('mop moveOnPoint', (cmd) => {const pts = cmd.tokens('p');cmd.model.moveOnPoint(pts[0], pts);});
 on('mos moveOnSegment', (cmd) => cmd.model.moveOnSegment(cmd.token('s'), cmd.tokens('p')));
 on('a adjust', (cmd) => {
@@ -426,17 +420,17 @@ on('write', (cmd) => {
 on('writeSvg svg', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeSVG(cmd.model, filename, cmd.view3d);
+    ReadWrite.writeSVG(cmd.model, filename, cmd.view3d).catch((e) => console.error(e));
 });
 on('writeFold fold', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeFold(cmd.model, filename);
+    ReadWrite.writeFold(cmd.model, filename).catch((e) => console.error(e));
 });
 on('writeDiagrams diagrams', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeDiagrams(replaySteps(cmd.instructions), filename);
+    ReadWrite.writeDiagrams(replaySteps(cmd.instructions), filename).catch((e) => console.error(e));
 });
 
 // Toggles
