@@ -85,6 +85,47 @@ Deno.test("ReadWrite", async (t) => {
         await Deno.remove(filename);
     });
 
+    await t.step('writeSVG colors faces by front/back when view3d is passed', async () => {
+        const model = new Model().init(200, 200);
+        for (const p of model.points) {
+            p.xCanvas = p.xf + 100;
+            p.yCanvas = p.yf + 100;
+        }
+        const view3d = {
+            modelView: new Float32Array([
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1,
+            ]),
+            updateCanvasCoords() {},
+        };
+        const front = ReadWrite.svgFaceFillColor(model.faces[0], 0, view3d);
+        assertEquals(front.startsWith('#'), true);
+        assertEquals(front.includes('hsl'), false, 'uses front/back hex, not HSL fallback');
+        // Blue front tint (#70ACF3 * lighting) vs yellow back
+        const flipped = {
+            points: [...model.faces[0].points].reverse(),
+        };
+        const back = ReadWrite.svgFaceFillColor(flipped, 0, view3d);
+        assertEquals(front !== back, true, 'front and back get different fills');
+        // Without view3d, falls back to HSL
+        assertEquals(ReadWrite.svgFaceFillColor(model.faces[0], 0, null).startsWith('hsl'), true);
+
+        const svg = await ReadWrite.writeSVG(model, 'test/test-faces.svg', view3d);
+        assertEquals(svg.includes('fill="#'), true, 'polygons use hex front/back fills');
+        assertEquals(svg.includes('hsl('), false);
+        await Deno.remove('test/test-faces.svg');
+    });
+
+    await t.step('Command keeps optional view3d for svg export', () => {
+        const model = new Model().init(200, 200);
+        const view3d = {modelView: new Float32Array(16), updateCanvasCoords() {}};
+        // deno-lint-ignore no-explicit-any
+        const cmd = new Command(model, view3d as any);
+        assertEquals(cmd.view3d, view3d);
+    });
+
     await t.step('jsonFoldToModel preserves 3D z', () => {
         const fold = {
             file_spec: 1.1,

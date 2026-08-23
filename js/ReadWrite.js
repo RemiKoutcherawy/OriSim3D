@@ -111,6 +111,11 @@ export class ReadWrite {
     }
 
     // Face fill color for SVG export (View3d front/back tints when view3d is available)
+    /**
+     * @param {{ points: import('./Point.js').Point[] }} face
+     * @param {number} index
+     * @param {{ modelView?: Float32Array } | null} [view3d]
+     */
     static svgFaceFillColor(face, index, view3d) {
         if (view3d?.modelView) {
             const n = Model.normal(face);
@@ -149,8 +154,13 @@ export class ReadWrite {
     }
 
     // Export current 3D view as SVG (projected xCanvas, yCanvas faces and edges)
+    /**
+     * @param {import('./Model.js').Model} model
+     * @param {string} [filename]
+     * @param {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} [view3d]
+     */
     static async writeSVG(model, filename = 'OriSim3d.svg', view3d = null) {
-        if (view3d) {
+        if (view3d?.updateCanvasCoords) {
             view3d.updateCanvasCoords();
         }
         let xMin = Infinity, yMin = Infinity, xMax = -Infinity, yMax = -Infinity;
