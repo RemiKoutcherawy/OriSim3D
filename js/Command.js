@@ -13,6 +13,10 @@ export class Command {
     // Time interpolated at an instant 'p' preceding and at instant 'n' now
     tpi = 0;
     tni = 1;
+    // Fit target captured at tpi === 0, then applied incrementally like zoom
+    fitScale = 1;
+    fitCx = 0;
+    fitCy = 0;
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
@@ -284,7 +288,8 @@ function select(cmd, prefix, collection) {
 
 function turn(axis) {
     return (cmd) => {
-        cmd.model.turn(axis, Number.parseFloat(cmd.next()) * cmd.dt);
+        const angle = Number(cmd.next()) * cmd.dt;
+        cmd.model.turn(axis, angle);
     };
 }
 
@@ -321,7 +326,17 @@ function zoom(cmd) {
 }
 
 function fit(cmd) {
-    if (cmd.tpi === 0) cmd.model.fit();
+    if (cmd.tpi === 0) {
+        const b = cmd.model.get3DBounds();
+        cmd.fitScale = 400 / (Math.max(b.xMax - b.xMin, b.yMax - b.yMin) || 1);
+        cmd.fitCx = (b.xMin + b.xMax) / 2;
+        cmd.fitCy = (b.yMin + b.yMax) / 2;
+    }
+    const s = cmd.fitScale;
+    const a = (1 + cmd.tni * (s - 1)) / (1 + cmd.tpi * (s - 1));
+    cmd.model.zoom(a, 0, 0);
+    const k = s * (a * cmd.tpi - cmd.tni);
+    cmd.model.movePoints(cmd.fitCx * k, cmd.fitCy * k, 0, cmd.model.points);
 }
 
 const COMMANDS = {};

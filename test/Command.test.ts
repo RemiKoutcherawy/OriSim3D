@@ -4,6 +4,18 @@ import { Point } from '../js/Point.js';
 import { Interpolator } from '../js/Interpolator.js';
 import { assertEquals } from "@std/assert";
 
+function installClock(start = 0) {
+    const original = performance.now.bind(performance);
+    const clock = {
+        now: start,
+        restore() {
+            performance.now = original;
+        },
+    };
+    performance.now = () => clock.now;
+    return clock;
+}
+
 Deno.test('Command', async (t) => {
     const model = new Model().init(200, 200);
     const cde = new Command(model);
@@ -411,6 +423,96 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.points[1].x), 400);
         cdeZoom.command('fit').anim();
         assertEquals(Math.round(model.points[1].x), 200);
+    });
+
+    await t.step('animated ty interpolates like rotate', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        const clock = installClock(1000);
+        try {
+            cmd.command('t 1000 ty 180');
+            cmd.anim(); // runNext: start animation
+            clock.now = 1500; // halfway
+            cmd.anim();
+            // (-200,-200,0) around Y by 90° → (0,-200,200)
+            assertEquals(Math.round(m.points[0].x), 0);
+            assertEquals(Math.round(m.points[0].y), -200);
+            assertEquals(Math.round(m.points[0].z), 200);
+            clock.now = 2000;
+            cmd.anim();
+            assertEquals(Math.round(m.points[0].x), 200);
+            assertEquals(Math.round(m.points[0].y), -200);
+            assertEquals(Math.round(m.points[0].z), 0);
+            assertEquals(m.state, State.run);
+        } finally {
+            clock.restore();
+        }
+    });
+
+    await t.step('animated tx tz reach the same result as instant', () => {
+        for (const cde of ['tx 90', 'tz -45']) {
+            const instant = new Model().init(200, 200);
+            new Command(instant).command(cde).anim();
+            const animated = new Model().init(200, 200);
+            const cmd = new Command(animated);
+            const clock = installClock(0);
+            try {
+                cmd.command(`t 400 ${cde}`);
+                cmd.anim();
+                clock.now = 200;
+                cmd.anim();
+                clock.now = 400;
+                cmd.anim();
+            } finally {
+                clock.restore();
+            }
+            for (let i = 0; i < instant.points.length; i++) {
+                assertEquals(Math.round(animated.points[i].x), Math.round(instant.points[i].x), `${cde} x`);
+                assertEquals(Math.round(animated.points[i].y), Math.round(instant.points[i].y), `${cde} y`);
+                assertEquals(Math.round(animated.points[i].z), Math.round(instant.points[i].z), `${cde} z`);
+            }
+        }
+    });
+
+    await t.step('animated fit interpolates like zoom', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('z 2 0 0').anim();
+        assertEquals(Math.round(m.points[1].x), 400);
+        const clock = installClock(0);
+        try {
+            cmd.command('t 1000 fit');
+            cmd.anim(); // start
+            clock.now = 500;
+            cmd.anim();
+            // s=0.5, centered at origin: x(t) = 400 * (1 - 0.5 t) → 300 at t=0.5
+            assertEquals(Math.round(m.points[1].x), 300);
+            clock.now = 1000;
+            cmd.anim();
+            assertEquals(Math.round(m.points[1].x), 200);
+            assertEquals(Math.round(m.points[1].y), -200);
+            assertEquals(m.state, State.run);
+        } finally {
+            clock.restore();
+        }
+    });
+
+    await t.step('animated fit recenters a translated model', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('move 100 0 0').anim();
+        const clock = installClock(0);
+        try {
+            cmd.command('t 200 fit');
+            cmd.anim();
+            clock.now = 200;
+            cmd.anim();
+        } finally {
+            clock.restore();
+        }
+        const b = m.get3DBounds();
+        assertEquals(Math.round((b.xMin + b.xMax) / 2), 0);
+        assertEquals(Math.round(b.xMax - b.xMin), 400);
     });
 
     await t.step('pause and run', () => {
