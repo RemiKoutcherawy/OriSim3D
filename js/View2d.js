@@ -1,4 +1,5 @@
 import {Model} from './Model.js';
+import {Segment} from './Segment.js';
 
 export class View2d {
 
@@ -59,7 +60,7 @@ export class View2d {
         });
     }
 
-    // Draw segments
+    // Draw segments (M dashed red, V solid blue, B black, U gray)
     drawSegments(segments) {
         const context2d = this.canvas2d.getContext('2d');
         context2d.font = '18px serif';
@@ -68,13 +69,20 @@ export class View2d {
         segments.forEach(s => {
             const [xf1, yf1, xf2, yf2] = [s.p1.xf, -s.p1.yf, s.p2.xf, -s.p2.yf];
             const [xc, yc] = [(xf1 + xf2) / 2, (yf1 + yf2) / 2];
+            const color = Segment.strokeStyle(s.assignment, {select: s.select, hover: s.hover});
 
             context2d.lineWidth = s.hover ? 6 : 3;
+            if (typeof context2d.setLineDash === 'function') {
+                context2d.setLineDash(Segment.isDashed(s.assignment) && !s.select && !s.hover ? [10, 8] : []);
+            }
             context2d.beginPath();
             context2d.moveTo(xf1, yf1);
             context2d.lineTo(xf2, yf2);
-            context2d.strokeStyle = s.select ? 'red' : s.hover ? 'blue' : 'skyblue';
+            context2d.strokeStyle = color;
             context2d.stroke();
+            if (typeof context2d.setLineDash === 'function') {
+                context2d.setLineDash([]);
+            }
             // Add an arrow on p2
             const arrowLength = 20;
             const arrowAngle = Math.PI / 7;
@@ -86,7 +94,7 @@ export class View2d {
             context2d.lineTo(arrowX1, arrowY1);
             context2d.lineTo(arrowX2, arrowY2);
             context2d.closePath();
-            context2d.fillStyle = s.select ? 'red' : s.hover ? 'blue' : 'skyblue';
+            context2d.fillStyle = color;
             context2d.fill();
 
             // Circle with color for selected, bigger for hovered
@@ -95,16 +103,17 @@ export class View2d {
             context2d.fillStyle = s.select ? 'red' : s.hover ? 'blue' : 'lightgreen';
             context2d.fill();
 
-            // Label
+            // Label (index + assignment letter when labels on or for M/V)
             context2d.fillStyle = s.hover ? 'white' : 'black';
             const n = this.model.segments.indexOf(s);
-            context2d.fillText(String(n), xc - (n < 10 ? 4 : 8), yc + 5);
+            const assignTag = s.assignment && s.assignment !== 'U' && s.assignment !== 'B' ? s.assignment : '';
+            context2d.fillText(String(n) + assignTag, xc - (n < 10 ? 4 : 8), yc + 5);
 
             // Angle of incident faces if there are 2 faces
             const faces = Model.incidentFaces(this.model, s);
             if (faces.length === 2) {
-                const angle = Model.dihedralAngle(faces[0], faces[1]);
-                const angleStr = String(angle);
+                const dihedral = Model.dihedralAngle(faces[0], faces[1]);
+                const angleStr = String(dihedral);
                 context2d.fillStyle = 'black';
                 context2d.fillText(angleStr, xc - 4 * angleStr.length, yc + 22);
             }

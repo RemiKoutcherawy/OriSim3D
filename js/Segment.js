@@ -1,13 +1,42 @@
 import {Vector3} from './Vector3.js';
 import {Point} from './Point.js';
 
+/** FOLD edge assignment: M mountain, V valley, B boundary, F flat, U unassigned */
+export const Assignment = {M: 'M', V: 'V', B: 'B', F: 'F', U: 'U'};
+
 export class Segment {
 
-    constructor(p1, p2) {
+    constructor(p1, p2, assignment = Assignment.U) {
         this.p1 = p1;
         this.p2 = p2;
+        this.assignment = assignment;
         this.hover = false;
         this.select = false;
+    }
+
+    // Cycle U → V → M → U (boundary stays B)
+    cycleAssignment() {
+        if (this.assignment === Assignment.B) return this.assignment;
+        const next = {[Assignment.U]: Assignment.V, [Assignment.V]: Assignment.M, [Assignment.M]: Assignment.U, [Assignment.F]: Assignment.V};
+        this.assignment = next[this.assignment] || Assignment.V;
+        return this.assignment;
+    }
+
+    static strokeStyle(assignment, {select = false, hover = false} = {}) {
+        if (select) return 'red';
+        if (hover) return 'blue';
+        const colors = {
+            [Assignment.M]: '#c62828',
+            [Assignment.V]: '#1565c0',
+            [Assignment.B]: '#212121',
+            [Assignment.F]: '#9e9e9e',
+            [Assignment.U]: '#607d8b',
+        };
+        return colors[assignment] || colors[Assignment.U];
+    }
+
+    static isDashed(assignment) {
+        return assignment === Assignment.M;
     }
 
     // 2d distance from Segment to Point

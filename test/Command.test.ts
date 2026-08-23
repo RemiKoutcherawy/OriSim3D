@@ -421,6 +421,44 @@ Deno.test('Command', async (t) => {
         assertEquals(model.state, State.run);
     });
 
+    await t.step('assignment mountain valley mv and rotate infer', () => {
+        cde.command('d 200 200').anim();
+        cde.command('across2d p0 p2').anim();
+        const crease = model.segments.find((s) => s.assignment === 'U' || s.assignment === 'V' || s.assignment === 'M');
+        assertEquals(!!crease, true);
+        crease.select = true;
+        cde.command('valley').anim();
+        assertEquals(crease.assignment, 'V');
+        cde.command('mountain').anim();
+        assertEquals(crease.assignment, 'M');
+        cde.command('mv').anim();
+        assertEquals(crease.assignment, 'U');
+        crease.assignment = 'U';
+        cde.command('r s4 90 p1').anim();
+        assertEquals(model.segments[4].assignment, 'V');
+    });
+
+    await t.step('playbook gotoStep and stepNext', () => {
+        const script = `d 200 200
+across2d p1 p2
+across2d p0 p1
+`;
+        const pb = new Command(new Model().init(200, 200));
+        pb.setPlaybook(script);
+        assertEquals(pb.playbookSteps.length, 3);
+        pb.gotoStep(2);
+        assertEquals(pb.playbookIndex, 2);
+        assertEquals(pb.model.faces.length >= 2, true);
+        pb.stepPrev();
+        assertEquals(pb.playbookIndex, 1);
+        pb.gotoStep(0);
+        assertEquals(pb.model.faces.length, 1);
+        pb.instantReplay = false;
+        pb.stepNext();
+        pb.drain();
+        assertEquals(pb.playbookIndex, 1);
+    });
+
     // execute one instruction directly from tokenTodo
     await t.step('execute', () => {
         cde.command('d 200 200').anim();

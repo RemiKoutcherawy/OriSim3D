@@ -92,7 +92,8 @@ export class Helper {
     }
 
     // Logic begins here
-    down(points, segments, faces, x, y) {
+    down(points, segments, faces, x, y, event) {
+        this.shiftKey = !!(event && event.shiftKey);
         this.downPoint = points[0];
         this.downSegment = !this.downPoint ? segments[0] : undefined;
         this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;
@@ -182,8 +183,13 @@ export class Helper {
     fromSegment() {
         if (this.upSegment) {
             if (this.upSegment === this.downSegment) {
-                this.downSegment.select = !this.downSegment.select;
-                this.command.command(`// Différences ${this.model.indexOf(this.downSegment)} ${Segment.length2d(this.downSegment)} ${Segment.length3d(this.downSegment)}`);
+                if (this.shiftKey) {
+                    this.downSegment.select = true;
+                    this.command.command(`mv s${this.model.indexOf(this.downSegment)}`);
+                } else {
+                    this.downSegment.select = !this.downSegment.select;
+                    this.command.command(`// Différences ${this.model.indexOf(this.downSegment)} ${Segment.length2d(this.downSegment)} ${Segment.length3d(this.downSegment)}`);
+                }
             } else {
                 this.sendCmd('bisector', this.downSegment, this.upSegment);
             }
@@ -295,7 +301,7 @@ export class Helper {
         this.currentCanvas = '2d';
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
-        this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate
+        this.down(points, segments, faces, xf, -yf, event); // Note inverse y coordinate
     }
     // Move on flat 2d
     move2d(event) {
@@ -351,7 +357,7 @@ export class Helper {
         this.currentCanvas = '3d';
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
-        this.down(points, segments, faces, xCanvas, yCanvas);
+        this.down(points, segments, faces, xCanvas, yCanvas, event);
     }
 
     // Move on 3d overlay

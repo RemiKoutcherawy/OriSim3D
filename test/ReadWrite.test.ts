@@ -139,4 +139,35 @@ Deno.test("ReadWrite", async (t) => {
         const zs = model.points.map((p) => p.z);
         assertEquals(zs.some((z) => z !== 0), true, '3D fold should keep non-zero z');
     });
+
+    await t.step('toJSONFold exports M/V assignments and foldedForm frame', () => {
+        const model = new Model().init(200, 200);
+        model.splitBy2d(model.points[0], model.points[2]);
+        const crease = model.segments.find((s) => s.assignment !== 'B');
+        crease.assignment = 'V';
+        model.points[2].z = 50;
+        const fold = JSON.parse(ReadWrite.toJSONFold(model));
+        assertEquals(fold.edges_assignment.includes('B'), true);
+        assertEquals(fold.edges_assignment.includes('V'), true);
+        assertEquals(Array.isArray(fold.file_frames), true);
+        assertEquals(fold.file_frames[0].frame_classes.includes('foldedForm'), true);
+        assertEquals(fold.file_frames[0].vertices_coords[2][2], 50);
+
+        const roundTrip = ReadWrite.jsonFoldToModel(JSON.stringify(fold));
+        assertEquals(roundTrip.segments.some((s) => s.assignment === 'V'), true);
+        assertEquals(roundTrip.points.some((p) => Math.abs(p.z) > 1e-6), true);
+    });
+
+    await t.step('writeDiagrams builds multi-step SVG', async () => {
+        const script = `d 200 200
+across2d p1 p2
+valley s4
+`;
+        const filename = 'test/diagrams.svg';
+        const svg = await ReadWrite.writeDiagrams(script, filename);
+        assertEquals(svg.includes('Step 1/'), true);
+        assertEquals(svg.includes('<line'), true);
+        assertEquals((await Deno.readTextFile(filename)).includes('Step'), true);
+        await Deno.remove(filename);
+    });
 });

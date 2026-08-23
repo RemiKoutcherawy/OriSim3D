@@ -56,8 +56,13 @@ export class Model {
         const p2 = new Point(width, height, width, height, 0);
         const p3 = new Point(-width, height, -width, height, 0);
         this.points.push(p0, p1, p2, p3);
-        // 4 segments
-        this.segments.push(new Segment(p0, p1), new Segment(p1, p2), new Segment(p2, p3), new Segment(p3, p0));
+        // 4 boundary segments
+        this.segments.push(
+            new Segment(p0, p1, 'B'),
+            new Segment(p1, p2, 'B'),
+            new Segment(p2, p3, 'B'),
+            new Segment(p3, p0, 'B'),
+        );
         // 1 face
         this.faces.push(new Face([p0, p1, p2, p3]));
         // State run
@@ -115,14 +120,27 @@ export class Model {
         return point;
     }
 
-    // Add a segment or return an existing segment
-    addSegment(a, b) {
+    // Add a segment or return an existing segment (new creases default to U)
+    addSegment(a, b, assignment = 'U') {
         const existing = this.getSegment(a, b);
         // None found, create one
         if (existing) return existing;
-        const segment = new Segment(a, b);
+        const segment = new Segment(a, b, assignment);
         this.segments.push(segment);
         return segment;
+    }
+
+    // Sync B vs interior from incident faces; keeps M/V/F/U on interior edges
+    refreshAssignments() {
+        for (const s of this.segments) {
+            const faces = this.searchFacesWithAB(s.p1, s.p2);
+            if (faces.length <= 1) {
+                s.assignment = 'B';
+            } else if (s.assignment === 'B' || !s.assignment) {
+                s.assignment = 'U';
+            }
+        }
+        return this;
     }
 
     // Get the face containing these points in this order
@@ -333,9 +351,10 @@ export class Model {
             }
         }
         // Reduce segment s to [a, p]
+        const assignment = s.assignment || 'U';
         Model.splitSegment(s, a, p);
-        // And add a new segment p,b
-        this.addSegment(p, b);
+        // And add a new segment p,b (inherit mountain/valley/boundary)
+        this.addSegment(p, b, assignment);
         return s;
     }
 
@@ -692,7 +711,9 @@ export class Model {
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {
-            if (value instanceof Segment) return {p1: pointIndex.get(value.p1), p2: pointIndex.get(value.p2)};
+            if (value instanceof Segment) {
+                return {p1: pointIndex.get(value.p1), p2: pointIndex.get(value.p2), assignment: value.assignment || 'U'};
+            }
             if (value instanceof Face) return {points: value.points.map((p) => pointIndex.get(p)), offset: value.offset};
             if (exclude.has(key)) return undefined;
             return value;
@@ -709,7 +730,8 @@ export class Model {
             model.points = data.points.map((p) => new Point(p.xf, p.yf, p.x, p.y, p.z));
         }
         if (Array.isArray(data.segments)) {
-            model.segments = data.segments.map((segment) => new Segment(model.points[segment.p1], model.points[segment.p2]));
+            model.segments = data.segments.map((segment) =>
+                new Segment(model.points[segment.p1], model.points[segment.p2], segment.assignment || 'U'));
         }
         if (Array.isArray(data.faces)) {
             model.faces = data.faces.map((face) => {

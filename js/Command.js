@@ -23,6 +23,12 @@ export class Command {
     // Optional 3D view (for svg export and other view-dependent commands)
     /** @type {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} */
     view3d;
+    // Playbook / stepper
+    playbookSteps = [];
+    playbookIndex = 0;
+    playbookText = '';
+    instantReplay = false;
+    onPlaybookChange;
 
     /**
      * @param {import('./Model.js').Model} model
@@ -31,6 +37,71 @@ export class Command {
     constructor(model, view3d = null) {
         this.model = model;
         this.view3d = view3d;
+    }
+
+    static parsePlaybookSteps(text) {
+        return ReadWrite.parsePlaybookSteps(text);
+    }
+
+    setPlaybook(text) {
+        this.playbookText = String(text ?? '');
+        this.playbookSteps = Command.parsePlaybookSteps(this.playbookText);
+        this.playbookIndex = 0;
+        this.notifyPlaybook();
+        return this;
+    }
+
+    notifyPlaybook() {
+        this.onPlaybookChange?.(this.playbookIndex, this.playbookSteps.length, this.playbookSteps[this.playbookIndex - 1] || '');
+    }
+
+    // Run anim() until idle; jumps animated steps to completion when instantReplay
+    drain(maxIter = 20000) {
+        let guard = maxIter;
+        while (guard-- > 0) {
+            if (this.model.state === State.anim) {
+                this.tStart = performance.now() - this.duration - 1;
+            }
+            if (!this.anim()) break;
+        }
+        return this;
+    }
+
+    // Replay playbook instantly up to step n
+    gotoStep(n) {
+        const steps = this.playbookSteps;
+        n = Math.max(0, Math.min(Number(n) || 0, steps.length));
+        const area = this.commandArea;
+        this.commandArea = undefined;
+        this.instantReplay = true;
+        this.done = [];
+        this.tokenTodo = [];
+        this.iToken = 0;
+        this.instructions = [];
+        this.model.state = State.run;
+        this.model.init(200, 200);
+        for (let i = 0; i < n; i++) {
+            this.command(steps[i]);
+            this.drain();
+        }
+        this.instantReplay = false;
+        this.commandArea = area;
+        this.playbookIndex = n;
+        this.notifyPlaybook();
+        return this;
+    }
+
+    stepNext() {
+        if (this.playbookIndex >= this.playbookSteps.length) return this;
+        this.command(this.playbookSteps[this.playbookIndex]);
+        this.playbookIndex++;
+        this.notifyPlaybook();
+        return this;
+    }
+
+    stepPrev() {
+        if (this.playbookIndex <= 0) return this;
+        return this.gotoStep(this.playbookIndex - 1);
     }
 
     // The main entry point executes a string of commands
@@ -140,6 +211,21 @@ export class Command {
             this.pushUndo();
             this.iToken++;
             this.duration = Number.parseFloat(this.next());
+            if (this.instantReplay || !(this.duration > 0)) {
+                this.tpi = 0;
+                this.tni = 1;
+                while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {
+                    this.execute(this.iToken);
+                }
+                if (this.model.snap) {
+                    this.model.align();
+                }
+                this.doneInstructions(this.idxBefore, this.iToken);
+                this.tpi = 0;
+                this.tni = 1;
+                this.model.state = State.run;
+                return true;
+            }
             this.tStart = performance.now();
             this.tpi = 0;
             this.model.state = State.anim;
@@ -302,8 +388,22 @@ function splitSegment(cmd) {
 
 function rotate(cmd) {
     const s = cmd.token('s');
-    const angle = Number(cmd.next()) * cmd.dt;
-    cmd.model.rotate(s, angle, cmd.tokens('p'));
+    const angleDeg = Number(cmd.next());
+    // Infer M/V once at the start of a fold when still unassigned
+    if (cmd.tpi === 0 && s && (s.assignment === 'U' || !s.assignment)) {
+        if (angleDeg > 0) s.assignment = 'V';
+        else if (angleDeg < 0) s.assignment = 'M';
+    }
+    cmd.model.rotate(s, angleDeg * cmd.dt, cmd.tokens('p'));
+}
+
+function assignEdges(cmd, value) {
+    const listed = cmd.tokens('s');
+    const targets = listed.length ? listed : cmd.model.segments.filter((s) => s.select);
+    for (const s of targets) {
+        if (value === 'cycle') s.cycleAssignment();
+        else if (s.assignment !== 'B') s.assignment = value;
+    }
 }
 
 function move(cmd) {
@@ -389,11 +489,23 @@ on('writeSvg svg', (cmd) => {
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeSVG(cmd.model, filename, cmd.view3d);
 });
-on('writeFold fold', (cmd) => {
+on('writeFold fold writefold', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeFold(cmd.model, filename);
 });
+on('writeDiagrams diagrams writediagrams', (cmd) => {
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+    const text = cmd.playbookText || cmd.instructions.join('\n') || cmd.commandArea?.textarea?.value || '';
+    ReadWrite.writeDiagrams(text, filename);
+});
+
+// Mountain / valley assignments (FOLD edges_assignment)
+on('mv cycle', (cmd) => assignEdges(cmd, 'cycle'));
+on('mountain mtn', (cmd) => assignEdges(cmd, 'M'));
+on('valley', (cmd) => assignEdges(cmd, 'V'));
+on('unassigned', (cmd) => assignEdges(cmd, 'U'));
 
 // Toggles
 on('labels', (cmd) => { cmd.model.labels = !cmd.model.labels; });
@@ -402,6 +514,28 @@ on('overlay', (cmd) => { cmd.model.overlay = !cmd.model.overlay; });
 on('edges', (cmd) => { cmd.model.edges = !cmd.model.edges; });
 on('lines', (cmd) => { cmd.model.lines = !cmd.model.lines; });
 on('snap', (cmd) => { cmd.model.snap = !cmd.model.snap; });
+
+// Playbook stepper
+on('step', (cmd) => {
+    const token = cmd.peek();
+    if (token === 'next' || token === 'n') {
+        cmd.next();
+        cmd.stepNext();
+    } else if (token === 'prev' || token === 'p' || token === 'back') {
+        cmd.next();
+        cmd.stepPrev();
+    } else if (cmd.isNumber(token)) {
+        cmd.gotoStep(Number(cmd.next()));
+    } else {
+        cmd.stepNext();
+    }
+});
+on('playbook', (cmd) => {
+    // Reload playbook from console text
+    const text = cmd.commandArea?.textarea?.value || cmd.playbookText;
+    cmd.setPlaybook(text);
+    cmd.gotoStep(0);
+});
 
 // Interpolator
 on('il', (cmd) => { cmd.interpolator = Interpolator.LinearInterpolator });

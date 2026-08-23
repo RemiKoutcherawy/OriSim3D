@@ -7,9 +7,10 @@
   <!-- sonar-disable-next-line -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    :root { --split: 100%; }
+    :root { --split: 100%; --playbook-h: 0px; }
     body.command-area-open { --split: 80%; }
-    #canvas2d,#canvas3d,#overlay{position:absolute;top:0;width:50%;height:var(--split)}
+    body.playbook-open { --playbook-h: 44px; }
+    #canvas2d,#canvas3d,#overlay{position:absolute;top:0;width:50%;height:calc(var(--split) - var(--playbook-h))}
     #canvas2d{left:0;border:1px solid black}
     #canvas3d{left:50%;border:1px solid black}
     #overlay{left:50%;z-index:1}
@@ -22,6 +23,17 @@
     body.command-area-open #commandAreaPanel{display:flex}
     #commandAreaPanel label{font:14px sans-serif;margin-bottom:4px}
     #commandArea{flex:1;width:100%;font:14px monospace;resize:none}
+    #playbookBar{
+      display:none;position:absolute;left:0;right:0;bottom:0;height:var(--playbook-h);
+      box-sizing:border-box;padding:6px 10px;background:#f6f8fa;border-top:1px solid black;
+      z-index:6;align-items:center;gap:8px;font:13px sans-serif;color:#1f2328
+    }
+    body.playbook-open #playbookBar{display:flex}
+    body.command-area-open.playbook-open #playbookBar{bottom:calc(100% - var(--split))}
+    #playbookBar button{padding:4px 10px;border:1px solid #bbb;border-radius:4px;background:#fff;cursor:pointer;font:inherit}
+    #playbookBar button:hover{background:#eef1f4}
+    #playbookBar #playbookLabel{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;font-size:12px;color:#555}
+    #playbookBar input[type=range]{width:120px}
     #burger,#nav,#undoBtn{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
     #burger{top:8px;padding:8px;line-height:0;cursor:pointer}
     #burger:hover{background:#eef1f4}
@@ -56,6 +68,14 @@
   <textarea id="commandArea" spellcheck="false">d 200 200
 </textarea>
 </div>
+<div id="playbookBar" aria-label="Playbook">
+  <button type="button" id="playbookPrev" title="Étape précédente">◀</button>
+  <button type="button" id="playbookNext" title="Étape suivante">▶</button>
+  <span id="playbookStep">0/0</span>
+  <input type="range" id="playbookSlider" min="0" max="0" value="0" aria-label="Scrub playbook"/>
+  <span id="playbookLabel"></span>
+  <button type="button" id="playbookReset" title="Revenir au début">Début</button>
+</div>
 <button id="burger" aria-label="Menu" aria-expanded="false">
   <span></span><span></span><span></span>
 </button>
@@ -71,11 +91,15 @@
       <button type="button" data-load="exportInstructions">Exporter instruction</button>
       <button type="button" data-load="exportSvg">Exporter SVG</button>
       <button type="button" data-load="exportFold">Exporter FOLD</button>
+      <button type="button" data-load="exportDiagrams">Exporter diagrammes</button>
     </details>
   </details>
   <details>
     <summary>Édition<span class="chev">›</span></summary>
     <button type="button" data-load="undo">Undo</button>
+    <button type="button" data-load="mvCycle">Cycle M/V (Shift+clic)</button>
+    <button type="button" data-load="valley">Valley</button>
+    <button type="button" data-load="mountain">Mountain</button>
     <button type="button" data-load="lines" data-flag="lines">Lines</button>
     <button type="button" data-load="edges" data-flag="edges">Edges</button>
     <button type="button" data-load="snap" data-flag="snap">Snap</button>
@@ -83,6 +107,7 @@
     <button type="button" data-load="labels" data-flag="labels">Labels</button>
     <button type="button" data-load="textures" data-flag="textures">Textures</button>
     <button type="button" id="toggleCommandArea" data-ui="commandArea">Console</button>
+    <button type="button" id="togglePlaybook" data-ui="playbook">Playbook</button>
   </details>
   <details>
     <summary>Exemples<span class="chev">›</span></summary>
@@ -140,6 +165,40 @@
       resizeViews();
     }
 
+    function setPlaybookOpen(open) {
+      document.body.classList.toggle('playbook-open', open);
+      syncToggles();
+      resizeViews();
+    }
+
+    function syncPlaybookUI(index, total, lastStep) {
+      document.getElementById('playbookStep').textContent = `${index}/${total}`;
+      const slider = document.getElementById('playbookSlider');
+      slider.max = String(total);
+      slider.value = String(index);
+      document.getElementById('playbookLabel').textContent = lastStep || (total ? command.playbookSteps[index] || '' : '');
+    }
+    command.onPlaybookChange = syncPlaybookUI;
+
+    document.getElementById('playbookPrev').addEventListener('click', () => {
+      command.stepPrev();
+      view3d.initBuffers();
+      view3d.initModelView();
+    });
+    document.getElementById('playbookNext').addEventListener('click', () => {
+      command.stepNext();
+    });
+    document.getElementById('playbookReset').addEventListener('click', () => {
+      command.gotoStep(0);
+      view3d.initBuffers();
+      view3d.initModelView();
+    });
+    document.getElementById('playbookSlider').addEventListener('input', (e) => {
+      command.gotoStep(Number(e.target.value));
+      view3d.initBuffers();
+      view3d.initModelView();
+    });
+
     // Animation loop
     function loop() {
       if (command.anim()) {
@@ -160,6 +219,11 @@
     })
     document.getElementById('toggleCommandArea').addEventListener('click', () => {
       setCommandAreaOpen(!document.body.classList.contains('command-area-open'));
+      document.getElementById('nav').style.display = 'none';
+      document.getElementById('burger').setAttribute('aria-expanded', 'false');
+    });
+    document.getElementById('togglePlaybook').addEventListener('click', () => {
+      setPlaybookOpen(!document.body.classList.contains('playbook-open'));
       document.getElementById('nav').style.display = 'none';
       document.getElementById('burger').setAttribute('aria-expanded', 'false');
     });
@@ -188,6 +252,8 @@
       });
       const consoleBtn = document.getElementById('toggleCommandArea');
       consoleBtn.dataset.checked = document.body.classList.contains('command-area-open') ? 'true' : 'false';
+      const playbookBtn = document.getElementById('togglePlaybook');
+      playbookBtn.dataset.checked = document.body.classList.contains('playbook-open') ? 'true' : 'false';
     }
 
     function load(id) {
@@ -195,7 +261,15 @@
       nav.style.display = 'none';
       document.getElementById('burger').setAttribute('aria-expanded', 'false');
       const text = document.getElementById(id).content.textContent;
+      if (id === 'cocotte' || id === 'boat' || id === 'test') {
+        command.setPlaybook(text);
+        setPlaybookOpen(true);
+      }
       command.command(text);
+      if (command.playbookSteps.length) {
+        command.playbookIndex = command.playbookSteps.length;
+        command.notifyPlaybook();
+      }
       syncToggles();
     }
 
@@ -209,7 +283,11 @@
 <template id="exportInstructions">write</template>
 <template id="exportSvg">svg</template>
 <template id="exportFold">writefold</template>
+<template id="exportDiagrams">writediagrams</template>
 <template id="undo">undo</template>
+<template id="mvCycle">mv</template>
+<template id="valley">valley</template>
+<template id="mountain">mountain</template>
 <template id="lines">lines</template>
 <template id="edges">edges</template>
 <template id="snap">snap</template>

@@ -214,89 +214,184 @@ export class ReadWrite {
         return svg;
     }
 
-    static toJSONFold(model) {
+    static toJSONFold(model, {includeFoldedFrame = true} = {}) {
         const points = model.points;
-        const vertices_coords = [];
-        points.forEach((p) => {
-            const xy = [p.xf, p.yf];
-            vertices_coords.push(xy);
-        })
+        const vertices_coords = points.map((p) => [p.xf, p.yf]);
         const segments = model.segments;
-        const edges_vertices = [];
-        segments.forEach((s) => {
-            const indexes = [points.indexOf(s.p1), points.indexOf(s.p2)]
-            edges_vertices.push(indexes);
-        });
-        const edges_assignment = [];
-        segments.forEach((s) => {
+        const edges_vertices = segments.map((s) => [points.indexOf(s.p1), points.indexOf(s.p2)]);
+        const edges_assignment = segments.map((s) => {
             const faces = model.searchFacesWithAB(s.p1, s.p2);
-            edges_assignment.push(faces.length === 1 ? "B" : "F");
+            if (faces.length <= 1) return 'B';
+            const a = s.assignment || 'U';
+            return a === 'B' ? 'U' : a;
         });
-        const faces = model.faces;
-        const faces_vertices = [];
-        faces.forEach((f) => {
-            const indexes = [];
-            f.points.forEach((p) => {
-                indexes.push(points.indexOf(p));
-            });
-            faces_vertices.push(indexes);
-        });
-        const faces_edges = [];
-        faces.forEach((f) => {
+        const faces_vertices = model.faces.map((f) => f.points.map((p) => points.indexOf(p)));
+        const faces_edges = model.faces.map((f) => {
             const indexes = [];
             const len = f.points.length;
             for (let i = 0; i < len; i++) {
                 const p1 = f.points[i];
                 const p2 = f.points[(i + 1) % len];
                 const edgeIndex = segments.findIndex((s) => (s.p1 === p1 && s.p2 === p2) || (s.p1 === p2 && s.p2 === p1));
-                if (edgeIndex !== -1) {
-                    indexes.push(edgeIndex);
-                }
+                if (edgeIndex !== -1) indexes.push(edgeIndex);
             }
-            faces_edges.push(indexes);
+            return indexes;
         });
         const FOLD = {
             file_spec: 1.1,
-            file_creator: "OriSim3D",
-            file_classes: ["singleModel"],
-            frame_classes: ["creasePattern"],
-            vertices_coords: vertices_coords,
-            edges_vertices: edges_vertices,
-            edges_assignment: edges_assignment,
-            faces_vertices: faces_vertices,
-            faces_edges: faces_edges
+            file_creator: 'OriSim3D',
+            file_classes: ['singleModel'],
+            frame_classes: ['creasePattern'],
+            frame_attributes: ['2D'],
+            vertices_coords,
+            edges_vertices,
+            edges_assignment,
+            faces_vertices,
+            faces_edges,
         };
+        const has3d = points.some((p) => Math.abs(p.z) > 1e-9 || Math.abs(p.x - p.xf) > 1e-9 || Math.abs(p.y - p.yf) > 1e-9);
+        if (includeFoldedFrame && has3d) {
+            FOLD.file_frames = [{
+                frame_classes: ['foldedForm'],
+                frame_attributes: ['3D'],
+                frame_inherit: true,
+                frame_parent: 0,
+                vertices_coords: points.map((p) => [p.x, p.y, p.z]),
+            }];
+        }
         let json = JSON.stringify(FOLD, undefined, 2);
 
         // Cosmetic
-        let reg = /\[[\n\s]*(-?\d+),[\n\s]*(-?\d+)[\n\s]*]/mg;
+        let reg = /\[[\n\s]*(-?\d+(?:\.\d+)?),[\n\s]*(-?\d+(?:\.\d+)?)[\n\s]*]/mg;
         json = json.replaceAll(reg, (_match, g1, g2) => `[${g1},${g2}]`);
-        reg = /\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*]/g;
-        // More cosmetics
-        json = json.replaceAll(reg, (match) => {
-            return match.replaceAll(/[\n\s]*/g, '');
-        });
+        reg = /\[\s*-?\d+(?:\.\d+)?(?:\s*,\s*-?\d+(?:\.\d+)?)*\s*]/g;
+        json = json.replaceAll(reg, (match) => match.replaceAll(/[\n\s]*/g, ''));
 
         return json;
     }
 
+    // Crease-pattern SVG fragment (xf/yf), Y flipped like View2d
+    static creasePatternSVGContent(model, {pad = 10, showLabels = false} = {}) {
+        const {xMin, yMin, xMax, yMax} = model.get2DBounds();
+        const width = Math.max(xMax - xMin, 1) + 2 * pad;
+        const height = Math.max(yMax - yMin, 1) + 2 * pad;
+        const tx = (xf) => (xf - xMin + pad).toFixed(2);
+        const ty = (yf) => (yMax - yf + pad).toFixed(2);
+        const faces = model.faces.map((f) => {
+            const pts = f.points.map((p) => `${tx(p.xf)},${ty(p.yf)}`).join(' ');
+            return `<polygon points="${pts}" fill="#cce4ff" stroke="none"/>`;
+        }).join('\n  ');
+        const lines = model.segments.map((s) => {
+            const color = Segment.strokeStyle(s.assignment);
+            const dash = Segment.isDashed(s.assignment) ? ' stroke-dasharray="8 6"' : '';
+            return `<line x1="${tx(s.p1.xf)}" y1="${ty(s.p1.yf)}" x2="${tx(s.p2.xf)}" y2="${ty(s.p2.yf)}" stroke="${color}" stroke-width="2"${dash}/>`;
+        }).join('\n  ');
+        let labels = '';
+        if (showLabels) {
+            labels = model.segments.map((s, i) => {
+                const xc = (s.p1.xf + s.p2.xf) / 2;
+                const yc = (s.p1.yf + s.p2.yf) / 2;
+                return `<text x="${tx(xc)}" y="${ty(yc)}" font-size="12" fill="#111">${i}${s.assignment && s.assignment !== 'U' && s.assignment !== 'B' ? s.assignment : ''}</text>`;
+            }).join('\n  ');
+        }
+        return {width, height, body: `${faces}\n  ${lines}\n  ${labels}`};
+    }
+
+    static creasePatternSVG(model, options = {}) {
+        const {width, height, body} = ReadWrite.creasePatternSVGContent(model, options);
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width.toFixed(2)}" height="${height.toFixed(2)}" viewBox="0 0 ${width.toFixed(2)} ${height.toFixed(2)}">
+  ${body}
+</svg>
+`;
+    }
+
+    // Multi-step diagram SVG from a command script (instant replay)
+    static parsePlaybookSteps(text) {
+        return String(text ?? '')
+            .split(/\r?\n/)
+            .map((line) => line.replace(/(:?\/\/|<!--).*/, '').trim())
+            .filter(Boolean);
+    }
+
+    static async writeDiagrams(scriptText, filename = 'OriSim3d-diagrams.svg', {view3d = null} = {}) {
+        const {Command} = await import('./Command.js');
+        const steps = ReadWrite.parsePlaybookSteps(scriptText);
+        const model = new Model().init(200, 200);
+        const command = new Command(model);
+        command.instantReplay = true;
+        const pageW = 420;
+        const pageH = 460;
+        const pages = [];
+        for (let i = 0; i < steps.length; i++) {
+            command.command(steps[i]);
+            command.drain();
+            const {body} = ReadWrite.creasePatternSVGContent(model, {pad: 16});
+            const caption = steps[i].replaceAll(/&/g, '&amp;').replaceAll(/</g, '&lt;').replaceAll(/"/g, '&quot;');
+            pages.push(`<g transform="translate(0, ${i * pageH})">
+  <rect x="0" y="0" width="${pageW}" height="${pageH}" fill="#fff" stroke="#ccc"/>
+  <text x="16" y="28" font-size="14" font-family="sans-serif" fill="#333">Step ${i + 1}/${steps.length}</text>
+  <text x="16" y="48" font-size="11" font-family="monospace" fill="#555">${caption}</text>
+  <g transform="translate(10, 60)">${body}</g>
+</g>`);
+            void view3d;
+        }
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${pageW}" height="${Math.max(pages.length, 1) * pageH}" viewBox="0 0 ${pageW} ${Math.max(pages.length, 1) * pageH}">
+${pages.join('\n')}
+</svg>
+`;
+        if (!filename.endsWith('.svg')) filename = `${filename}.svg`;
+        if (typeof Deno !== 'undefined') {
+            await Deno.writeTextFile(filename, svg);
+        } else {
+            const data = new Blob([svg], {type: 'image/svg+xml'});
+            const link = document.createElement('a');
+            link.setAttribute('download', filename);
+            link.setAttribute('href', globalThis.URL.createObjectURL(data));
+            link.click();
+        }
+        return svg;
+    }
+
 // Read fold and return model
     static jsonFoldToModel(json) {
-        const fold = JSON.parse(json, reviverFold);
+        const raw = typeof json === 'string' ? JSON.parse(json) : json;
+        const is3dKey = Array.isArray(raw.frame_attributes) && raw.frame_attributes.includes('3D');
         const model = new Model();
-        model.points = fold.vertices_coords;
-        model.segments = fold.edges_vertices.map((edge) => {
-            return new Segment(model.points[edge[0]], model.points[edge[1]]);
+        model.points = (raw.vertices_coords || []).map((xy) => {
+            if (is3dKey && xy.length >= 3) {
+                return new Point(xy[0], xy[1], xy[0], xy[1], xy[2]);
+            }
+            return new Point(xy[0], xy[1]);
         });
-        model.faces = fold.faces_vertices.map((face) => {
+        const assignments = raw.edges_assignment || [];
+        model.segments = (raw.edges_vertices || []).map((edge, i) => {
+            return new Segment(model.points[edge[0]], model.points[edge[1]], assignments[i] || 'U');
+        });
+        model.faces = (raw.faces_vertices || []).map((face) => {
             return new Face(face.map((index) => model.points[index]));
         });
+        // Optional foldedForm child frame (inherited mesh, 3D coords)
+        const folded = Array.isArray(raw.file_frames)
+            ? raw.file_frames.find((f) =>
+                Array.isArray(f.frame_classes) && f.frame_classes.includes('foldedForm') && Array.isArray(f.vertices_coords))
+            : null;
+        let is3d = is3dKey;
+        if (folded && folded.vertices_coords.length === model.points.length) {
+            folded.vertices_coords.forEach((xyz, i) => {
+                const p = model.points[i];
+                p.x = xyz[0];
+                p.y = xyz[1];
+                p.z = xyz[2] ?? 0;
+            });
+            is3d = true;
+        }
         // Rescale crease-pattern coords to roughly [-200, 200]
         const {xMin, yMin, xMax, yMax} = model.get2DBounds();
         const width = xMax - xMin;
         const height = yMax - yMin;
         const ratio = Math.max(width, height) / 400 || 1;
-        const is3d = !!(fold.is3d || (Array.isArray(fold.frame_attributes) && fold.frame_attributes.includes('3D')));
         model.points.forEach((p) => {
             const xf = (p.xf - xMin) / ratio - 200;
             const yf = (p.yf - yMin) / ratio - 200;
@@ -316,21 +411,18 @@ export class ReadWrite {
         });
 
         return model;
+    }
 
-        function reviverFold(key, value) {
-            if (key === 'frame_attributes') {
-                this.is3d = (value[0] === '3D');
-                return value;
-            } else if (key === 'vertices_coords') {
-                if (this.is3d) {
-                    return value.map((xyz) => new Point(xyz[0], xyz[1], xyz[0], xyz[1], xyz[2]));
-                } else {
-                    return value.map((xy) => new Point(xy[0], xy[1]));
-                }
-            } else {
-                return value;
-            }
+    static async downloadText(filename, text, mime = 'text/plain') {
+        if (typeof Deno !== 'undefined') {
+            await Deno.writeTextFile(filename, text);
+            return;
         }
+        const data = new Blob([text], {type: mime});
+        const link = document.createElement('a');
+        link.setAttribute('download', filename);
+        link.setAttribute('href', globalThis.URL.createObjectURL(data));
+        link.click();
     }
 
     static async writeFile(filename = 'OriSim3d.txt', text) {
