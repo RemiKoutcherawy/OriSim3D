@@ -98,7 +98,7 @@ Deno.test("ReadWrite", async (t) => {
                 0, 0, 1, 0,
                 0, 0, 0, 1,
             ]),
-            updateCanvasCoords() {},
+
         };
         const front = ReadWrite.svgFaceFillColor(model.faces[0], 0, view3d);
         assertEquals(front.startsWith('#'), true);
@@ -120,7 +120,7 @@ Deno.test("ReadWrite", async (t) => {
 
     await t.step('Command keeps optional view3d for svg export', () => {
         const model = new Model().init(200, 200);
-        const view3d = {modelView: new Float32Array(16), updateCanvasCoords() {}};
+        const view3d = {modelView: new Float32Array(16)};
         // deno-lint-ignore no-explicit-any
         const cmd = new Command(model, view3d as any);
         assertEquals(cmd.view3d, view3d);

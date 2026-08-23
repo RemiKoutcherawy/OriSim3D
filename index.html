@@ -171,7 +171,7 @@
       const open = nav.style.display !== 'block';
       if (open) syncToggles();
       nav.style.display = open ? 'block' : 'none';
-      document.getElementById('burger').setAttribute('aria-expanded', open);
+      document.getElementById('burger').setAttribute('aria-expanded', String(open));
     });
 
     // Close menu when clicking outside
@@ -195,7 +195,7 @@
       const nav = document.getElementById('nav');
       nav.style.display = 'none';
       document.getElementById('burger').setAttribute('aria-expanded', 'false');
-      const text = document.getElementById(id).content.textContent;
+      const text = /** @type {HTMLTemplateElement} */ (document.getElementById(id)).content.textContent;
       command.command(text);
       syncToggles();
     }

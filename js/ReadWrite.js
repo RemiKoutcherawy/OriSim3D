@@ -12,7 +12,7 @@ export class ReadWrite {
             input.type = 'file';
             input.accept = '.txt,.fold,.json,text/plain';
             input.onchange = (e) => {
-                resolve(e.target.files?.[0] || null);
+                resolve(/** @type {HTMLInputElement} */ (e.target).files?.[0] || null);
             };
             input.onabort = () => resolve(null);
             input.oncancel = () => resolve(null);

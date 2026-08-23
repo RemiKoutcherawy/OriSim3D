@@ -14,9 +14,9 @@ export class Command {
     tpi = 0;
     tni = 1;
     // Fit target captured at tpi === 0, then applied incrementally like zoom
-    fitScale = 1;
-    fitCx = 0;
-    fitCy = 0;
+
+
+
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation

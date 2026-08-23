@@ -263,27 +263,6 @@ export class Helper {
         });
     }
 
-    faceCentroid(face) {
-        let xf = 0, yf = 0;
-        for (const p of face.points) {
-            xf += p.xf;
-            yf += p.yf;
-        }
-        return {xf: xf / face.points.length, yf: yf / face.points.length};
-    }
-
-    faceCentroidCanvas(face) {
-        let xCanvas = 0, yCanvas = 0;
-        for (const p of face.points) {
-            xCanvas += p.xCanvas;
-            yCanvas += p.yCanvas;
-        }
-        return {
-            xCanvas: xCanvas / face.points.length,
-            yCanvas: yCanvas / face.points.length,
-        };
-    }
-
     splitSegments() {
         this.command.command(`// To another face Split`);
         const is2d = this.currentCanvas === '2d';
