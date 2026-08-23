@@ -1,7 +1,7 @@
 import {ReadWrite} from "../js/ReadWrite.js";
 import {Model} from "../js/Model.js";
 import {Point} from "../js/Point.js";
-import {Command} from "../js/Command.js";
+import {Command, replaySteps} from "../js/Command.js";
 import {assertEquals} from "@std/assert";
 
 Deno.test("ReadWrite", async (t) => {
@@ -124,6 +124,63 @@ Deno.test("ReadWrite", async (t) => {
         // deno-lint-ignore no-explicit-any
         const cmd = new Command(model, view3d as any);
         assertEquals(cmd.view3d, view3d);
+    });
+
+    await t.step('buildSVG throws without projected canvas coordinates', () => {
+        const model = new Model().init(200, 200);
+        let threw = false;
+        try { ReadWrite.buildSVG(model, null); } catch { threw = true; }
+        assertEquals(threw, true);
+    });
+
+    await t.step('buildSVG content matches writeSVG output', async () => {
+        const model = new Model().init(200, 200);
+        model.points[0].xCanvas = 10; model.points[0].yCanvas = 20;
+        model.points[1].xCanvas = 110; model.points[1].yCanvas = 20;
+        model.points[2].xCanvas = 110; model.points[2].yCanvas = 120;
+        model.points[3].xCanvas = 10; model.points[3].yCanvas = 120;
+        const {width, height, content} = ReadWrite.buildSVG(model, null);
+        assertEquals(Math.round(width), 120, '100 span + 2*10 pad');
+        assertEquals(Math.round(height), 120);
+        assertEquals(content.includes('<polygon'), true);
+        assertEquals(content.includes('x1="10.00"'), true);
+        const filename = 'test/test-build.svg';
+        const svg = await ReadWrite.writeSVG(model, filename);
+        assertEquals(svg.includes(content.split('\n')[0]), true, 'writeSVG embeds the same buildSVG content');
+        await Deno.remove(filename);
+    });
+
+    await t.step('projectOrtho projects the folded 3D x,y (not the flat crease pattern)', () => {
+        const model = new Model().init(200, 200);
+        model.points[0].x = 999;
+        model.points[0].y = 888;
+        ReadWrite.projectOrtho(model);
+        assertEquals(model.points[0].xCanvas, 999);
+        assertEquals(model.points[0].yCanvas, -888, 'y flipped for SVG (y grows down)');
+    });
+
+    await t.step('diagramsToSVG renders the folded 3D view per step, not the crease pattern', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('d 200 200').anim();
+        cmd.command('rotate S0 90 P2 P3').anim();
+        const steps = replaySteps(cmd.instructions);
+        assertEquals(steps.length, 2);
+        assertEquals(Math.abs(steps[1].points[2].z) > 1, true, 'step 2 is actually folded (z != 0)');
+        const svg = ReadWrite.diagramsToSVG(steps, {cols: 2, cellSize: 150});
+        assertEquals(svg.includes('<svg'), true);
+        assertEquals((svg.match(/<g /g) || []).length, 2, 'one <g> cell per step');
+        assertEquals((svg.match(/<polygon/g) || []).length, 2, '1 face per step');
+        assertEquals(svg.includes('width="300"'), true, '2 cols * 150 cellSize');
+    });
+
+    await t.step('writeDiagrams writes the instruction sheet to disk', async () => {
+        const steps = [new Model().init(200, 200), new Model().init(150, 150)];
+        const filename = 'test/test-diagrams.svg';
+        const svg = await ReadWrite.writeDiagrams(steps, filename);
+        assertEquals(svg.includes('<?xml'), true);
+        assertEquals((await Deno.readTextFile(filename)), svg);
+        await Deno.remove(filename);
     });
 
     await t.step('jsonFoldToModel preserves 3D z', () => {

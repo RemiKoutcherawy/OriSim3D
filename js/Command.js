@@ -1,6 +1,6 @@
 // Interprets a list of commands and apply them on Model
 import {Interpolator} from './Interpolator.js';
-import {State} from './Model.js';
+import {Model, State} from './Model.js';
 import {ReadWrite} from './ReadWrite.js';
 
 export class Command {
@@ -297,6 +297,24 @@ function define(cmd) {
     cmd.model.init(cmd.num(200), cmd.num(200));
 }
 
+// Replay a recorded instruction list (cmd.instructions) on a fresh headless Model,
+// instantly settling any 't'-animated line, one Model snapshot returned per instruction.
+export function replaySteps(instructions) {
+    const replay = new Command(new Model());
+    const steps = [];
+    for (const line of instructions) {
+        replay.command(line);
+        while (replay.iToken < replay.tokenTodo.length || replay.model.state === State.anim) {
+            if (replay.model.state === State.anim) {
+                replay.tStart = performance.now() - replay.duration - 1; // force tn >= 1
+            }
+            if (!replay.anim()) break;
+        }
+        steps.push(Model.deserialize(replay.model.serialize()));
+    }
+    return steps;
+}
+
 function splitSegment(cmd) {
     const s = cmd.token('s');
     const k = Number.parseFloat(cmd.next());
@@ -408,6 +426,11 @@ on('writeFold fold', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
     ReadWrite.writeFold(cmd.model, filename);
+});
+on('writeDiagrams diagrams', (cmd) => {
+    const token = cmd.peek();
+    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+    ReadWrite.writeDiagrams(replaySteps(cmd.instructions), filename);
 });
 
 // Toggles

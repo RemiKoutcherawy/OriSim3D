@@ -1,5 +1,5 @@
 import { Model, State } from '../js/Model.js';
-import { Command } from '../js/Command.js';
+import { Command, replaySteps } from '../js/Command.js';
 import { Point } from '../js/Point.js';
 import { Interpolator } from '../js/Interpolator.js';
 import { assertEquals } from "@std/assert";
@@ -539,5 +539,24 @@ Deno.test('Command', async (t) => {
         assertEquals(model.points.length, 4);
         assertEquals(model.segments.length, 5);
         assertEquals(cde.iToken > 0, true);
+    });
+
+    await t.step('replaySteps rebuilds one Model snapshot per instruction', () => {
+        const steps = replaySteps(['d 200 200', 'by3d P0 P2']);
+        assertEquals(steps.length, 2);
+        assertEquals(steps[0].faces.length, 1, 'after define: still 1 face');
+        assertEquals(steps[1].faces.length, 2, 'after split: 2 faces');
+        // Independent snapshots: mutating one does not affect the other
+        steps[0].points[0].x = 999;
+        assertEquals(steps[1].points[0].x !== 999, true);
+    });
+
+    await t.step('replaySteps settles an animated (t ...) instruction instantly', () => {
+        const steps = replaySteps(['d 200 200', 't 500 tz 90']);
+        assertEquals(steps.length, 2);
+        const p0 = steps[1].points[0];
+        // Quarter turn around z: (x,y) -> (-y, x)
+        assertEquals(Math.round(p0.x), 200);
+        assertEquals(Math.round(p0.y), -200);
     });
 });

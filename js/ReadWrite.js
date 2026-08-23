@@ -153,16 +153,13 @@ export class ReadWrite {
         return z / face.points.length;
     }
 
-    // Export current 3D view as SVG (projected xCanvas, yCanvas faces and edges)
+    // Pure render of the current xCanvas/yCanvas projection to SVG polygons+lines and their
+    // bounds. Shared by writeSVG (single 3D view) and writeDiagrams (one 3D view per step).
     /**
      * @param {import('./Model.js').Model} model
-     * @param {string} [filename]
-     * @param {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} [view3d]
+     * @param {{ modelView?: Float32Array } | null} [view3d]
      */
-    static async writeSVG(model, filename = 'OriSim3d.svg', view3d = null) {
-        if (view3d?.updateCanvasCoords) {
-            view3d.updateCanvasCoords();
-        }
+    static buildSVG(model, view3d = null) {
         let xMin = Infinity, yMin = Infinity, xMax = -Infinity, yMax = -Infinity;
         for (const p of model.points) {
             if (p.xCanvas == null || p.yCanvas == null) continue;
@@ -172,7 +169,7 @@ export class ReadWrite {
             yMax = Math.max(yMax, p.yCanvas);
         }
         if (!Number.isFinite(xMin)) {
-            throw new Error('writeSVG: no projected canvas coordinates (call with view3d or set xCanvas/yCanvas)');
+            throw new Error('buildSVG: no projected canvas coordinates (call with view3d or set xCanvas/yCanvas)');
         }
         const pad = 10;
         const width = Math.max(xMax - xMin, 1) + 2 * pad;
@@ -195,12 +192,74 @@ export class ReadWrite {
             const y2 = (s.p2.yCanvas - yMin + pad).toFixed(2);
             return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
         }).filter(Boolean).join('\n  ');
+        return {width, height, content: `${polygons}\n  ${lines}`};
+    }
+
+    // Export current 3D view as SVG (projected xCanvas, yCanvas faces and edges)
+    /**
+     * @param {import('./Model.js').Model} model
+     * @param {string} [filename]
+     * @param {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} [view3d]
+     */
+    static async writeSVG(model, filename = 'OriSim3d.svg', view3d = null) {
+        if (view3d?.updateCanvasCoords) {
+            view3d.updateCanvasCoords();
+        }
+        const {width, height, content} = ReadWrite.buildSVG(model, view3d);
         const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width.toFixed(2)}" height="${height.toFixed(2)}" viewBox="0 0 ${width.toFixed(2)} ${height.toFixed(2)}" fill="none" stroke="#111" stroke-width="1">
-  ${polygons}
-  ${lines}
+  ${content}
 </svg>
 `;
+        if (!filename.endsWith('.svg')) filename = `${filename}.svg`;
+        if (typeof Deno !== "undefined") {
+            await Deno.writeTextFile(filename, svg);
+        } else {
+            const data = new Blob([svg], {type: 'image/svg+xml'});
+            const link = document.createElement('a');
+            link.setAttribute('download', filename);
+            link.setAttribute('href', globalThis.URL.createObjectURL(data));
+            link.click();
+        }
+        return svg;
+    }
+
+    // Simple orthographic (x,y) -> canvas projection for a model with no live WebGL view,
+    // e.g. a headless step snapshot from Command.replaySteps. y is flipped (SVG y grows down).
+    static projectOrtho(model) {
+        for (const p of model.points) {
+            p.xCanvas = p.x;
+            p.yCanvas = -p.y;
+        }
+    }
+
+    // Lay out a sequence of Model snapshots as a grid of 3D-view SVG cells, one cell per step:
+    // reuses buildSVG (the same renderer as writeSVG) so both stay in sync.
+    static diagramsToSVG(models, {cols = 4, cellSize = 220, pad = 12} = {}) {
+        const rows = Math.max(1, Math.ceil(models.length / cols));
+        const width = cols * cellSize;
+        const height = rows * cellSize;
+        const cells = models.map((model, i) => {
+            ReadWrite.projectOrtho(model);
+            const {width: w, height: h, content} = ReadWrite.buildSVG(model, null);
+            const scale = (cellSize - 2 * pad) / Math.max(w, h);
+            const col = i % cols, row = Math.floor(i / cols);
+            const ox = col * cellSize + (cellSize - w * scale) / 2;
+            const oy = row * cellSize + (cellSize - h * scale) / 2;
+            const label = `<text x="${col * cellSize + 4}" y="${row * cellSize + 16}" font-size="12" stroke="none" fill="#333">${i + 1}</text>`;
+            return `<g transform="translate(${ox.toFixed(2)},${oy.toFixed(2)}) scale(${scale.toFixed(4)})" stroke-width="${(1 / scale).toFixed(3)}">\n    ${content}\n  </g>\n  ${label}`;
+        }).join('\n  ');
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none" stroke="#111" stroke-width="1">
+  ${cells}
+</svg>
+`;
+    }
+
+    // Export a sequence of Model snapshots (one per folding instruction) as a single SVG:
+    // one 3D-view diagram per step, the same rendering writeSVG uses for the live view.
+    static async writeDiagrams(models, filename = 'OriSim3d-diagrams.svg') {
+        const svg = ReadWrite.diagramsToSVG(models);
         if (!filename.endsWith('.svg')) filename = `${filename}.svg`;
         if (typeof Deno !== "undefined") {
             await Deno.writeTextFile(filename, svg);
