@@ -388,7 +388,7 @@ Deno.test('Command', async (t) => {
         cde.iToken = 0;
         cde.execute(cde.iToken);
         // f1 listed first: nearest the viewer, so the larger offset
-        assertEquals(Math.round(model.faces[1].offset * 100) / 100, 0.1);
+        assertEquals(Math.round(model.faces[1].offset * 100) / 100, 1);
         assertEquals(model.faces[0].offset, 0);
     });
 

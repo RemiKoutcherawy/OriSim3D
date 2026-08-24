@@ -357,19 +357,14 @@ function fit(cmd) {
     cmd.model.movePoints(cmd.fitCx * k, cmd.fitCy * k, 0, cmd.model.points);
 }
 
-// Step in model units between consecutive ranks set by order()
-const ORDER_STEP = 0.1;
-
 // Order faces front-to-back: the first face is set nearest the viewer, each
-// following one progressively behind it. A face is offset along its own normal
-// (model space), so a face seen from the front (normal z > 0) or from the back
-// (normal z < 0) gets the offset sign that actually moves it forward.
+// following one progressively behind it.
 function order(cmd) {
     const faces = cmd.tokens('f');
     faces.forEach((face, i) => {
         const rank = faces.length - 1 - i;
         const nz = Model.normal(face)[2];
-        face.offset = rank === 0 ? 0 : Math.sign(nz) * rank * ORDER_STEP;
+        face.offset = rank === 0 ? 0 : Math.sign(nz) * rank;
     });
 }
 
@@ -437,7 +432,8 @@ on('write', (cmd) => {
 on('writeSvg svg', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeSVG(cmd.model, filename, cmd.view3d).catch((e) => console.error(e));
+    cmd.view3d?.updateCanvasCoords?.();
+    ReadWrite.writeSVG(cmd.model, filename).catch((e) => console.error(e));
 });
 on('writeFold fold', (cmd) => {
     const token = cmd.peek();

@@ -85,51 +85,41 @@ Deno.test("ReadWrite", async (t) => {
         await Deno.remove(filename);
     });
 
-    await t.step('writeSVG colors faces by front/back when view3d is passed', async () => {
+    await t.step('writeSVG colors faces by front/back (model-space normal)', async () => {
         const model = new Model().init(200, 200);
         for (const p of model.points) {
             p.xCanvas = p.xf + 100;
             p.yCanvas = p.yf + 100;
         }
-        const view3d = {
-            modelView: new Float32Array([
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                0, 0, 0, 1,
-            ]),
-
-        };
-        const front = ReadWrite.svgFaceFillColor(model.faces[0], 0, view3d);
+        const front = ReadWrite.svgFaceFillColor(model.faces[0]);
         assertEquals(front.startsWith('#'), true);
-        assertEquals(front.includes('hsl'), false, 'uses front/back hex, not HSL fallback');
+        assertEquals(front.includes('hsl'), false, 'uses front/back hex, not an HSL fallback');
         // Blue front tint (#70ACF3 * lighting) vs yellow back
         const flipped = {
             points: [...model.faces[0].points].reverse(),
         };
-        const back = ReadWrite.svgFaceFillColor(flipped, 0, view3d);
+        const back = ReadWrite.svgFaceFillColor(flipped);
         assertEquals(front !== back, true, 'front and back get different fills');
-        // Without view3d, falls back to HSL
-        assertEquals(ReadWrite.svgFaceFillColor(model.faces[0], 0, null).startsWith('hsl'), true);
 
-        const svg = await ReadWrite.writeSVG(model, 'test/test-faces.svg', view3d);
+        const svg = await ReadWrite.writeSVG(model, 'test/test-faces.svg');
         assertEquals(svg.includes('fill="#'), true, 'polygons use hex front/back fills');
         assertEquals(svg.includes('hsl('), false);
         await Deno.remove('test/test-faces.svg');
     });
 
-    await t.step('Command keeps optional view3d for svg export', () => {
+    await t.step('svgFaceDepth accounts for the face offset (order/offset commands)', () => {
         const model = new Model().init(200, 200);
-        const view3d = {modelView: new Float32Array(16)};
-        // deno-lint-ignore no-explicit-any
-        const cmd = new Command(model, view3d as any);
-        assertEquals(cmd.view3d, view3d);
+        const face = model.faces[0];
+        const flatDepth = ReadWrite.svgFaceDepth(face);
+        face.offset = 5;
+        const offsetDepth = ReadWrite.svgFaceDepth(face);
+        assertEquals(offsetDepth !== flatDepth, true, 'offset shifts the depth used for sorting');
     });
 
     await t.step('buildSVG throws without projected canvas coordinates', () => {
         const model = new Model().init(200, 200);
         let threw = false;
-        try { ReadWrite.buildSVG(model, null); } catch { threw = true; }
+        try { ReadWrite.buildSVG(model); } catch { threw = true; }
         assertEquals(threw, true);
     });
 
@@ -139,7 +129,7 @@ Deno.test("ReadWrite", async (t) => {
         model.points[1].xCanvas = 110; model.points[1].yCanvas = 20;
         model.points[2].xCanvas = 110; model.points[2].yCanvas = 120;
         model.points[3].xCanvas = 10; model.points[3].yCanvas = 120;
-        const {width, height, content} = ReadWrite.buildSVG(model, null);
+        const {width, height, content} = ReadWrite.buildSVG(model);
         assertEquals(Math.round(width), 120, '100 span + 2*10 pad');
         assertEquals(Math.round(height), 120);
         assertEquals(content.includes('<polygon'), true);

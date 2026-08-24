@@ -186,6 +186,7 @@ Deno.test("Helper Tests", async (t) => {
     f0.select = false;
     helper.downFace = f0;
     helper.upFace = f0;
+    helper.upFaces = [f0];
     helper.fromFace();
     assertEquals(f0.select, true);
 
