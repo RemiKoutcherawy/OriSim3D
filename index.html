@@ -9,10 +9,13 @@
   <style>
     :root { --split: 100%; }
     body.command-area-open { --split: 80%; }
-    #canvas2d,#canvas3d,#overlay{position:absolute;top:0;width:50%;height:var(--split)}
-    #canvas2d{left:0;border:1px solid black}
-    #canvas3d{left:50%;border:1px solid black}
-    #overlay{left:50%;z-index:1}
+    #canvas3d,#overlay{position:absolute;top:0;left:0;width:100%;height:var(--split)}
+    #canvas3d{border:1px solid black}
+    #overlay{z-index:1}
+    /* Simplified layout: only View3d is shown, centered full-width; the flat
+       crease-pattern canvas stays in the DOM (Helper still wires pointer
+       events to it) but is hidden, not rendered on screen. */
+    #canvas2d{display:none}
     #commandAreaPanel{
       display:none;position:absolute;width:100%;left:0;bottom:0;
       height:calc(100% - var(--split));box-sizing:border-box;
