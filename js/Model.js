@@ -16,7 +16,7 @@ function polygonArea3d(points) {
         ny += (a.z - b.z) * (a.x + b.x);
         nz += (a.x - b.x) * (a.y + b.y);
     }
-    return Math.hypot(nx, ny, nz);
+    return Math.hypot(nx, ny, nz) / 2;
 }
 
 // -1 left, 0 on the line, +1 right
@@ -58,7 +58,8 @@ export class Model {
         this.points.push(p0, p1, p2, p3);
         // 4 segments
         this.segments.push(new Segment(p0, p1), new Segment(p1, p2), new Segment(p2, p3), new Segment(p3, p0));
-        // 1 face
+  
+      // 1 face
         this.faces.push(new Face([p0, p1, p2, p3]));
         // State run
         this.state = State.run;
@@ -101,7 +102,7 @@ export class Model {
     }
 
     // Get point on the flat crease pattern
-    getPoint(xf, yf, epsilon = 2) {
+    getPoint(xf, yf, epsilon = 0.01) {
         return this.points.find((p) => Math.abs(p.xf - xf) + Math.abs(p.yf - yf) < epsilon);
     }
 
@@ -110,7 +111,8 @@ export class Model {
         const existing = this.getPoint(xf, yf);
         // None found, create one
         if (existing) return existing;
-        const point = new Point(xf, yf, x, y, z);
+        const point = new Point(xf, yf, x, y, z)
+;
         this.points.push(point);
         return point;
     }
@@ -167,13 +169,14 @@ export class Model {
     // Not exactly 0 for distance but epsilon = 10
     splitFaceByPlane3d(face, plane) {
         const left = [], right = [];
-        let lastInter;
+        let lastInter = null;
         const epsilon = 10;
         const side = (d) => (Math.abs(d) <= epsilon ? 0 : d < 0 ? -1 : 1);
 
         // Begin with the last point
         let last = face.points[face.points.length - 1];
-        let dLast = Face.planeToPointSignedDistance(plane, last);
+        let dLast = Face.planeToPointSig
+nedDistance(plane, last);
         for (const current of face.points) {
             // Segment from previous to current
             const dCurrent = Face.planeToPointSignedDistance(plane, current);
@@ -220,14 +223,15 @@ export class Model {
         right.push(inter);
         (dCurrent < 0 ? left : right).push(current);
 
-        // Set Segment [last,current] to [last,inter]
+        // Set Segment [last,current] to [last
+,inter]
         const segment = this.getSegment(last, current);
         if (segment) Model.splitSegment(segment, last, inter);
         // Add a new segment
         this.addSegment(inter, current);
 
         // Eventually, if last intersection was on plane, add a segment from the last intersection to inter
-        if (lastInter && inter !== lastInter) {
+        if (lastInter !== null && inter !== lastInter) {
             this.addSegment(lastInter, inter);
             return undefined;
         }
@@ -262,7 +266,8 @@ export class Model {
             } else if (currSide === 0) {
                 // Last off the line, current on the line
                 if (Segment.intersectionFlat(a, b, last, current) === undefined) return;
-                left.push(current);
+                left.push(current)
+;
                 right.push(current);
             } else if (lastSide === 0) {
                 // Last on the line, current on left or right
@@ -314,7 +319,8 @@ export class Model {
         ));
     }
 
-    splitSegmentOnPoint2d(s, p) {
+    sp
+litSegmentOnPoint2d(s, p) {
         // Align Point p on segment s in 2D
         const a = s.p1, b = s.p2;
         // Add this as a new point to the model
@@ -368,7 +374,8 @@ export class Model {
     splitCross2d(p1, p2) {
         const nx = p2.yf - p1.yf, ny = -(p2.xf - p1.xf); // x,y -> y,-x
         const mx = (p1.xf + p2.xf) / 2, my = (p1.yf + p2.yf) / 2;
-        // Two points apart from the middle
+        // Two points apart from the m
+iddle
         this.splitAllFacesByLine2d(new Point(mx + nx, my + ny), new Point(mx - nx, my - ny));
     }
 
@@ -415,7 +422,8 @@ export class Model {
             const b = Point.distance2d(inter, s2.p1) < Point.distance2d(inter, s2.p2) ? s2.p2 : s2.p1;
             this.bisector2dPoints(a, inter, b);
         } else {
-            // Lines do not cross, parallel: split by line from (p1+p2)/2 oriented by p1p2
+   
+         // Lines do not cross, parallel: split by line from (p1+p2)/2 oriented by p1p2
             const middle = {xf: (s1.p1.xf + s2.p1.xf) / 2, yf: (s1.p1.yf + s2.p1.yf) / 2};
             const p1p2 = {xf: s1.p2.xf - s1.p1.xf, yf: s1.p2.yf - s1.p1.yf};
             this.splitAllFacesByLine2d(middle, {xf: middle.xf + p1p2.xf, yf: middle.yf + p1p2.yf});
@@ -458,7 +466,8 @@ export class Model {
         nx *= n;
         ny *= n;
         nz *= n;
-        const sin = Math.sin(angleRd), cos = Math.cos(angleRd);
+        const sin = Math.
+sin(angleRd), cos = Math.cos(angleRd);
         const c1 = 1 - cos;
         const c11 = c1 * nx * nx + cos, c12 = c1 * nx * ny - nz * sin, c13 = c1 * nx * nz + ny * sin;
         const c21 = c1 * ny * nx + nz * sin, c22 = c1 * ny * ny + cos, c23 = c1 * ny * nz - nx * sin;
@@ -498,7 +507,8 @@ export class Model {
             // Set Point with an average position taking all segments
             if (segments.length > 0) {
                 point.x = pm.x / segments.length;
-                point.y = pm.y / segments.length;
+             
+   point.y = pm.y / segments.length;
                 point.z = pm.z / segments.length;
             }
         }
@@ -567,7 +577,8 @@ export class Model {
     // Move on a segment s the following points.
     moveOnSegment(s, points) {
         const A = s.p1, B = s.p2;
-        const lengthAB = Math.hypot(B.xf - A.xf, B.yf - A.yf);
+        const lengthAB = Mat
+h.hypot(B.xf - A.xf, B.yf - A.yf);
         points.forEach((p) => {
             const t = lengthAB === 0 ? 0 : Math.hypot(p.xf - A.xf, p.yf - A.yf) / lengthAB;
             p.x = A.x + t * (B.x - A.x);
@@ -624,7 +635,8 @@ export class Model {
     // Offset faces by dz
     offset(dz, faces) {
         if (dz === 0 || faces.length === 0) {
-            this.faces.forEach((face) => { face.offset = 0; });
+            this.faces.forEach((face) => { face.offset =
+ 0; });
         } else {
             faces.forEach((face) => { face.offset += dz / 10; });
         }
@@ -688,7 +700,8 @@ export class Model {
     // Serialize the model, replace instances by indexes in JSON, and return a JSON string
     serialize() {
         // Non-serialized / UI-only fields (keep undo snapshots lean)
-        const exclude = new Set(['hidden', 'hover', 'select', 'xCanvas', 'yCanvas']);
+        const exclude = n
+ew Set(['hidden', 'hover', 'select', 'xCanvas', 'yCanvas']);
         const pointIndex = new Map(this.points.map((p, i) => [p, i]));
         // Define a replacer function to convert instances into indexes in JSON
         const replacer = (key, value) => {
@@ -736,7 +749,8 @@ export class Model {
         );
     }
 
-    // Compute 3D unit normal vector [nx, ny, nz]
+    // Compute
+ 3D unit normal vector [nx, ny, nz]
     static normal(face) {
         const pts = face?.points || face || [];
         if (pts.length < 3) return [0, 0, 1];

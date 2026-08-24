@@ -52,7 +52,10 @@ export class Face {
         const t = (Vector3.dot(plane.normal, plane.origin) - Vector3.dot(plane.normal, a)) / abn;
         if (t >= 0 && t <= 1) {
             const scaled = Vector3.scale(ab, t);
-            return new Point(Number.NaN, Number.NaN, a.x + scaled.x, a.y + scaled.y, a.z + scaled.z);
+            const xf = a.xf + t * (b.xf - a.xf);
+            const yf = a.yf + t * (b.yf - a.yf);
+            const scaled = Vector3.scale(ab, t);
+            return new Point(xf, yf, a.x + scaled.x, a.y + scaled.y, a.z + scaled.z);
         }
         return undefined;
     }
@@ -108,7 +111,8 @@ export class Face {
             const idxI = view3d.indexMap.get(pi);
             const idxJ = view3d.indexMap.get(pj);
 
-            if (idxI !== undefined && idxJ !== undefined) {
+            if (idxI !== undefined && idxJ !==
+ undefined) {
                 const xi = pi.xCanvas, yi = pi.yCanvas;
                 const xj = pj.xCanvas, yj = pj.yCanvas;
 

@@ -14,7 +14,9 @@ export class Helper {
         this.label = undefined;
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
-        // Point, segment, or face selected on down
+        // Points, segment, or face selected on down
+        this.downPoints = [];
+        this.downPoints = [];
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
         // Drag of an already-selected point → move command
@@ -38,7 +40,8 @@ export class Helper {
             });
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
             canvas2d.addEventListener('pointerup', (event) => this.up2d(event));
-            canvas2d.addEventListener('pointercancel', (event) => this.out(event));
+            canvas2d.addEventListener('poi
+ntercancel', (event) => this.out(event));
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
         }
@@ -92,13 +95,15 @@ export class Helper {
             context.fill();
             // Text
             context.fillStyle = 'black';
-            context.font = '20px serif';
+            cont
+ext.font = '20px serif';
             context.fillText(this.label, this.currentX - 10, this.currentY - 8);
         }
     }
 
     // Logic begins here
     down(points, segments, faces, x, y) {
+        this.downPoints = [...points];
         this.downPoint = points[0];
         this.downSegment = !this.downPoint ? segments[0] : undefined;
         this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;
@@ -129,7 +134,8 @@ export class Helper {
         let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
         // Round to step 10
         angle = Math.round(angle / 10) * 10;
-        // Clamp near-zero angle to 0
+        // C
+lamp near-zero angle to 0
         return Math.abs(angle) < 10 ? 0 : angle;
     }
 
@@ -179,9 +185,10 @@ export class Helper {
         }
         if (this.upPoint) {
             if (this.downPoint === this.upPoint) {
-                this.downPoint.select = !this.downPoint.select;
+                this.downPoints.forEach(p => p.select = !p.select);
             } else {
-                const cmd = this.model.getSegment(this.downPoint, this.upPoint) ? 'across' : 'by';
+      
+          const cmd = this.model.getSegment(this.downPoint, this.upPoint) ? 'across' : 'by';
                 this.sendCmd(cmd, this.downPoint, this.upPoint);
             }
         } else if (this.label) {
@@ -233,7 +240,8 @@ export class Helper {
 
     fromSegment() {
         if (this.upSegment) {
-            if (this.upSegment === this.downSegment) {
+            if (this
+.upSegment === this.downSegment) {
                 this.downSegment.select = !this.downSegment.select;
                 this.command.command(`// Différences ${this.model.indexOf(this.downSegment)} ${Segment.length2d(this.downSegment)} ${Segment.length3d(this.downSegment)}`);
             } else {
@@ -276,7 +284,8 @@ export class Helper {
             if (inter) {
                 const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
                 // Use local temps so flat paper (z===0) is not mutated as a side effect
-                const z1 = s.p1.z || 0.1;
+       
+         const z1 = s.p1.z || 0.1;
                 const z2 = s.p2.z || 0.1;
                 const t = Math.round((is2d ? ratio : (ratio * z1) / ((1 - ratio) * z2 + ratio * z1)) * 100) / 100;
                 this.command.command(`split s${i} ${t}`);
@@ -322,6 +331,7 @@ export class Helper {
         const faces = this.model.faces.filter(f => Face.contains2d(f, xf, yf));
         return {points, segments, faces};
     }
+
     // Down on flat 2d
     down2d(event) {
         this.currentCanvas = '2d';
@@ -373,7 +383,8 @@ export class Helper {
         // Points near xCanvas, yCanvas
         const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < 10);
         // Segments near xCanvas, yCanvas
-        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, 
+s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
         // Faces under cursor: depth-sorted; when contextFace set, adjacent faces only
         const faces = this.pickFaces3d(xCanvas, yCanvas, contextFace);
         return {points, segments, faces};
@@ -418,7 +429,8 @@ export class Helper {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.up(points, segments, faces);
-        if (points.length === 0 && segments.length === 0 && faces.length === 0) {
+        if (points.length === 0 && segme
+nts.length === 0 && faces.length === 0) {
             this.doubleClick();
         }
     }
