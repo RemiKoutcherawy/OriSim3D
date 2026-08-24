@@ -1,0 +1,56 @@
+    OriSim3D — mouse / touch interactions
+======================================
+
+Everything happens on the single 3D view. Selected points/segments/faces
+highlight; a drag draws a green line from where you pressed down to the
+current pointer position (orange instead while moving an already-selected
+point).
+
+Points
+------
+- Click a point: select / deselect it (toggle).
+- Drag from a point to a different point:
+    - no crease connects them yet -> adds a crease directly between them (by3d)
+    - a crease already connects them -> adds the perpendicular-bisector
+      crease instead (across3d)
+- Drag from a point to a segment (or a segment to a point): adds a crease
+  from the segment, perpendicular to it, through the point (p3d).
+- Drag an already-selected point: moves it in 3D, following the pointer
+  (`move` then `check` to reconcile lengths); the drag line turns orange.
+  A short tap (<4px of movement) on an already-selected point just
+  deselects it instead of moving it.
+
+Segments
+--------
+- Click a segment: select / deselect it (toggle); also logs its 2D vs 3D
+  length in the panel.
+- Drag from a segment to a different segment: adds the bisector crease
+  between them (bisector3d).
+- Drag from a point while a segment is already selected: shows a live
+  rotation-angle label (rounded to the nearest 10°) as you move the
+  pointer. Releasing rotates every currently-selected point around that
+  segment by the shown angle.
+
+Faces
+-----
+- Click a face: select / deselect it. Faces can be stacked (several
+  layers at the same screen position) — clicking selects the *whole*
+  stack together, and logs each one's index and offset.
+- Drag from a face to a different face: adds a crease along the drag
+  line, splitting whatever segments it crosses (used to crease across
+  several faces in one motion).
+
+Camera
+------
+- Drag on empty space (nothing under the pointer), left button: rotates
+  the camera around the model.
+- Drag on empty space, right button: pans (translates) the camera.
+- Mouse wheel / pinch: zooms in and out (clamped between 0.2x and 3x).
+- Double-click / double-tap on empty space: resets the camera (rotation,
+  pan, zoom) and fits the model back into view.
+
+Other
+-----
+- Ctrl/Cmd+Z: undo the last command (ignored while typing in a text
+  field, e.g. the command input, so native text-undo works there
+  instead).

@@ -529,6 +529,25 @@ export class Model {
         }
     }
 
+    // Points left behind by a rotate(axis, angle, moved): any point NOT in
+    // `moved` and not on `axis`, but sharing a segment with a moved point,
+    // whose 3D length to that neighbor no longer matches its 2D crease-pattern
+    // length. These are exactly the points a follow-up adjust(point) would fix.
+    inconsistentAfterRotate(axis, moved) {
+        const EPSILON = 1;
+        const flagged = new Set();
+        for (const p of moved) {
+            for (const s of this.searchSegmentsOnePoint(p)) {
+                const other = s.p1 === p ? s.p2 : s.p1;
+                if (moved.includes(other) || other === axis?.p1 || other === axis?.p2) continue;
+                const lg3d = Segment.length3d(s) / this.scale;
+                const lg2d = Segment.length2d(s);
+                if (Math.abs(lg2d - lg3d) > EPSILON) flagged.add(other);
+            }
+        }
+        return [...flagged];
+    }
+
     // Search all segments containing Point a
     searchSegmentsOnePoint(a) {
         return this.segments.filter((s) => s.p1 === a || s.p2 === a);

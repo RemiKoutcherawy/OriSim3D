@@ -1,0 +1,11 @@
+ d 200 200
+ labels
+  across3d p1 p2   // split top to bottom (horizontal midline)
+  across3d p0 p1   // split left to right (vertical midline)
+  by3d p0 p2       // split center to corners (diagonal 1)
+  by3d p1 p3       // split center to corners (diagonal 2)
+  t 500 r s6 180 p2 p3 p7   // fold top to bottom: top half rotates
+fit
+t 1000 r s9 170 p1 a p5 // fold left to right
+t 1000 r s9 -170 p1 a p5 // fold right to left
+

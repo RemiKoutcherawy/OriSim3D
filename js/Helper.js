@@ -35,6 +35,9 @@ export class Helper {
         this.out();
     }
     keydown(event) {
+        // Let native text editing (e.g. its own undo) happen while typing
+        const tag = event.target?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) return;
         // Control Z to undo
         if (event.key === 'z' && (event.ctrlKey || event.metaKey)) {
             this.command.command('undo');

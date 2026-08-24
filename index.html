@@ -29,6 +29,12 @@
     #nav details button{padding-left:32px;opacity:.85}
     #nav details details summary{padding-left:32px;opacity:.85}
     #nav details details button{padding-left:48px}
+    #logPanel{position:absolute;right:8px;bottom:8px;z-index:10;width:320px;max-height:200px;display:flex;flex-direction:column;box-sizing:border-box;background:rgba(246,248,250,.92);border:1px solid black;border-radius:6px;overflow:hidden}
+    #log{overflow-y:auto;padding:6px 8px;font:11px/1.4 monospace;white-space:pre-wrap;word-break:break-word;color:#1f2328}
+    #log div{white-space:pre-wrap}
+    #log .logAction{font:inherit;padding:0 4px;margin-left:2px;border:1px solid #1f2328;border-radius:3px;background:#fff;cursor:pointer}
+    #log .logAction:hover{background:#eef1f4}
+    #logInput{border:0;border-top:1px solid black;padding:5px 8px;font:11px monospace;background:#fff;color:#1f2328;outline:none}
   </style>
 </head>
 <body>
@@ -61,6 +67,11 @@
     <button type="button" data-load="test">Test</button>
   </details>
 </nav>
+<!-- Echoes every executed command (mouse or menu); the input lets the user type one too -->
+<div id="logPanel">
+  <div id="log" role="log" aria-label="Command log"></div>
+  <input id="logInput" type="text" placeholder="commande…" autocomplete="off" spellcheck="false">
+</div>
 
 <!-- Inlined textures -->
 <img id="front" src="textures/front.jpg" style="display:none;" alt="front"/>
@@ -89,6 +100,50 @@
     // Helper
     const helper = new Helper(model, command, view3d, overlay);
     helper.out();
+
+    // Log: echoes every executed command (mouse, menu, or typed below). A
+    // warning's "Fix" button runs its pre-determined, already-computed
+    // corrected instruction — undoes the flawed one (waiting for the undo to
+    // fully settle, since it can span many animation frames) then replays the
+    // fixed version, so it animates smoothly instead of snapping the fix on
+    // after.
+    const log = document.getElementById('log');
+    const MAX_LOG_LINES = 300;
+    command.commandArea = {
+      addLine(text, action) {
+        const line = document.createElement('div');
+        line.textContent = text;
+        if (action) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'logAction';
+          btn.textContent = 'Fix';
+          btn.title = action;
+          btn.addEventListener('click', () => {
+            btn.disabled = true;
+            command.command('undo');
+            (function waitForIdle() {
+              if (!command.idle) { requestAnimationFrame(waitForIdle); return; }
+              command.command(action);
+            })();
+          });
+          line.append(' ', btn);
+        }
+        log.append(line);
+        while (log.children.length > MAX_LOG_LINES) log.firstChild.remove();
+        log.scrollTop = log.scrollHeight;
+      },
+    };
+
+    // Type a command and press Enter to run it
+    const logInput = document.getElementById('logInput');
+    logInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      const text = logInput.value.trim();
+      if (!text) return;
+      logInput.value = '';
+      command.command(text);
+    });
 
     // Animation loop
     function loop() {
@@ -139,7 +194,7 @@
     }
 
     // Chargement du modèle "test" au lancement
-    load('test');
+    load('waterbomb');
   }
 
 </script>
