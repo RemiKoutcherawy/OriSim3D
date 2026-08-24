@@ -110,45 +110,32 @@ export class ReadWrite {
         return json;
     }
 
-    // Face fill color for SVG export (View3d front/back tints when view3d is available)
+    // Face fill color for SVG export: blue tint on the front (normal z > 0),
+    // yellow on the back (normal z < 0), lit by a fixed overhead light. Model
+    // space only, so the tint reflects the face's own orientation, not the
+    // camera's.
     /**
      * @param {{ points: import('./Point.js').Point[] }} face
-     * @param {number} index
-     * @param {{ modelView?: Float32Array } | null} [view3d]
      */
-    static svgFaceFillColor(face, index, view3d) {
-        if (view3d?.modelView) {
-            const n = Model.normal(face);
-            const mv = view3d.modelView;
-            const nx = mv[0] * n[0] + mv[4] * n[1] + mv[8] * n[2];
-            const ny = mv[1] * n[0] + mv[5] * n[1] + mv[9] * n[2];
-            const nz = mv[2] * n[0] + mv[6] * n[1] + mv[10] * n[2];
-            const nLen = Math.hypot(nx, ny, nz) || 1;
-            const nv = [nx / nLen, ny / nLen, nz / nLen];
-            const front = nv[2] > 0;
-            const lightLen = Math.hypot(0.1, 0.1, 0.75);
-            const directional = (nv[0] * 0.1 + nv[1] * 0.1 + nv[2] * 0.75) / lightLen;
-            const lighting = Math.max(0, front ? 0.1 + directional : 0.1 - directional);
-            const base = front ? [0x70, 0xAC, 0xF3] : [0xFF, 0xFF, 0x00];
-            const channel = (c) => Math.round(Math.min(255, c * lighting)).toString(16).padStart(2, '0');
-            return `#${channel(base[0])}${channel(base[1])}${channel(base[2])}`;
-        }
-        const hue = Math.round((index * 137.508) % 360);
-        return `hsl(${hue}, 70%, 80%)`;
+    static svgFaceFillColor(face) {
+        const n = Model.normal(face);
+        const front = n[2] > 0;
+        const lightLen = Math.hypot(0.1, 0.1, 0.75);
+        const directional = (n[0] * 0.1 + n[1] * 0.1 + n[2] * 0.75) / lightLen;
+        const lighting = Math.max(0, front ? 0.1 + directional : 0.1 - directional);
+        const base = front ? [0x70, 0xAC, 0xF3] : [0xFF, 0xFF, 0x00];
+        const channel = (c) => Math.round(Math.min(255, c * lighting)).toString(16).padStart(2, '0');
+        return `#${channel(base[0])}${channel(base[1])}${channel(base[2])}`;
     }
 
-    static svgFaceDepth(face, view3d) {
-        if (view3d?.modelView) {
-            const mv = view3d.modelView;
-            let z = 0;
-            for (const p of face.points) {
-                z += mv[2] * p.x + mv[6] * p.y + mv[10] * p.z + mv[14];
-            }
-            return z / face.points.length;
-        }
+    // Average z of a face's points, shifted along the face normal by its offset
+    // (the same offset View3d applies per-vertex when rendering), so faces
+    // reordered by the order/offset commands sort correctly here too.
+    static svgFaceDepth(face) {
+        const n = Model.normal(face);
         let z = 0;
         for (const p of face.points) {
-            z += p.z;
+            z += p.z + face.offset * n[2];
         }
         return z / face.points.length;
     }
@@ -157,9 +144,8 @@ export class ReadWrite {
     // bounds. Shared by writeSVG (single 3D view) and writeDiagrams (one 3D view per step).
     /**
      * @param {import('./Model.js').Model} model
-     * @param {{ modelView?: Float32Array } | null} [view3d]
      */
-    static buildSVG(model, view3d = null) {
+    static buildSVG(model) {
         let xMin = Infinity, yMin = Infinity, xMax = -Infinity, yMax = -Infinity;
         for (const p of model.points) {
             if (p.xCanvas == null || p.yCanvas == null) continue;
@@ -169,19 +155,19 @@ export class ReadWrite {
             yMax = Math.max(yMax, p.yCanvas);
         }
         if (!Number.isFinite(xMin)) {
-            throw new Error('buildSVG: no projected canvas coordinates (call with view3d or set xCanvas/yCanvas)');
+            throw new Error('buildSVG: no projected canvas coordinates (set xCanvas/yCanvas first)');
         }
         const pad = 10;
         const width = Math.max(xMax - xMin, 1) + 2 * pad;
         const height = Math.max(yMax - yMin, 1) + 2 * pad;
         const toSvg = (p) => `${(p.xCanvas - xMin + pad).toFixed(2)},${(p.yCanvas - yMin + pad).toFixed(2)}`;
         const faces = [...model.faces].sort((a, b) =>
-            ReadWrite.svgFaceDepth(a, view3d) - ReadWrite.svgFaceDepth(b, view3d));
-        const polygons = faces.map((f, index) => {
+            ReadWrite.svgFaceDepth(a) - ReadWrite.svgFaceDepth(b));
+        const polygons = faces.map((f) => {
             const pts = f.points;
             if (!pts?.length || pts.some(p => p.xCanvas == null || p.yCanvas == null)) return '';
             const points = pts.map(toSvg).join(' ');
-            const fill = ReadWrite.svgFaceFillColor(f, index, view3d);
+            const fill = ReadWrite.svgFaceFillColor(f);
             return `<polygon points="${points}" fill="${fill}" stroke="none"/>`;
         }).filter(Boolean).join('\n  ');
         const lines = model.segments.map((s) => {
@@ -199,13 +185,9 @@ export class ReadWrite {
     /**
      * @param {import('./Model.js').Model} model
      * @param {string} [filename]
-     * @param {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} [view3d]
      */
-    static async writeSVG(model, filename = 'OriSim3d.svg', view3d = null) {
-        if (view3d?.updateCanvasCoords) {
-            view3d.updateCanvasCoords();
-        }
-        const {width, height, content} = ReadWrite.buildSVG(model, view3d);
+    static async writeSVG(model, filename = 'OriSim3d.svg') {
+        const {width, height, content} = ReadWrite.buildSVG(model);
         const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width.toFixed(2)}" height="${height.toFixed(2)}" viewBox="0 0 ${width.toFixed(2)} ${height.toFixed(2)}" fill="none" stroke="#111" stroke-width="1">
   ${content}
@@ -226,7 +208,6 @@ export class ReadWrite {
 
     // Simple orthographic (x,y) -> canvas projection for a model with no live WebGL view,
     // e.g. a headless step snapshot from Command.replaySteps. y is flipped (SVG y grows down).
-    // Looks straight down world z, so it pairs with the identity view3d used for face colors.
     static projectOrtho(model) {
         for (const p of model.points) {
             p.xCanvas = p.x;
@@ -234,22 +215,16 @@ export class ReadWrite {
         }
     }
 
-    // Identity modelView: front/back face tinting (svgFaceFillColor) matches world-space z,
-    // consistent with projectOrtho looking straight down z.
-    static ORTHO_VIEW3D = {
-        modelView: new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]),
-    };
-
     // Lay out a sequence of Model snapshots as a grid of 3D-view SVG cells, one cell per step:
     // reuses buildSVG (the same renderer as writeSVG) so both stay in sync, including the
-    // same front/back blue/yellow face tinting instead of an arbitrary rainbow fallback.
+    // same front/back blue/yellow face tinting.
     static diagramsToSVG(models, {cols = 4, cellSize = 220, pad = 12} = {}) {
         const rows = Math.max(1, Math.ceil(models.length / cols));
         const width = cols * cellSize;
         const height = rows * cellSize;
         const cells = models.map((model, i) => {
             ReadWrite.projectOrtho(model);
-            const {width: w, height: h, content} = ReadWrite.buildSVG(model, ReadWrite.ORTHO_VIEW3D);
+            const {width: w, height: h, content} = ReadWrite.buildSVG(model);
             const scale = (cellSize - 2 * pad) / Math.max(w, h);
             const col = i % cols, row = Math.floor(i / cols);
             const ox = col * cellSize + (cellSize - w * scale) / 2;

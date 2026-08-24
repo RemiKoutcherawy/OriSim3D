@@ -17,6 +17,8 @@ export class Helper {
         // Point, segment, or face selected on down
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
+        // All faces stacked under the up position (not just the topmost)
+        this.upFaces = [];
         // Drag of an already-selected point → move command
         this.moving = false;
 
@@ -64,6 +66,7 @@ export class Helper {
     out() {
         this.downPoint = this.downSegment = this.downFace = undefined;
         this.upPoint = this.upSegment = this.upFace = undefined;
+        this.upFaces = [];
         this.currentCanvas = this.label = undefined;
         this.moving = false;
         this.rawX = this.rawY = undefined;
@@ -159,7 +162,8 @@ export class Helper {
     up(points, segments, faces) {
         this.upPoint = points[0];
         this.upSegment = !this.upPoint ? segments[0] : undefined;
-        this.upFace = !this.upPoint && !this.upSegment ? faces[0] : undefined;
+        this.upFaces = !this.upPoint && !this.upSegment ? faces : [];
+        this.upFace = this.upFaces[0];
 
         if (this.downPoint) this.fromPoint();
         else if (this.downSegment) this.fromSegment();
@@ -246,8 +250,10 @@ export class Helper {
 
     fromFace() {
         if (this.upFace === this.downFace) {
-            this.downFace.select = !this.downFace.select;
-            this.command.command(`// face ${this.model.indexOf(this.downFace)} offset ${this.downFace.offset} `);
+            const select = !this.downFace.select;
+            this.upFaces.forEach(f => f.select = select);
+            const info = this.upFaces.map(f => `${this.id(f)} offset ${f.offset}`).join(', ');
+            this.command.command(`// faces ${info}`);
         } else if (this.upFace) {
             this.fromFaceToFace(this.downFace, this.upFace);
             this.splitSegments();

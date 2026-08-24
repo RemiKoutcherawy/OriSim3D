@@ -382,6 +382,16 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.faces[1].offset*100)/100, 0.42);
     });
 
+    // Order
+    await t.step('command order', () => {
+        cde.tokenTodo = cde.tokenize('order F1 F0');
+        cde.iToken = 0;
+        cde.execute(cde.iToken);
+        // f1 listed first: nearest the viewer, so the larger offset
+        assertEquals(Math.round(model.faces[1].offset * 100) / 100, 1);
+        assertEquals(model.faces[0].offset, 0);
+    });
+
     await t.step('toggles labels overlay lines snap textures', () => {
         cde.command('d 200 200').anim();
         const before = {

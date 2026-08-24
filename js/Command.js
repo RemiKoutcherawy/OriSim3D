@@ -357,6 +357,17 @@ function fit(cmd) {
     cmd.model.movePoints(cmd.fitCx * k, cmd.fitCy * k, 0, cmd.model.points);
 }
 
+// Order faces front-to-back: the first face is set nearest the viewer, each
+// following one progressively behind it.
+function order(cmd) {
+    const faces = cmd.tokens('f');
+    faces.forEach((face, i) => {
+        const rank = faces.length - 1 - i;
+        const nz = Model.normal(face)[2];
+        face.offset = rank === 0 ? 0 : Math.sign(nz) * rank;
+    });
+}
+
 const COMMANDS = {};
 function on(names, command) {
     for (const name of names.split(/\s+/)) {
@@ -393,6 +404,7 @@ on('check', (cmd) => {
     cmd.model.checkSegments();
 });
 on('o offset', (cmd) => cmd.model.offset(Number.parseFloat(cmd.next()) / 10, cmd.tokens('f')));
+on('order', order);
 
 on('tx', turn('x'));
 on('ty', turn('y'));
@@ -420,7 +432,8 @@ on('write', (cmd) => {
 on('writeSvg svg', (cmd) => {
     const token = cmd.peek();
     const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeSVG(cmd.model, filename, cmd.view3d).catch((e) => console.error(e));
+    cmd.view3d?.updateCanvasCoords?.();
+    ReadWrite.writeSVG(cmd.model, filename).catch((e) => console.error(e));
 });
 on('writeFold fold', (cmd) => {
     const token = cmd.peek();
