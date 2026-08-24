@@ -3,7 +3,6 @@ import { Command, replaySteps } from '../js/Command.js';
 import { Point } from '../js/Point.js';
 import { Interpolator } from '../js/Interpolator.js';
 import { assertEquals } from "@std/assert";
-import * as mat4 from '../js/lib/mat4.js';
 
 function installClock(start = 0) {
     const original = performance.now.bind(performance);
@@ -383,26 +382,14 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(model.faces[1].offset*100)/100, 0.42);
     });
 
-    // Order (no view3d: falls back to the model-space normal, i.e. a front view)
-    await t.step('command order front view', () => {
+    // Order
+    await t.step('command order', () => {
         cde.tokenTodo = cde.tokenize('order F1 F0');
         cde.iToken = 0;
         cde.execute(cde.iToken);
         // f1 listed first: nearest the viewer, so the larger offset
         assertEquals(Math.round(model.faces[1].offset * 100) / 100, 0.1);
         assertEquals(model.faces[0].offset, 0);
-    });
-
-    // Order with a view3d turned to see the model from behind: the sign flips
-    await t.step('command order back view', () => {
-        const modelView = mat4.rotateY(mat4.create(), mat4.create(), Math.PI);
-        cde.view3d = { modelView };
-        cde.tokenTodo = cde.tokenize('order F1 F0');
-        cde.iToken = 0;
-        cde.execute(cde.iToken);
-        assertEquals(Math.round(model.faces[1].offset * 100) / 100, -0.1);
-        assertEquals(model.faces[0].offset, 0);
-        cde.view3d = undefined;
     });
 
     await t.step('toggles labels overlay lines snap textures', () => {

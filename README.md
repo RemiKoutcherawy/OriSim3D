@@ -37,7 +37,7 @@ Work in progress, any help is welcome.
 - adjust: move points in 3D to equal 2D length of segments: adjust p1 p2 p3...
 - offset: offset by d a list of faces on faces: offset d p1 p2 p3...
 - order: order a list of faces front to back, nearest the viewer first, taking into
-  account whether each face is currently seen from front or back: order f1 f0 f3
+  account whether each face's normal points to the front or the back: order f1 f0 f3
 - writeDiagrams / diagrams: replays the recorded instruction history and exports one
   3D-view SVG diagram per step, laid out in a grid (reuses the same renderer as `svg`)
 

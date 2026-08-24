@@ -2,7 +2,6 @@
 import {Interpolator} from './Interpolator.js';
 import {Model, State} from './Model.js';
 import {ReadWrite} from './ReadWrite.js';
-import {Vector3} from './Vector3.js';
 
 export class Command {
     model; // Current model
@@ -362,23 +361,15 @@ function fit(cmd) {
 const ORDER_STEP = 0.1;
 
 // Order faces front-to-back: the first face is set nearest the viewer, each
-// following one progressively behind it. A face is offset along its own normal,
-// so whether that normal currently points toward or away from the camera (the
-// face may be seen from front or back, e.g. after folding or turning the model)
-// decides the sign of its offset.
+// following one progressively behind it. A face is offset along its own normal
+// (model space), so a face seen from the front (normal z > 0) or from the back
+// (normal z < 0) gets the offset sign that actually moves it forward.
 function order(cmd) {
     const faces = cmd.tokens('f');
-    const mv = cmd.view3d?.modelView;
-    const origin = mv ? Vector3.transformMat4(new Vector3(0, 0, 0), mv) : null;
     faces.forEach((face, i) => {
-        const [nx, ny, nz] = Model.normal(face);
-        let towardCamera = nz;
-        if (mv) {
-            const dir = Vector3.transformMat4(new Vector3(nx, ny, nz), mv);
-            towardCamera = dir.z - origin.z;
-        }
         const rank = faces.length - 1 - i;
-        face.offset = rank === 0 ? 0 : Math.sign(towardCamera) * rank * ORDER_STEP;
+        const nz = Model.normal(face)[2];
+        face.offset = rank === 0 ? 0 : Math.sign(nz) * rank * ORDER_STEP;
     });
 }
 
