@@ -124,15 +124,21 @@
       }
     });
 
-    function load(id) {
+    // Short UI-action commands stay as inline <template> tags; origami scripts
+    // live as standalone files under models/ (drop a models/<name>.txt and a
+    // matching data-load button — no HTML change needed to add one).
+    async function load(id) {
       const nav = document.getElementById('nav');
       nav.style.display = 'none';
       document.getElementById('burger').setAttribute('aria-expanded', 'false');
-      const text = /** @type {HTMLTemplateElement} */ (document.getElementById(id)).content.textContent;
+      const tpl = document.getElementById(id);
+      const text = tpl
+        ? /** @type {HTMLTemplateElement} */ (tpl).content.textContent
+        : await fetch(`models/${id}.txt`).then(r => r.text()).catch(e => { console.error(e); return ''; });
       command.command(text);
     }
 
-    // Chargement du template "test" au lancement
+    // Chargement du modèle "test" au lancement
     load('test');
   }
 
@@ -144,143 +150,5 @@
 <template id="exportFold">writeFold</template>
 <template id="exportDiagrams">diagrams</template>
 <template id="undo">undo</template>
-<!-- Inline models -->
-<template id="test">
-  d 200 200
-  across2d p1 p2
-  across2d p0 p1
-  t 100 r s6 -180 p2 p8 p3
-  t 100 fit
-  t 100 ty 180
-  t 100 ty -180
-  by3d p1 p6
-  t 100 r s11 180 p2 a p5
-  t 100 r s11 -180 p2 a p5
-  order f0 f5 f4 f1
-  order f3 f2
-</template>
-<template id="cocotte">
-  // Cocotte
-  define 200 200
-  // Define crease pattern
-  c3d p0 p1 c3d p0 p3 c3d p0 p2 c3d p1 p3 c3d p0 p8 c3d p8 p3
-  c3d p0 p4 c3d p4 p1 c3d p6 p0 c3d p6 p1 c3d p6 p2 c3d p6 p3
-  // Movements with Accelerate Decelerate Interpolator (iad)
-  iad
-  t 100 ty 180
-  // Fold one corner
-  offset 1 F13 F14 F30 F31
-  t 100 r s54 -180 p3 p17 p19
-  t 100 ty 180
-  // Fold from top
-  t 100 rotate s27 165 p5 p22 p2
-  // Lift up top right corner
-  t 100 r s53 -90 p22 a p2 p18
-  // Fold from right
-  t 100 r s45 165 p7 p12 p1 a p2 p18
-  // Flatten leg
-  t 100 r s53 60 p22 a p2 p18
-  // Lay leg flat
-  t 100 r s53 30 p22 p2 p18
-  // Lift up bottom right corner
-  t 100 r s50 -90 p12 a p1 p24
-  // Fold from bottom
-  t 100 r s23 165 p0 p21 p4 a p1 p24
-  // Flatten leg
-  t 100 r s51 -60 p12 a p1 p24
-  // Lay leg flat
-  t 100 r s51 130 p12 p1 p24
-  // Lift bottom left corner
-  t 100 r s48 -90 p21 a p0 p9
-  // Fold from left
-  t 100 r s37 -165 p8 a p0 p9
-  // Flatten leg
-  t 100 r s48 -60 p9 a p0 p9
-  // Lay leg flat
-  t 100 r s48 -80 p21 p9 p0
-  // Fold along median
-  t 100 r s28 -90 p19 p5 p22 p2 p14 p15 p18 p23 p7 r s38 -90 p3
-  t 100 r s28 -80 p19 p5 p22 p2 p14 p15 p18 p23 p7 a p3
-  // Open front leg
-  t 100 r s28 10 p9 p10 p21 p20 p8
-  // Pretty
-  r s50 -5 p12
-  offset // Remove offset for all faces
-  r s55 5 p17 a p3 r s55 -5 p19 a p3 // Beak
-  a p12
-  // Show
-  t 100 tz -45
-  iao
-  t 1000 z 0.5 0 50
-  t 1000 fit
-  iao
-  t 1000 ty 360
-</template>
-<template id="boat">
-  // Boat
-  define 210 300
-  textures
-  // Fold top on bottom
-  across2d p1 p2
-  offset -1 F0
-  t 200 r s6 -180 p2 p3
-  // t 200 fit
-  // Crease edges at 45°
-  across3d p4 p5
-  bisector3d s7 s9
-  bisector3d s6 s9
-  // Fold corners
-  offset -1 f3 f0
-  t 200 rotate s13 -180 p4
-  t 200 rotate s17 180 p5
-  // Crease bottom and top
-  by3d p9 p12
-  by3d p10 p11
-  // Fold back
-  offset -2 F5 F6
-  t 200 rotate s24 180 p3 p8 p2
-  // Crease on 2D
-  bisector2d s3 s24 bisector2d s23 s16
-  // Fold corners
-  t 200 rotate s27 -180 p3 rotate s29 180 p2
-  // Fold front
-  offset 2 F8 F9
-  t 200 rotate s25 180 p0 p1 p7
-  // Crease on 2D
-  bisector2d s25 s12 bisector2d s1 s21
-  // Fold corners
-  t 200 rotate s31 180 p0
-  t 200 rotate s33 -180 p1
-  // Crease top
-  by3d p15 p16
-  // Open
-  t 200 r s15 -180 p4 p5 p8 p14 p21 p25 p26  r s9 180 p1 p2 p11 p12 p16 p18 p19 p22
-  // t 200 fit
-  // Turn on left
-  t 200 tz 45
-  // Crease diagonal
-  perpendicular3d s13 p15
-  t 200 ty 45
-  // Rotate triangle in front
-  t 400 r s53 180 p11 p12 p1 p2
-  // Rotate triangle in back
-  t 400 r s53 -180 p9 p10 p0 p3
-  t 200 ty -45
-  t 200 fit
-  // Turn on right
-  t 200 tz -45
-  // Close Fixme
-  t 200 r s15 -180 p4 p5 p14 p8 p21 p25 p26 p32 p33 p27 p28 p30 p29  r s9 -180 p1 p2 p11 p12 p16 p18 p19 p22 p34 a p33 mop p33 p30 p29
-  t 200 fit
-  // Open rotate around 3
-  t 1000 r s36 135 p32 p14 p33 p27 p28 p4 p5 p30 p29  r s36 -135 p31 p13 p34  a p9 p12 p0 p1 p2 p3 mop p12 p11 mop p9 p10 mop p25 p0 mop p23 p1
-  t 200 fit
-  // Show
-  iao
-  t 1000 z 0.5 0 0
-  t 1000 fit
-  iao
-  t 1000 ty 360
-</template>
 </body>
 </html>

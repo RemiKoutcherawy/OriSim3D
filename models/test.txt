@@ -1,0 +1,12 @@
+d 200 200
+across2d p1 p2
+across2d p0 p1
+t 100 r s6 -180 p2 p8 p3
+t 100 fit
+t 100 ty 180
+t 100 ty -180
+by3d p1 p6
+t 100 r s11 180 p2 a p5
+t 100 r s11 -180 p2 a p5
+order f0 f5 f4 f1
+order f3 f2

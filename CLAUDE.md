@@ -41,7 +41,7 @@ Tests are `.ts` files under `test/` using `@std/assert` (mapped in `deno.json`),
 
 **Command language** (`js/Command.js`):
 - `Command.command(text)` tokenizes and interprets a whitespace-separated text script (see command list in README) and applies it to a `Model`, driving animated transitions via `js/Interpolator.js` (linear / accelerate-decelerate easing).
-- Scripts are embedded in `index.html` as `<template>` tags (`#cocotte`, `#boat`, `#test`, etc.) and executed by `command.command(text)`, either at load or from a burger-menu button (`data-load`).
+- Short one-line UI-action commands (`open`, `undo`, the `export*` commands) are embedded in `index.html` as `<template>` tags; full origami scripts live as standalone files under `models/*.txt` (`test.txt`, `cocotte.txt`, `boat.txt`) fetched on demand by `load(id)` in `index.html`. Executed via `command.command(text)`, either at page load (`load('test')`) or from a burger-menu button (`data-load`). To add a new origami example: drop `models/<name>.txt` and a `<button data-load="<name>">` under the Exemples submenu — no other change needed.
 - `done`/`instructions` on `Command` track state history to support undo. `Command.commandArea` is an optional hook (`.addLine(text)`) any external console could attach to echo executed commands — nothing in the app wires it up by default.
 
 **Input handling** (`js/Helper.js`):
@@ -52,7 +52,7 @@ Tests are `.ts` files under `test/` using `@std/assert` (mapped in `deno.json`),
 - The `index.html` `loop()` function is the single render/animation loop: it calls `command.anim()` each frame to advance any in-flight command animation, then calls `view3d.render()` and `helper.draw()`.
 
 **Persistence** (`js/ReadWrite.js`):
-- Reads/writes models as either the native line-based command-script text format or FOLD-spec JSON (`vertices_coords`/`edges_vertices`/`faces_vertices`). `models/*.txt` are saved command scripts; `models/*.fold` is FOLD JSON.
+- Reads/writes models as either the native line-based command-script text format or FOLD-spec JSON (`vertices_coords`/`edges_vertices`/`faces_vertices`). `models/*.txt` are saved command scripts; `models/*.fold` is FOLD JSON. Note: `models/austria.txt`, `duck.txt`, `butterfly.txt` predate the current command syntax and won't replay — `test.txt`/`cocotte.txt`/`boat.txt` are the current, working examples (loaded by `index.html`).
 
 **`Java/`**: legacy Java/JS reference sources (an origami-folding algorithm port, e.g. `GeomUtil.java`, `Folder.js`) kept for algorithmic reference — not wired into the running app.
 
