@@ -66,6 +66,26 @@ Deno.test("ReadWrite", async (t) => {
         assertEquals(command.model.points.length, 4);
     });
 
+    await t.step('loadText updates addLine commandArea without a textarea', () => {
+        const model = new Model().init(200, 200);
+        const command = new Command(model);
+        const lines: string[] = [];
+        command.commandArea = {
+            addLine(text: string) { lines.push(text); },
+            clear() { lines.length = 0; },
+        };
+
+        const kindScript = ReadWrite.loadText(command, 'd 200 200\nlabels');
+        assertEquals(kindScript, 'script');
+        assertEquals(lines, ['d 200 200\nlabels']);
+        command.anim();
+
+        const json = ReadWrite.toJSONFold(new Model().init(200, 200));
+        const kindFold = ReadWrite.loadText(command, json);
+        assertEquals(kindFold, 'fold');
+        assertEquals(lines, [], 'FOLD load clears the log');
+    });
+
     await t.step('writeSVG exports 3D view from xCanvas/yCanvas', async () => {
         const model = new Model().init(200, 200);
         // Simulated 3D projection (as View3d.updateCanvasCoords would set)

@@ -49,25 +49,37 @@ export class ReadWrite {
                 ReadWrite.resetCommand(command);
                 Object.assign(command.model, loaded, keep);
                 command.model.state = State.run;
-                if (command.commandArea) {
-                    command.commandArea.textarea.value = '';
-                }
+                ReadWrite.syncCommandArea(command, '');
                 return 'fold';
             } catch {
                 // Fall through and treat as a command script
             }
         }
         ReadWrite.resetCommand(command);
+        // Detach so command() does not echo the whole script a second time;
+        // syncCommandArea below replaces the log / textarea with the file.
         const area = command.commandArea;
         command.commandArea = undefined;
         command.command(trimmed);
         command.commandArea = area;
-        if (area) {
-            const withNl = trimmed.endsWith('\n') ? trimmed : `${trimmed}\n`;
+        ReadWrite.syncCommandArea(command, trimmed);
+        return 'script';
+    }
+
+    // Push loaded text into the command area: a textarea (tests / old console)
+    // is replaced in place; a log panel is cleared then addLine'd. Missing
+    // hooks are ignored so a log-only area no longer throws on .textarea.
+    static syncCommandArea(command, text) {
+        const area = command.commandArea;
+        if (!area) return;
+        if (area.textarea) {
+            const withNl = text === '' ? '' : (text.endsWith('\n') ? text : `${text}\n`);
             area.textarea.value = withNl;
             area.textarea.selectionStart = area.textarea.selectionEnd = withNl.length;
+            return;
         }
-        return 'script';
+        area.clear?.();
+        if (text) area.addLine?.(text);
     }
 
     // Read with FileReader return text or null

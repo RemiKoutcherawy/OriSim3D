@@ -98,8 +98,10 @@ export class Helper {
         this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;
         this.firstX = this.currentX = this.rawX = x;
         this.firstY = this.currentY = this.rawY = y;
-        // Move starts from an already-selected point
-        this.moving = !!(this.downPoint && this.downPoint.select);
+        // Move starts from an already-selected point, unless a segment is
+        // selected: then the drag is a rotation around that segment.
+        const rotating = this.model.segments.some(s => s.select);
+        this.moving = !!(this.downPoint && this.downPoint.select && !rotating);
     }
 
     // Signed rotation angle (degrees) from ref point to cursor, around segment.

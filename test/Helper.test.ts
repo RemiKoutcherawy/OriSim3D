@@ -124,6 +124,37 @@ Deno.test("Helper Tests", async (t) => {
     command.command = original;
   });
 
+  await t.step("drag from a selected point rotates it around selected segment", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null, null);
+    new MockView3d(model);
+
+    const cmds: string[] = [];
+    const original = command.command.bind(command);
+    command.command = (cde) => {
+      cmds.push(cde);
+      return original(cde);
+    };
+
+    const p2 = model.points[2];
+    const s0 = model.segments[0]; // p0-p1, horizontal at yCanvas -200
+    s0.select = true;
+    p2.select = true; // origin point of the drag is already selected
+
+    // Drag from p2 towards the segment
+    helper.down([p2], [], [], p2.xCanvas, p2.yCanvas);
+    assertEquals(helper.moving, false); // rotation, not move
+    helper.move([], [], [], p2.xCanvas, (p2.yCanvas + s0.p1.yCanvas) / 2);
+    const label = helper.label; // live angle shown during the drag
+    // Release away from any point/segment -> rotate
+    cmds.length = 0;
+    helper.up([], [], []);
+    assertEquals(cmds[0], `t 1000 r s0 ${label} p2`);
+
+    command.command = original;
+  });
+
   await t.step("fromSegment interactions", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);

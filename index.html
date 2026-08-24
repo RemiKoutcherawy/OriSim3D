@@ -133,6 +133,9 @@
         while (log.children.length > MAX_LOG_LINES) log.firstChild.remove();
         log.scrollTop = log.scrollHeight;
       },
+      clear() {
+        log.replaceChildren();
+      },
     };
 
     // Type a command and press Enter to run it

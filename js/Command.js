@@ -42,7 +42,7 @@ export class Command {
 
     // The main entry point executes a string of commands
     command(cde) {
-        this.commandArea?.addLine(cde);
+        this.commandArea?.addLine?.(cde);
         const tokens = this.tokenize(cde);
         if (tokens[0] === 'd' || tokens[0] === 'define') {
             this.done = [];
