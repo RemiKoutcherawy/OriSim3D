@@ -2,6 +2,7 @@
 import {Interpolator} from './Interpolator.js';
 import {Model, State} from './Model.js';
 import {ReadWrite} from './ReadWrite.js';
+import {Vector3} from './Vector3.js';
 
 export class Command {
     model; // Current model
@@ -357,6 +358,30 @@ function fit(cmd) {
     cmd.model.movePoints(cmd.fitCx * k, cmd.fitCy * k, 0, cmd.model.points);
 }
 
+// Step in model units between consecutive ranks set by order()
+const ORDER_STEP = 0.1;
+
+// Order faces front-to-back: the first face is set nearest the viewer, each
+// following one progressively behind it. A face is offset along its own normal,
+// so whether that normal currently points toward or away from the camera (the
+// face may be seen from front or back, e.g. after folding or turning the model)
+// decides the sign of its offset.
+function order(cmd) {
+    const faces = cmd.tokens('f');
+    const mv = cmd.view3d?.modelView;
+    const origin = mv ? Vector3.transformMat4(new Vector3(0, 0, 0), mv) : null;
+    faces.forEach((face, i) => {
+        const [nx, ny, nz] = Model.normal(face);
+        let towardCamera = nz;
+        if (mv) {
+            const dir = Vector3.transformMat4(new Vector3(nx, ny, nz), mv);
+            towardCamera = dir.z - origin.z;
+        }
+        const rank = faces.length - 1 - i;
+        face.offset = rank === 0 ? 0 : Math.sign(towardCamera) * rank * ORDER_STEP;
+    });
+}
+
 const COMMANDS = {};
 function on(names, command) {
     for (const name of names.split(/\s+/)) {
@@ -393,6 +418,7 @@ on('check', (cmd) => {
     cmd.model.checkSegments();
 });
 on('o offset', (cmd) => cmd.model.offset(Number.parseFloat(cmd.next()) / 10, cmd.tokens('f')));
+on('order', order);
 
 on('tx', turn('x'));
 on('ty', turn('y'));
