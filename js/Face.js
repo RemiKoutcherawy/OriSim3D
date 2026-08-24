@@ -73,26 +73,6 @@ export class Face {
         return Vector3.dot(plane.normal, point) - Vector3.dot(plane.normal, plane.origin);
     }
 
-    // Face contains 2d point
-    static contains2d(face, xf, yf) {
-        // ray-casting algorithm based on
-        // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
-
-        let inside = false;
-        const vs = face.points;
-        for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-            const xi = vs[i].xf, yi = vs[i].yf;
-            const xj = vs[j].xf, yj = vs[j].yf;
-            // Special case where the point is part of the face.
-            if (xi === xf && yi === yf) {
-                return true;
-            }
-            const intersect = ((yi > yf) !== (yj > yf)) && (xf < (xj - xi) * (yf - yi) / (yj - yi) + xi);
-            if (intersect) inside = !inside;
-        }
-        return inside;
-    }
-
     // Face contains 3d point
     static contains3d(face, xCanvas, yCanvas, view3d) {
         // ray-casting algorithm based on

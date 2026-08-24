@@ -29,7 +29,7 @@ Deno.test("Helper Tests", async (t) => {
   await t.step("id() returns correct identifier strings", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
 
     assertEquals(helper.id(model.points[0]), "p0");
     assertEquals(helper.id(model.segments[0]), "s0");
@@ -40,7 +40,7 @@ Deno.test("Helper Tests", async (t) => {
   await t.step("down() sets initial selection", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
 
     helper.down([model.points[0]], [], [], 10, 20);
     assertEquals(helper.downPoint, model.points[0]);
@@ -66,7 +66,7 @@ Deno.test("Helper Tests", async (t) => {
   await t.step("fromPoint interactions", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
 
     const cmds: string[] = [];
     const original = command.command.bind(command);
@@ -74,8 +74,6 @@ Deno.test("Helper Tests", async (t) => {
       cmds.push(cde);
       return original(cde);
     };
-
-    helper.currentCanvas = '2d';
 
     // Same point -> toggle select
     const p0 = model.points[0];
@@ -85,23 +83,23 @@ Deno.test("Helper Tests", async (t) => {
     helper.fromPoint();
     assertEquals(p0.select, true);
 
-    // Point to Point on same segment -> across2d
+    // Point to Point on same segment -> across3d
     const p1 = model.points[1]; // segment between p0 and p1 exists
     cmds.length = 0;
     helper.downPoint = p0;
     helper.upPoint = p1;
     helper.fromPoint();
-    assertEquals(cmds[0], "across2d p0 p1");
+    assertEquals(cmds[0], "across3d p0 p1");
 
-    // Point to Point not on same segment -> by2d
+    // Point to Point not on same segment -> by3d
     const p2 = model.points[2]; // diagonal, no segment between p0 and p2
     cmds.length = 0;
     helper.downPoint = p0;
     helper.upPoint = p2;
     helper.fromPoint();
-    assertEquals(cmds[0], "by2d p0 p2");
+    assertEquals(cmds[0], "by3d p0 p2");
 
-    // Point to segment without label -> perpendicular (p2d)
+    // Point to segment without label -> perpendicular (p3d)
     const s0 = model.segments[0];
     cmds.length = 0;
     helper.label = undefined;
@@ -109,7 +107,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.upPoint = undefined;
     helper.upSegment = s0;
     helper.fromPoint();
-    assertEquals(cmds[0], "p2d s0 p0");
+    assertEquals(cmds[0], "p3d s0 p0");
 
     // Point with rotation label -> rotatePoints
     p0.select = false;
@@ -129,7 +127,7 @@ Deno.test("Helper Tests", async (t) => {
   await t.step("fromSegment interactions", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
 
     const cmds: string[] = [];
     const original = command.command.bind(command);
@@ -138,7 +136,6 @@ Deno.test("Helper Tests", async (t) => {
       return original(cde);
     };
 
-    helper.currentCanvas = '2d';
     const s0 = model.segments[0];
     const s1 = model.segments[1];
     const p0 = model.points[0];
@@ -150,20 +147,20 @@ Deno.test("Helper Tests", async (t) => {
     helper.fromSegment();
     assertEquals(s0.select, true);
 
-    // Segment to another segment -> bisector2d
+    // Segment to another segment -> bisector3d
     cmds.length = 0;
     helper.downSegment = s0;
     helper.upSegment = s1;
     helper.fromSegment();
-    assertEquals(cmds[0], "bisector2d s0 s1");
+    assertEquals(cmds[0], "bisector3d s0 s1");
 
-    // Segment to point -> perpendicular (p2d)
+    // Segment to point -> perpendicular (p3d)
     cmds.length = 0;
     helper.downSegment = s0;
     helper.upSegment = undefined;
     helper.upPoint = p0;
     helper.fromSegment();
-    assertEquals(cmds[0], "p2d s0 p0");
+    assertEquals(cmds[0], "p3d s0 p0");
 
     command.command = original;
   });
@@ -171,7 +168,7 @@ Deno.test("Helper Tests", async (t) => {
   await t.step("fromFace interactions", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
 
     const cmds: string[] = [];
     const original = command.command.bind(command);
@@ -207,7 +204,7 @@ Deno.test("Helper Tests", async (t) => {
   await t.step("up() sets upPoint, upSegment, upFace", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
 
     let capturedUpPoint, capturedUpSegment, capturedUpFace;
     const originalOut = helper.out.bind(helper);
@@ -237,24 +234,12 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.upFace, undefined);
   });
 
-  await t.step("search2d() points, segments, faces near xf,yf", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const mockView3d = new MockView3d(model);
-    const helper = new Helper(model, command, null, mockView3d, null);
-
-    const result = helper.search2d(200, 200);
-    assertEquals(result.points.length, 1);
-    assertEquals(result.segments.length, 2);
-    assertEquals(result.faces.length, 1);
-  });
-
   await t.step(
     "search3d() points, segments, faces near x,y in 3d canvas", () => {
       const model = new Model().init(200, 200);
       const command = new Command(model);
       const mockView3d = new MockView3d(model);
-      const helper = new Helper(model, command, null, mockView3d, null);
+      const helper = new Helper(model, command, mockView3d, null);
 
       const result = helper.search3d(200, 200);
       assertEquals(result.points.length, 1);
@@ -263,13 +248,12 @@ Deno.test("Helper Tests", async (t) => {
     },
   );
 
-  await t.step("down on selected point enters move mode in 3d only", () => {
+  await t.step("down on selected point enters move mode", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
     const p0 = model.points[0];
 
-    helper.currentCanvas = "3d";
     p0.select = false;
     helper.down([p0], [], [], 10, 20);
     assertEquals(helper.moving, false);
@@ -278,16 +262,12 @@ Deno.test("Helper Tests", async (t) => {
     helper.down([p0], [], [], 10, 20);
     assertEquals(helper.moving, true);
     assertEquals(helper.downPoint, p0);
-
-    helper.currentCanvas = "2d";
-    helper.down([p0], [], [], 10, 20);
-    assertEquals(helper.moving, false);
   });
 
   await t.step("fromPoint move sends move check", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
     const cmds: string[] = [];
     const original = command.command.bind(command);
     command.command = (cde) => {
@@ -297,7 +277,6 @@ Deno.test("Helper Tests", async (t) => {
 
     const p0 = model.points[0];
     p0.select = true;
-    helper.currentCanvas = "3d";
     helper.moving = true;
     helper.downPoint = p0;
     helper.firstX = 0;
@@ -325,7 +304,7 @@ Deno.test("Helper Tests", async (t) => {
   await t.step("fromPoint move click without drag toggles select", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
     const cmds: string[] = [];
     command.command = (cde) => {
       cmds.push(cde);
@@ -348,7 +327,7 @@ Deno.test("Helper Tests", async (t) => {
   await t.step("canvasDragToWorld3d unprojects at constant depth", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, { canvasView: mat4.create() }, null);
+    const helper = new Helper(model, command, { canvasView: mat4.create() }, null);
     const p = model.points[0];
     p.x = 10;
     p.y = 20;
@@ -381,9 +360,8 @@ Deno.test("Helper Tests", async (t) => {
         fillText() {},
       }),
     };
-    const helper = new Helper(model, command, null, null, null);
+    const helper = new Helper(model, command, null, null);
     helper.overlay = overlay;
-    helper.currentCanvas = "3d";
     helper.downPoint = model.points[0];
     helper.moving = true;
     helper.firstX = 0;

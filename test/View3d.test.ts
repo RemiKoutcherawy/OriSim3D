@@ -93,7 +93,7 @@ function createMockCanvas3d(gl: unknown, width = 200, height = 100) {
   };
 }
 
-// Same style of recording 2d-context mock as View2d.test.ts / Helper.test.ts.
+// Same style of recording 2d-context mock as Helper.test.ts.
 function createMockContext2d() {
   const calls: { method: string; args: unknown[]; fillStyle?: string; strokeStyle?: string }[] = [];
   const ctx = {

@@ -520,9 +520,9 @@ export class View3d {
         }
     }
 
-    // Draw faces: selected faces stay light red (as in View2d); hovering adds
-    // a highlighted border, the face equivalent of the size bump used for
-    // points and segments, so a hovered face still shows whether it is selected.
+    // Draw faces: selected faces stay light red; hovering adds a highlighted
+    // border, the face equivalent of the size bump used for points and
+    // segments, so a hovered face still shows whether it is selected.
     drawFaces(faces) {
         const context2d = this.overlay.getContext('2d');
         const priority = f => f.select ? 2 : f.hover ? 1 : 0;

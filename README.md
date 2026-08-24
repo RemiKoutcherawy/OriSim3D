@@ -23,7 +23,7 @@ Work in progress, any help is welcome.
 3. Face.js is a list of points references: p1,p2,p3...
 4. Model.js has Points, Segments, Faces with methods to manipulate them
 5. Commands.js interprets text to call model methods
-6. Helper.js interprets mouse click and drag to send commands
+6. Helper.js interprets mouse/touch click and drag on the 3D view to send commands
 
 ### Origami text commands :
 - define: width height : d 200 200
@@ -49,19 +49,3 @@ Work in progress, any help is welcome.
 - click drag an already-selected point moves it (`move` then `check`); the drag line is orange
 - undo via ⌘/Ctrl+Z
 
-### Console de commandes (menu Édition → Console)
-
-- Affiche/masque la zone de texte en bas de l'écran
-- Entrée : exécute la ligne courante ; ⌘/Ctrl+Z : undo
-- Les commandes exécutées (souris ou menu) sont recopiées dans la console
-
-### Commands in the CommandArea 
-- ss selectSegments to select without a mouse
-- sp selectPoints to select without a mouse
-- labels
-- textures
-- overlay
-- edges
-- lines
-- undo ⌘+Z
-- check
