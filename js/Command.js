@@ -357,9 +357,6 @@ function fit(cmd) {
     cmd.model.movePoints(cmd.fitCx * k, cmd.fitCy * k, 0, cmd.model.points);
 }
 
-// Step in model units between consecutive ranks set by order()
-const ORDER_STEP = 0.1;
-
 // Order faces front-to-back: the first face is set nearest the viewer, each
 // following one progressively behind it. A face is offset along its own normal
 // (model space), so a face seen from the front (normal z > 0) or from the back
@@ -369,7 +366,7 @@ function order(cmd) {
     faces.forEach((face, i) => {
         const rank = faces.length - 1 - i;
         const nz = Model.normal(face)[2];
-        face.offset = rank === 0 ? 0 : Math.sign(nz) * rank * ORDER_STEP;
+        face.offset = rank === 0 ? 0 : Math.sign(nz) * rank;
     });
 }
 
