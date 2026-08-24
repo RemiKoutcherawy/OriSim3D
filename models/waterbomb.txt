@@ -1,3 +1,4 @@
+ // Waterbomb from Claude
  d 200 200
  labels
   across3d p1 p2   // split top to bottom (horizontal midline)
