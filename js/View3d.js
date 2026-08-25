@@ -98,11 +98,10 @@ export class View3d {
     linBuffer = null;
     vao = null;
 
-    constructor(model, canvas3d, overlay = null) {
-        // Instance variables
+    constructor(model, canvas3d) {
         this.model = model;
         this.canvas3d = canvas3d;
-        this.overlay = overlay;
+        this.overlay = this.createOverlay(canvas3d);
         this.gl = canvas3d.getContext('webgl2');
 
         this.initShaders();
@@ -110,12 +109,42 @@ export class View3d {
         this.initPerspective();
         this.initModelView();
 
-        // Resize
         globalThis.addEventListener('resize', () => {
             this.initPerspective();
             this.initModelView();
             this.render();
         });
+    }
+
+    // Stack a 2D overlay canvas on top of canvas3d (same parent, same CSS box).
+    createOverlay(canvas3d) {
+        const doc = globalThis.document;
+        if (!doc?.createElement) return null;
+        const overlay = doc.createElement('canvas');
+        overlay.id = 'overlay';
+        if (typeof canvas3d.after === 'function') {
+            canvas3d.after(overlay);
+        } else {
+            canvas3d.parentNode?.insertBefore(overlay, canvas3d.nextSibling);
+        }
+        return overlay;
+    }
+
+    // Keep both canvas buffers identical; returns the shared pixel size.
+    syncCanvasSize() {
+        const width = this.canvas3d.clientWidth || this.canvas3d.width || 1;
+        const height = this.canvas3d.clientHeight || this.canvas3d.height || 1;
+        this.canvas3d.width = width;
+        this.canvas3d.height = height;
+        if (this.overlay) {
+            this.overlay.width = width;
+            this.overlay.height = height;
+        }
+        return { width, height };
+    }
+
+    get context2d() {
+        return this.overlay?.getContext('2d');
     }
 
     // Shaders
@@ -244,17 +273,14 @@ export class View3d {
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
 
-        // Viewport
-        this.canvas3d.width = this.canvas3d.clientWidth;
-        this.canvas3d.height = this.canvas3d.clientHeight;
-        gl.viewport(0, 0, this.canvas3d.clientWidth, this.canvas3d.clientHeight);
+        const { width, height } = this.syncCanvasSize();
+        gl.viewport(0, 0, width, height);
 
-        const ratio = this.canvas3d.clientWidth / this.canvas3d.clientHeight;
+        const ratio = width / height;
         const fov = 40;
         const near = 50;
         const far = 1200;
         this.projection = mat4.perspective(mat4.create(), fov * Math.PI / 180, ratio, near, far);
-        // Set projection matrix
         const uProjectionMatrix = gl.getUniformLocation(gl.program, 'uProjectionMatrix');
         gl.uniformMatrix4fv(uProjectionMatrix, false, this.projection);
     }
@@ -414,14 +440,8 @@ export class View3d {
 
     // Project model points into overlay/canvas pixel space (xCanvas, yCanvas)
     updateCanvasCoords() {
-        const el = this.overlay ?? this.canvas3d;
-        if (!el) return;
-        const width = el.clientWidth || el.width || 1;
-        const height = el.clientHeight || el.height || 1;
-        if (this.overlay) {
-            this.overlay.width = width;
-            this.overlay.height = height;
-        }
+        const width = this.canvas3d.width || this.canvas3d.clientWidth || 1;
+        const height = this.canvas3d.height || this.canvas3d.clientHeight || 1;
         const scale = mat4.scale(mat4.create(), mat4.create(), [width / 2, -height / 2, 1]);
         const translation = mat4.fromTranslation(mat4.create(), [1, -1, 0]);
         const overlayMat = mat4.multiply(mat4.create(), scale, translation);
@@ -475,9 +495,9 @@ export class View3d {
         }
 
         // Model projected on overlay canvas
-        // Context 2d
-        const context2d = this.overlay.getContext('2d');
-        context2d.clearRect(0, 0, this.overlay.clientWidth, this.overlay.clientHeight)
+        const context2d = this.context2d;
+        if (!context2d) return;
+        context2d.clearRect(0, 0, this.overlay.width, this.overlay.height);
         if (this.model.overlay) {
             // Black segments are done by webgl, see this.model.lines
             if (this.model.edges) {
@@ -492,8 +512,8 @@ export class View3d {
     }
 
     // Draw on overlay. Called from render()
-    drawPoints(points,) {
-        const context2d = this.overlay.getContext('2d');
+    drawPoints(points) {
+        const context2d = this.context2d;
         const priority = p => p.select ? 2 : p.hover ? 1 : 0;
         const ordered = [...points].sort((a, b) => priority(a) - priority(b));
         for (const p of ordered) {
@@ -507,7 +527,7 @@ export class View3d {
 
     // Draw on overlay. Called from render()
     drawSegments(segments) {
-        const context2d = this.overlay.getContext('2d');
+        const context2d = this.context2d;
         const priority = s => s.select ? 2 : s.hover ? 1 : 0;
         const ordered = [...segments].sort((a, b) => priority(a) - priority(b));
         for (const s of ordered) {
@@ -524,7 +544,7 @@ export class View3d {
     // border, the face equivalent of the size bump used for points and
     // segments, so a hovered face still shows whether it is selected.
     drawFaces(faces) {
-        const context2d = this.overlay.getContext('2d');
+        const context2d = this.context2d;
         const priority = f => f.select ? 2 : f.hover ? 1 : 0;
         const ordered = [...faces].sort((a, b) => priority(a) - priority(b));
         for (const f of ordered) {

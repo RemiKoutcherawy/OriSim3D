@@ -22,9 +22,6 @@ export class Command {
     // Animation
     duration = 0;
     tStart = 0;
-    // Axis -> moved points, for rotate()s executed during the current animated
-    // instruction (re-recorded every frame, checked once the instruction ends)
-    pendingRotates = new Map();
     // Eventual CommandArea
     commandArea;
     // Optional 3D view (for svg export and other view-dependent commands)
@@ -116,15 +113,6 @@ export class Command {
         return this.tni - this.tpi;
     }
 
-    // True once the token queue and any in-flight undo/animation have settled.
-    // A commandArea replaying a fixed instruction (undo, then re-run corrected
-    // text) needs to wait for this before queuing the corrected text, since
-    // Command.command() forces state back to run the moment new tokens arrive
-    // mid-undo — queuing too early would cut the undo short.
-    get idle() {
-        return this.model.state === State.run;
-    }
-
     // State machine returns true if the model needs redrawing
     // Only 4 states: run, anim, undo, pause
     // Called by requestAnimationFrame(loop)
@@ -197,20 +185,12 @@ export class Command {
             if (this.model.snap) {
                 this.model.align();
             }
-            this.flushRotateWarnings();
             this.doneInstructions(this.idxBefore, this.iToken);
             this.model.state = State.run;
             return true;
         }
         this.iToken = iBeginAnim;
         return true;
-    }
-
-    // Warn (once per instruction, not once per animation frame) about points
-    // left inconsistent by this instruction's rotate()s — see rotate() below.
-    flushRotateWarnings() {
-        this.pendingRotates.forEach((points, axis) => warnInconsistent(this, axis, points));
-        this.pendingRotates.clear();
     }
 
     doneInstructions(idxBefore, idxAfter) {
@@ -348,27 +328,6 @@ function rotate(cmd) {
     const angle = Number(cmd.next()) * cmd.dt;
     const points = cmd.tokens('p');
     cmd.model.rotate(s, angle, points);
-    if (!s) return;
-    // Animated: defer the check to flushRotateWarnings() (once per instruction,
-    // not once per frame). Instant (non-animated) rotate: check right away.
-    if (cmd.model.state === State.anim) {
-        cmd.pendingRotates.set(s, points);
-    } else {
-        warnInconsistent(cmd, s, points);
-    }
-}
-
-function warnInconsistent(cmd, axis, points) {
-    const flagged = cmd.model.inconsistentAfterRotate(axis, points);
-    if (flagged.length === 0) return;
-    // The exact source text of the instruction that just finished (still
-    // valid: idxBefore/iToken haven't moved since it ran) — the fix replays
-    // this same instruction with "a <id>..." appended, not just the adjust
-    // alone, so a commandArea can undo + redo it as one smooth animation
-    // instead of snapping the adjust on afterward.
-    const sourceText = cmd.tokenTodo.slice(cmd.idxBefore, cmd.iToken).join(' ');
-    const ids = flagged.map((p) => `p${cmd.model.indexOf(p)}`);
-    cmd.commandArea?.addLine(`⚠ ${ids.join(' ')} needs adjust`, `${sourceText} a ${ids.join(' ')}`);
 }
 
 function move(cmd) {

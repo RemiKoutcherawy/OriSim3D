@@ -4,11 +4,11 @@ import {Vector3} from './Vector3.js';
 import * as mat4 from './lib/mat4.js';
 
 export class Helper {
-    constructor(model, command, view3d, overlay) {
+    /** @param {*} model @param {*} command @param {*} [view3d] */
+    constructor(model, command, view3d = null) {
         this.model = model;
         this.command = command;
         this.view3d = view3d;
-        this.overlay = overlay;
         this.touchTime = 0;
         this.label = undefined;
         // Mouse coordinates, first and current
@@ -21,7 +21,8 @@ export class Helper {
         // Drag of an already-selected point → move command
         this.moving = false;
 
-        // To test with Deno overlay is null
+        // To test with Deno, view3d (and its overlay) may be null
+        const overlay = view3d?.overlay;
         if (overlay) {
             overlay.addEventListener('pointerdown', (event) => this.down3d(event));
             overlay.addEventListener('pointermove', (event) => this.move3d(event));
@@ -29,10 +30,13 @@ export class Helper {
             overlay.addEventListener('pointercancel', (event) => this.out(event));
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
-            // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
         }
         this.out();
+    }
+
+    get overlay() {
+        return this.view3d?.overlay;
     }
     keydown(event) {
         // Let native text editing (e.g. its own undo) happen while typing

@@ -4,14 +4,19 @@ import * as mat4 from "../js/lib/mat4.js";
 import { assertEquals } from "@std/assert";
 
 // Deno has no DOM: View3d reaches into globalThis.document (for #front/#back
-// texture <img> tags) and `new Image()` unconditionally in initTextures().
-// Stub both so the constructor can run headless; restored after every test.
-function withStubbedDom<T>(fn: () => T): T {
+// texture <img> tags and createElement('canvas') for the overlay) and
+// `new Image()` in initTextures(). Stub both so the constructor can run
+// headless; restored after every test.
+function withStubbedDom<T>(fn: () => T, overlay?: ReturnType<typeof createMockOverlay>): T {
   // deno-lint-ignore no-explicit-any
   const g = globalThis as any;
   const originalDocument = g.document;
   const originalImage = g.Image;
-  g.document = { getElementById: () => null };
+  const stubOverlay = overlay ?? createMockOverlay(createMockContext2d().ctx);
+  g.document = {
+    getElementById: () => null,
+    createElement: (tag: string) => tag === "canvas" ? stubOverlay : {},
+  };
   g.Image = class {};
   try {
     return fn();
@@ -89,6 +94,7 @@ function createMockCanvas3d(gl: unknown, width = 200, height = 100) {
     clientHeight: height,
     width: 0,
     height: 0,
+    after: () => {},
     getContext: () => gl,
   };
 }
@@ -116,6 +122,7 @@ function createMockContext2d() {
 
 function createMockOverlay(ctx: unknown, width = 200, height = 100) {
   return {
+    id: "",
     clientWidth: width,
     clientHeight: height,
     width: 0,
@@ -126,24 +133,24 @@ function createMockOverlay(ctx: unknown, width = 200, height = 100) {
 
 Deno.test("View3d", async (t) => {
   await t.step("constructs, compiles shaders, and builds buffers from the model", () => {
+    const { ctx } = createMockContext2d();
+    const overlay = createMockOverlay(ctx);
     withStubbedDom(() => {
       const model = new Model().init(200, 200); // one flat quad face, 4 points
       const { gl } = createMockGL();
       const canvas3d = createMockCanvas3d(gl);
-      const { ctx } = createMockContext2d();
-      const overlay = createMockOverlay(ctx);
 
-      // deno-lint-ignore no-explicit-any
-      const view3d = new View3d(model, canvas3d, overlay as any);
+      const view3d = new View3d(model, canvas3d);
 
       assertEquals(view3d.gl, gl);
+      assertEquals(view3d.overlay, overlay);
       assertEquals(view3d.projection.length, 16);
       assertEquals(view3d.modelView.length, 16);
       // Quad fan-triangulated into 2 triangles: 2 * 3 vertices * 3 coords
       assertEquals(view3d.vtx.length, 18);
       // Contour: 4 edges * 2 indices
       assertEquals(view3d.lin.length, 8);
-    });
+    }, overlay);
   });
 
   await t.step("normal() returns the unit normal of a planar face", () => {
@@ -172,15 +179,31 @@ Deno.test("View3d", async (t) => {
     assertEquals(view3d.faceDepth(face), 3);
   });
 
-  await t.step("updateCanvasCoords() projects a world-origin point to the overlay center under identity view", () => {
+  await t.step("syncCanvasSize() sets identical buffer sizes on canvas3d and overlay", () => {
+    const { ctx } = createMockContext2d();
+    const overlay = createMockOverlay(ctx, 200, 100);
     withStubbedDom(() => {
       const model = new Model().init(200, 200);
       const { gl } = createMockGL();
-      const canvas3d = createMockCanvas3d(gl);
-      const { ctx } = createMockContext2d();
-      const overlay = createMockOverlay(ctx, 200, 100);
-      // deno-lint-ignore no-explicit-any
-      const view3d = new View3d(model, canvas3d, overlay as any);
+      const canvas3d = createMockCanvas3d(gl, 200, 100);
+      const view3d = new View3d(model, canvas3d);
+      const size = view3d.syncCanvasSize();
+      assertEquals(size, { width: 200, height: 100 });
+      assertEquals(canvas3d.width, 200);
+      assertEquals(canvas3d.height, 100);
+      assertEquals(overlay.width, 200);
+      assertEquals(overlay.height, 100);
+    }, overlay);
+  });
+
+  await t.step("updateCanvasCoords() projects a world-origin point to the overlay center under identity view", () => {
+    const { ctx } = createMockContext2d();
+    const overlay = createMockOverlay(ctx, 200, 100);
+    withStubbedDom(() => {
+      const model = new Model().init(200, 200);
+      const { gl } = createMockGL();
+      const canvas3d = createMockCanvas3d(gl, 200, 100);
+      const view3d = new View3d(model, canvas3d);
 
       // deno-lint-ignore no-explicit-any
       view3d.model = { points: [{ x: 0, y: 0, z: 0 }] } as any;
@@ -193,18 +216,17 @@ Deno.test("View3d", async (t) => {
       assertEquals(Math.round(p.xCanvas), 100); // width / 2
       assertEquals(Math.round(p.yCanvas), 50);  // height / 2
       assertEquals(Math.round(p.zEye), 0);
-    });
+    }, overlay);
   });
 
   await t.step("render() draws the model on gl and mirrors overlay/edges/labels state on the 2d context", () => {
+    const { ctx, calls: ctxCalls } = createMockContext2d();
+    const overlay = createMockOverlay(ctx);
     withStubbedDom(() => {
       const model = new Model().init(200, 200); // init() defaults overlay/edges/lines to true
       const { gl, calls: glCalls } = createMockGL();
       const canvas3d = createMockCanvas3d(gl);
-      const { ctx, calls: ctxCalls } = createMockContext2d();
-      const overlay = createMockOverlay(ctx);
-      // deno-lint-ignore no-explicit-any
-      const view3d = new View3d(model, canvas3d, overlay as any);
+      const view3d = new View3d(model, canvas3d);
 
       glCalls.length = 0;
       ctxCalls.length = 0;
@@ -217,19 +239,17 @@ Deno.test("View3d", async (t) => {
       // overlay/edges true: points + segments get drawn (each does a fill/stroke)
       assertEquals(ctxCalls.some((c) => c.method === "fill"), true);
       assertEquals(ctxCalls.some((c) => c.method === "stroke"), true);
-    });
+    }, overlay);
   });
 
   await t.step("drawPoints() colors a selected point red and a hovered point blue", () => {
+    const { ctx, calls } = createMockContext2d();
+    const overlay = createMockOverlay(ctx);
     withStubbedDom(() => {
       const model = new Model().init(200, 200);
       const { gl } = createMockGL();
       const canvas3d = createMockCanvas3d(gl);
-      const { ctx, calls } = createMockContext2d();
-      const overlay = createMockOverlay(ctx);
-      // deno-lint-ignore no-explicit-any
-      const view3d = new View3d(model, canvas3d, overlay as any);
-      view3d.overlay = overlay;
+      const view3d = new View3d(model, canvas3d);
 
       const [p0, p1] = model.points;
       p0.xCanvas = 10; p0.yCanvas = 10; p0.select = true;
@@ -241,19 +261,17 @@ Deno.test("View3d", async (t) => {
       const fills = calls.filter((c) => c.method === "fill").map((c) => c.fillStyle);
       assertEquals(fills.includes("red"), true);
       assertEquals(fills.includes("blue"), true);
-    });
+    }, overlay);
   });
 
   await t.step("drawFaces() skips faces that are neither selected nor hovered", () => {
+    const { ctx, calls } = createMockContext2d();
+    const overlay = createMockOverlay(ctx);
     withStubbedDom(() => {
       const model = new Model().init(200, 200);
       const { gl } = createMockGL();
       const canvas3d = createMockCanvas3d(gl);
-      const { ctx, calls } = createMockContext2d();
-      const overlay = createMockOverlay(ctx);
-      // deno-lint-ignore no-explicit-any
-      const view3d = new View3d(model, canvas3d, overlay as any);
-      view3d.overlay = overlay;
+      const view3d = new View3d(model, canvas3d);
 
       for (const p of model.points) { p.xCanvas = p.xf; p.yCanvas = p.yf; }
       const face = model.faces[0];
@@ -267,19 +285,17 @@ Deno.test("View3d", async (t) => {
       view3d.drawFaces([face]);
       const fills = calls.filter((c) => c.method === "fill").map((c) => c.fillStyle);
       assertEquals(fills.includes("rgba(255,0,0,0.35)"), true);
-    });
+    }, overlay);
   });
 
   await t.step("drawLabels() writes one label per visible point and skips hidden ones", () => {
+    const { ctx, calls } = createMockContext2d();
+    const overlay = createMockOverlay(ctx);
     withStubbedDom(() => {
       const model = new Model().init(200, 200);
       const { gl } = createMockGL();
       const canvas3d = createMockCanvas3d(gl);
-      const { ctx, calls } = createMockContext2d();
-      const overlay = createMockOverlay(ctx);
-      // deno-lint-ignore no-explicit-any
-      const view3d = new View3d(model, canvas3d, overlay as any);
-      view3d.overlay = overlay;
+      const view3d = new View3d(model, canvas3d);
       view3d.model = { points: [model.points[0], model.points[1]] };
       model.points[0].xCanvas = 0; model.points[0].yCanvas = 0;
       model.points[1].xCanvas = 50; model.points[1].yCanvas = 50; model.points[1].hidden = true;
@@ -289,6 +305,6 @@ Deno.test("View3d", async (t) => {
 
       const texts = calls.filter((c) => c.method === "fillText").map((c) => c.args[0]);
       assertEquals(texts, ["0"]); // index of the visible point only
-    });
+    }, overlay);
   });
 });
