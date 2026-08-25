@@ -1,6 +1,5 @@
 // Paper airplane From Cursor
 define 200 280
-overlay
 textures
 tz 90
 iad

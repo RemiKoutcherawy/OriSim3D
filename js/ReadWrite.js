@@ -41,8 +41,6 @@ export class ReadWrite {
                 const keep = {
                     labels: command.model.labels,
                     textures: command.model.textures,
-                    overlay: command.model.overlay,
-                    edges: command.model.edges,
                     lines: command.model.lines,
                     snap: command.model.snap,
                 };

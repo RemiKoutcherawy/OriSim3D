@@ -42,10 +42,8 @@ Work in progress, any help is welcome.
   3D-view SVG diagram per step, laid out in a grid (reuses the same renderer as `svg`)
 
 ### Helper interprets mouse moves to make commands
-- click selects point, segment, face, or marks them
-- click drag from a point to a point adds a crease, or if the crease exists, adds a perpendicular crease
-- click drag from a segment to a segment adds a bisector
-- click drag a point rotates around a selected segment
-- click drag an already-selected point moves it (`move` then `check`); the drag line is orange
-- undo via ⌘/Ctrl+Z
+- **Mark** (no face selected): click toggles point/segment; face click cycles the depth pile; drag P→P = by/across, P→S = p3d, S→S = bisector, S→P = `// splitParallel`
+- **Fold** (a face is selected): crease gestures blocked; drag on a face rotates around the selected (or nearest bordering) segment, then clears selection; otherwise may `split` along the drag line
+- Click empty space clears selection; empty drag = camera; undo via ⌘/Ctrl+Z
+- `move` stays a text command only (not bound to the pointer)
 

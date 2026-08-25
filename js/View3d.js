@@ -498,16 +498,12 @@ export class View3d {
         const context2d = this.context2d;
         if (!context2d) return;
         context2d.clearRect(0, 0, this.overlay.width, this.overlay.height);
-        if (this.model.overlay) {
-            // Black segments are done by webgl, see this.model.lines
-            if (this.model.edges) {
-                this.drawSegments(this.model.segments); // Hover and select
-            }
-            this.drawPoints(this.model.points);
-            this.drawFaces(this.model.faces);    // Only for hover and select
-            if (this.model.labels) {
-                this.drawLabels(context2d);
-            }
+        // Black segments are done by webgl, see this.model.lines
+        this.drawSegments(this.model.segments);
+        this.drawPoints(this.model.points);
+        this.drawFaces(this.model.faces);
+        if (this.model.labels) {
+            this.drawLabels(context2d);
         }
     }
 
@@ -525,24 +521,66 @@ export class View3d {
         }
     }
 
+    static AXIS_AMBER = '#e6a817';
+
+    /** Amber fold axis (solid) or candidate (dashed). Caps only on solid. */
+    drawAxis(segment, {dashed = false} = {}) {
+        const context2d = this.context2d;
+        const x1 = segment.p1.xCanvas, y1 = segment.p1.yCanvas;
+        const x2 = segment.p2.xCanvas, y2 = segment.p2.yCanvas;
+        if (x1 == null || x2 == null) return;
+        context2d.save();
+        context2d.strokeStyle = View3d.AXIS_AMBER;
+        context2d.lineWidth = dashed ? 4 : 5;
+        context2d.lineCap = 'round';
+        if (dashed) context2d.setLineDash([8, 6]);
+        context2d.beginPath();
+        context2d.moveTo(x1, y1);
+        context2d.lineTo(x2, y2);
+        context2d.stroke();
+        if (!dashed) {
+            context2d.setLineDash([]);
+            const dx = x2 - x1, dy = y2 - y1;
+            const len = Math.hypot(dx, dy) || 1;
+            const px = (-dy / len) * 8, py = (dx / len) * 8;
+            context2d.lineWidth = 3;
+            for (const [x, y] of [[x1, y1], [x2, y2]]) {
+                context2d.beginPath();
+                context2d.moveTo(x - px, y - py);
+                context2d.lineTo(x + px, y + py);
+                context2d.stroke();
+            }
+        }
+        context2d.restore();
+    }
+
     // Draw on overlay. Called from render()
     drawSegments(segments) {
         const context2d = this.context2d;
-        const priority = s => s.select ? 2 : s.hover ? 1 : 0;
-        const ordered = [...segments].sort((a, b) => priority(a) - priority(b));
-        for (const s of ordered) {
+        const foldMode = this.model.faces.some(f => f.select);
+        // Only the first selected segment is the fold axis
+        const axis = segments.find(s => s.select);
+
+        for (const s of segments) {
+            if (axis && s === axis) continue;
+            if (foldMode) {
+                if (!s.hover) continue;
+                this.drawAxis(s, {dashed: true});
+                continue;
+            }
+            if (!s.hover) continue;
             context2d.lineWidth = s.hover ? 6 : 3;
             context2d.beginPath();
             context2d.moveTo(s.p1.xCanvas, s.p1.yCanvas);
             context2d.lineTo(s.p2.xCanvas, s.p2.yCanvas);
-            context2d.strokeStyle = s.select ? 'red' : s.hover ? 'blue' : 'skyblue';
+            context2d.strokeStyle = s.hover ? 'blue' : 'skyblue';
             context2d.stroke();
         }
+        if (axis) this.drawAxis(axis, {dashed: false});
     }
 
-    // Draw faces: selected faces stay light red; hovering adds a highlighted
-    // border, the face equivalent of the size bump used for points and
-    // segments, so a hovered face still shows whether it is selected.
+    // Draw faces: selected = fill only (no full border — that hid the fold axis).
+    // Hover without select still gets a blue outline.
     drawFaces(faces) {
         const context2d = this.context2d;
         const priority = f => f.select ? 2 : f.hover ? 1 : 0;
@@ -557,52 +595,66 @@ export class View3d {
             context2d.closePath();
             context2d.fillStyle = f.select ? 'rgba(255,0,0,0.35)' : 'rgba(0,102,255,0.3)';
             context2d.fill();
-            if (f.hover) {
+            if (f.hover && !f.select) {
                 context2d.lineWidth = 4;
-                context2d.strokeStyle = f.select ? 'red' : 'blue';
+                context2d.strokeStyle = 'blue';
                 context2d.stroke();
             }
         }
     }
 
     /**
-     * Draw labels for Points, Segments, Faces
-     * each label takes a slot on the screen
+     * Draw labels for Points and Segments; each label takes a slot on the screen.
      */
     labels = [];
 
     drawLabels(context2d) {
         this.labels = [];
-        // Points
         for (const p of this.model.points) {
-            if (p.hidden) {continue;}
-            const txt = String(this.model.points.indexOf(p));
-            const oneLabel = new Label(p.xCanvas, p.yCanvas);
-            this.labels.push(oneLabel);
-            this.labels.forEach(label => {
-                if (label !== oneLabel && label.over(oneLabel)) {
-                    oneLabel.moveLabel();
-                }
-            });
-            // Line
-            context2d.strokeStyle = 'black';
-            context2d.beginPath();
-            context2d.moveTo(p.xCanvas, p.yCanvas);
-            context2d.lineTo(oneLabel.getX(), oneLabel.getY());
-            context2d.lineWidth = 1;
-            context2d.stroke();
-            // Circle
-            const radius = 12;
-            context2d.fillStyle = p.select ? 'red' : 'skyblue';
-            context2d.beginPath();
-            context2d.arc(oneLabel.getX(), oneLabel.getY(), radius, 0, 2 * Math.PI);
-            context2d.stroke();
-            context2d.fill();
-            // Text
-            context2d.fillStyle = 'black';
-            context2d.font = '20px serif';
-            context2d.fillText(txt, oneLabel.getX() - 4 * (txt.length), oneLabel.getY() + 5);
+            if (p.hidden || p.xCanvas == null) continue;
+            this.placeLabel(
+                context2d,
+                p.xCanvas, p.yCanvas,
+                String(this.model.points.indexOf(p)),
+                p.select ? 'red' : 'skyblue',
+            );
         }
+        for (const s of this.model.segments) {
+            if (s.p1.xCanvas == null || s.p2.xCanvas == null) continue;
+            const mx = (s.p1.xCanvas + s.p2.xCanvas) / 2;
+            const my = (s.p1.yCanvas + s.p2.yCanvas) / 2;
+            this.placeLabel(
+                context2d,
+                mx, my,
+                String(this.model.segments.indexOf(s)),
+                s.select ? View3d.AXIS_AMBER : 'white',
+            );
+        }
+    }
+
+    placeLabel(context2d, x, y, txt, fillStyle) {
+        const oneLabel = new Label(x, y);
+        this.labels.push(oneLabel);
+        this.labels.forEach(label => {
+            if (label !== oneLabel && label.over(oneLabel)) {
+                oneLabel.moveLabel();
+            }
+        });
+        context2d.strokeStyle = 'black';
+        context2d.beginPath();
+        context2d.moveTo(x, y);
+        context2d.lineTo(oneLabel.getX(), oneLabel.getY());
+        context2d.lineWidth = 1;
+        context2d.stroke();
+        const radius = 12;
+        context2d.fillStyle = fillStyle;
+        context2d.beginPath();
+        context2d.arc(oneLabel.getX(), oneLabel.getY(), radius, 0, 2 * Math.PI);
+        context2d.stroke();
+        context2d.fill();
+        context2d.fillStyle = 'black';
+        context2d.font = '20px serif';
+        context2d.fillText(txt, oneLabel.getX() - 4 * (txt.length), oneLabel.getY() + 5);
     }
 }
 

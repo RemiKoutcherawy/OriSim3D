@@ -41,7 +41,6 @@ Deno.test("ReadWrite", async (t) => {
     await t.step('loadText script fold and empty', () => {
         const model = new Model().init(200, 200);
         model.labels = false;
-        model.edges = true;
         const command = new Command(model);
         const area = {textarea: {value: 'old', selectionStart: 0, selectionEnd: 0}};
         command.commandArea = area;
@@ -56,12 +55,10 @@ Deno.test("ReadWrite", async (t) => {
 
         const json = ReadWrite.toJSONFold(new Model().init(200, 200));
         model.labels = false;
-        model.edges = true;
         const kindFold = ReadWrite.loadText(command, json);
         assertEquals(kindFold, 'fold');
         assertEquals(command.model.points[0] instanceof Point, true);
         assertEquals(command.model.labels, false, 'display flags are kept');
-        assertEquals(command.model.edges, true, 'edges flag is kept');
         assertEquals(area.textarea.value, '');
         assertEquals(command.model.points.length, 4);
     });

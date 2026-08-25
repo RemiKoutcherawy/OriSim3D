@@ -116,6 +116,9 @@ function createMockContext2d() {
     fill() { calls.push({ method: "fill", args: [], fillStyle: this.fillStyle }); },
     fillText: (...args: unknown[]) => calls.push({ method: "fillText", args }),
     clearRect: (...args: unknown[]) => calls.push({ method: "clearRect", args }),
+    save: () => calls.push({ method: "save", args: [] }),
+    restore: () => calls.push({ method: "restore", args: [] }),
+    setLineDash: (...args: unknown[]) => calls.push({ method: "setLineDash", args }),
   };
   return { ctx, calls };
 }
@@ -219,15 +222,16 @@ Deno.test("View3d", async (t) => {
     }, overlay);
   });
 
-  await t.step("render() draws the model on gl and mirrors overlay/edges/labels state on the 2d context", () => {
+  await t.step("render() draws the model on gl and mirrors overlay state on the 2d context", () => {
     const { ctx, calls: ctxCalls } = createMockContext2d();
     const overlay = createMockOverlay(ctx);
     withStubbedDom(() => {
-      const model = new Model().init(200, 200); // init() defaults overlay/edges/lines to true
+      const model = new Model().init(200, 200);
       const { gl, calls: glCalls } = createMockGL();
       const canvas3d = createMockCanvas3d(gl);
       const view3d = new View3d(model, canvas3d);
 
+      model.segments[0].select = true; // gives drawSegments an axis to stroke
       glCalls.length = 0;
       ctxCalls.length = 0;
       view3d.render();
@@ -236,7 +240,6 @@ Deno.test("View3d", async (t) => {
       assertEquals(glCalls.includes("drawArrays"), true);
       assertEquals(glCalls.includes("drawElements"), true); // model.lines defaults to true
       assertEquals(ctxCalls.some((c) => c.method === "clearRect"), true);
-      // overlay/edges true: points + segments get drawn (each does a fill/stroke)
       assertEquals(ctxCalls.some((c) => c.method === "fill"), true);
       assertEquals(ctxCalls.some((c) => c.method === "stroke"), true);
     }, overlay);
@@ -261,6 +264,47 @@ Deno.test("View3d", async (t) => {
       const fills = calls.filter((c) => c.method === "fill").map((c) => c.fillStyle);
       assertEquals(fills.includes("red"), true);
       assertEquals(fills.includes("blue"), true);
+    }, overlay);
+  });
+
+  await t.step("drawSegments() draws amber axis for the first selected segment", () => {
+    const { ctx, calls } = createMockContext2d();
+    const overlay = createMockOverlay(ctx);
+    withStubbedDom(() => {
+      const model = new Model().init(200, 200);
+      const { gl } = createMockGL();
+      const canvas3d = createMockCanvas3d(gl);
+      const view3d = new View3d(model, canvas3d);
+
+      for (const p of model.points) { p.xCanvas = p.xf; p.yCanvas = p.yf; }
+      model.segments[0].select = true;
+      model.segments[1].select = true; // ignored — only first axis
+
+      calls.length = 0;
+      view3d.drawSegments(model.segments);
+      const amber = calls.filter((c) => c.method === "stroke" && c.strokeStyle === View3d.AXIS_AMBER);
+      assertEquals(amber.length > 0, true);
+    }, overlay);
+  });
+
+  await t.step("drawSegments() in fold mode only draws hover candidate and axis", () => {
+    const { ctx, calls } = createMockContext2d();
+    const overlay = createMockOverlay(ctx);
+    withStubbedDom(() => {
+      const model = new Model().init(200, 200);
+      const { gl } = createMockGL();
+      const canvas3d = createMockCanvas3d(gl);
+      const view3d = new View3d(model, canvas3d);
+
+      for (const p of model.points) { p.xCanvas = p.xf; p.yCanvas = p.yf; }
+      model.faces[0].select = true;
+      model.segments[0].hover = true;
+
+      calls.length = 0;
+      view3d.drawSegments(model.segments);
+      const strokes = calls.filter((c) => c.method === "stroke");
+      assertEquals(strokes.length > 0, true);
+      assertEquals(strokes.every((c) => c.strokeStyle === View3d.AXIS_AMBER), true);
     }, overlay);
   });
 
@@ -296,7 +340,7 @@ Deno.test("View3d", async (t) => {
       const { gl } = createMockGL();
       const canvas3d = createMockCanvas3d(gl);
       const view3d = new View3d(model, canvas3d);
-      view3d.model = { points: [model.points[0], model.points[1]] };
+      view3d.model = { points: [model.points[0], model.points[1]], segments: [] };
       model.points[0].xCanvas = 0; model.points[0].yCanvas = 0;
       model.points[1].xCanvas = 50; model.points[1].yCanvas = 50; model.points[1].hidden = true;
 

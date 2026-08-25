@@ -3,54 +3,69 @@
 
 Everything happens on the single 3D view. Selected points/segments/faces
 highlight; a drag draws a green line from where you pressed down to the
-current pointer position (orange instead while moving an already-selected
-point).
+current pointer position, with a live angle label while folding.
 
+Two modes
+---------
+- Mark: no face selected. Gestures add creases (by / across / p3d /
+  bisector) or select points, segments, faces.
+- Fold: at least one face is selected. Crease gestures are blocked.
+  Folding is done by dragging on a face. The fold axis is drawn in amber
+  (solid with end caps when selected; dashed while hovering a border
+  candidate). Selecting a segment in mark keeps it as the fold axis when
+  you enter fold.
+
+Click threshold: 12px (mouse) / 24px (touch). Click on empty space
+clears all selection and leaves fold mode. Empty-space drag always
+moves the camera (no clear).
+
+Mark mode
+---------
 Points
-------
-- Click a point: select / deselect it (toggle).
-- Drag from a point to a different point:
-    - no crease connects them yet -> adds a crease directly between them (by3d)
-    - a crease already connects them -> adds the perpendicular-bisector
-      crease instead (across3d)
-- Drag from a point to a segment (or a segment to a point): adds a crease
-  from the segment, perpendicular to it, through the point (p3d).
-- Drag an already-selected point: moves it in 3D, following the pointer
-  (`move` then `check` to reconcile lengths); the drag line turns orange.
-  A short tap (<4px of movement) on an already-selected point just
-  deselects it instead of moving it.
+- Click a point: select / deselect the whole stack under the pointer
+  (all superimposed points together).
+- Double-click a point: `adjust` on that stack.
+- Drag point → point: by3d, or across3d if a crease already connects them.
+- Drag point → segment: perpendicular crease (p3d).
+- Drag on a face (no face selected yet): splits segments crossed by the
+  drag line.
 
 Segments
---------
-- Click a segment: select / deselect it (toggle); also logs its 2D vs 3D
-  length in the panel.
-- Drag from a segment to a different segment: adds the bisector crease
-  between them (bisector3d).
-- Drag from a point while a segment is already selected: shows a live
-  rotation-angle label (rounded to the nearest 10°) as you move the
-  pointer. Releasing rotates every currently-selected point around that
-  segment by the shown angle.
+- Click a segment: toggle select for the whole stack under the pointer
+  (superimposed segments together); logs `// selectSegments s…`.
+- Drag segment → segment: bisector3d.
+- Drag segment → point: logs `// splitParallel s… p…` (not executed yet).
 
 Faces
------
-- Click a face: select / deselect it. Faces can be stacked (several
-  layers at the same screen position) — clicking selects the *whole*
-  stack together, and logs each one's index and offset.
-- Drag from a face to a different face: adds a crease along the drag
-  line, splitting whatever segments it crosses (used to crease across
-  several faces in one motion).
+- Click a face: select the frontmost face under the pointer. Repeated
+  clicks on the same stack cycle to the next deeper face; after the last,
+  only faces of that stack are cleared (points/segments kept). Each
+  selection logs `// selectFaces f…` (comment only) so the chosen face
+  id is visible while cycling.
+- Click from one face to another: selects the Up front face only; does
+  not change point/segment selection.
+
+Fold mode
+---------
+- Click point / segment: toggle (points = fold set; segment = axis).
+- Point→point, point→segment, segment→segment crease gestures: blocked.
+- Drag on a face:
+  - With an axis selected (or hovering the nearest border segment): live
+    angle from the face centroid; release with a non-zero angle runs
+    `t 1000 r s… angle p… // f…` then clears all selection.
+  - Release on a point: `// splitParallel …` (comment only).
+  - No usable angle, release not on a point/segment: split segments
+    crossed by the drag line (same ratio logic as before).
 
 Camera
 ------
-- Drag on empty space (nothing under the pointer), left button: rotates
-  the camera around the model.
-- Drag on empty space, right button: pans (translates) the camera.
-- Mouse wheel / pinch: zooms in and out (clamped between 0.2x and 3x).
-- Double-click / double-tap on empty space: resets the camera (rotation,
-  pan, zoom) and fits the model back into view.
+- Drag on empty space, left button: rotate camera.
+- Drag on empty space, right button: pan.
+- Mouse wheel / pinch: zoom (0.2x–3x).
+- Double-click / double-tap on empty space: reset camera and `fit`.
 
 Other
 -----
-- Ctrl/Cmd+Z: undo the last command (ignored while typing in a text
-  field, e.g. the command input, so native text-undo works there
-  instead).
+- Ctrl/Cmd+Z: undo (ignored while typing in a text field).
+- `move` remains available as a text command; it is not bound to the
+  pointer anymore.
