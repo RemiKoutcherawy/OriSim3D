@@ -41,17 +41,13 @@ export class ReadWrite {
                 const keep = {
                     labels: command.model.labels,
                     textures: command.model.textures,
-                    overlay: command.model.overlay,
-                    edges: command.model.edges,
                     lines: command.model.lines,
                     snap: command.model.snap,
                 };
                 ReadWrite.resetCommand(command);
                 Object.assign(command.model, loaded, keep);
                 command.model.state = State.run;
-                if (command.commandArea) {
-                    command.commandArea.textarea.value = '';
-                }
+                ReadWrite.syncCommandArea(command, '');
                 return 'fold';
             } catch {
                 // Fall through and treat as a command script
@@ -62,12 +58,24 @@ export class ReadWrite {
         command.commandArea = undefined;
         command.command(trimmed);
         command.commandArea = area;
-        if (area) {
-            const withNl = trimmed.endsWith('\n') ? trimmed : `${trimmed}\n`;
+        ReadWrite.syncCommandArea(command, trimmed);
+        return 'script';
+    }
+
+    // Push loaded text into the command area: a textarea (tests / old console)
+    // is replaced in place; a log panel is cleared then addLine'd. Missing
+    // hooks are ignored so a log-only area no longer throws on .textarea.
+    static syncCommandArea(command, text) {
+        const area = command.commandArea;
+        if (!area) return;
+        if (area.textarea) {
+            const withNl = text === '' ? '' : (text.endsWith('\n') ? text : `${text}\n`);
             area.textarea.value = withNl;
             area.textarea.selectionStart = area.textarea.selectionEnd = withNl.length;
+            return;
         }
-        return 'script';
+        area.clear?.();
+        if (text) area.addLine?.(text);
     }
 
     // Read with FileReader return text or null
@@ -88,20 +96,6 @@ export class ReadWrite {
             return json;
         }
         if (!filename.endsWith('.fold')) filename = `${filename}.fold`;
-        if (globalThis.showSaveFilePicker) {
-            try {
-                const handle = await globalThis.showSaveFilePicker({
-                    suggestedName: filename,
-                    types: [{description: 'FOLD', accept: {'application/json': ['.fold', '.json']}}],
-                });
-                const writable = await handle.createWritable();
-                await writable.write(json);
-                await writable.close();
-            } catch (e) {
-                if (e.name !== 'AbortError') throw e;
-            }
-            return json;
-        }
         const data = new Blob([json], { type: "application/json" });
         const link = document.createElement("a");
         link.setAttribute("download", filename);
@@ -380,28 +374,12 @@ export class ReadWrite {
         }
     }
 
-    static async writeFile(filename = 'OriSim3d.txt', text) {
+    static async writeFile(text, filename = 'OriSim3d.txt') {
         if (typeof Deno !== "undefined") {
             await Deno.writeTextFile(filename, text);
             return;
         }
         if (!filename.endsWith('.txt')) filename = `${filename}.txt`;
-        // Save-as picker when the browser supports it
-        if (globalThis.showSaveFilePicker) {
-            try {
-                const handle = await globalThis.showSaveFilePicker({
-                    suggestedName: filename,
-                    types: [{description: 'Texte', accept: {'text/plain': ['.txt']}}],
-                });
-                const writable = await handle.createWritable();
-                await writable.write(text);
-                await writable.close();
-            } catch (e) {
-                if (e.name !== 'AbortError') throw e;
-            }
-            return;
-        }
-        // Download using filename
         const data = new Blob([text], {type: "text/plain"});
         const link = document.createElement("a");
         link.setAttribute("download", filename);

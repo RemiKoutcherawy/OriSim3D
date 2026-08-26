@@ -9,10 +9,12 @@
   <style>
     :root { --split: 100%; }
     body.command-area-open { --split: 80%; }
-    #canvas2d,#canvas3d,#overlay{position:absolute;top:0;width:50%;height:var(--split)}
-    #canvas2d{left:0;border:1px solid black}
-    #canvas3d{left:50%;border:1px solid black}
-    #overlay{left:50%;z-index:1}
+    #canvas3d,#overlay{position:absolute;top:0;left:0;width:100%;height:var(--split)}
+    #canvas3d{border:1px solid black}
+    #overlay{z-index:1}
+    #canvas2d{display:none;position:absolute;top:0;left:0;width:50%;height:var(--split);border:1px solid black}
+    body.view2d-open #canvas2d{display:block}
+    body.view2d-open #canvas3d,body.view2d-open #overlay{left:50%;width:50%}
     #commandAreaPanel{
       display:none;position:absolute;width:100%;left:0;bottom:0;
       height:calc(100% - var(--split));box-sizing:border-box;
@@ -49,7 +51,6 @@
 <div>
   <canvas id="canvas2d"></canvas>
   <canvas id="canvas3d"></canvas>
-  <canvas id="overlay"></canvas>
 </div>
 <div id="commandAreaPanel">
   <label for="commandArea">Commandes</label>
@@ -77,13 +78,10 @@
   <details>
     <summary>Édition<span class="chev">›</span></summary>
     <button type="button" data-load="undo">Undo</button>
-    <button type="button" data-load="lines" data-flag="lines">Lines</button>
-    <button type="button" data-load="edges" data-flag="edges">Edges</button>
-    <button type="button" data-load="snap" data-flag="snap">Snap</button>
-    <button type="button" data-load="overlayCde" data-flag="overlay">Overlay</button>
-    <button type="button" data-load="labels" data-flag="labels">Labels</button>
     <button type="button" data-load="textures" data-flag="textures">Textures</button>
-    <button type="button" id="toggleCommandArea" data-ui="commandArea">Console</button>
+    <button type="button" data-load="labels" data-flag="labels">Labels</button>
+    <button type="button" data-ui="command-area">Console</button>
+    <button type="button" data-ui="view2d">Vue 2D</button>
   </details>
   <details>
     <summary>Exemples<span class="chev">›</span></summary>
@@ -112,12 +110,11 @@
 
     // View 3d
     const canvas3d = document.getElementById("canvas3d");
-    const overlay = document.getElementById("overlay");
-    const view3d = new View3d(model, canvas3d, overlay);
+    const view3d = new View3d(model, canvas3d);
     view3d.initBuffers();
     view3d.initPerspective();
 
-    // View 2d
+    // View 2d (hidden by default, shown from the menu)
     const canvas2d = document.getElementById("canvas2d");
     const view2d = new View2d(model, canvas2d);
 
@@ -125,20 +122,17 @@
     const command = new Command(model, view3d);
     new CommandArea(command, document.getElementById('commandArea'));
     // Helper
-    const helper = new Helper(model, command, canvas2d, view3d, overlay);
+    const helper = new Helper(model, command, view3d, view2d);
     helper.out();
 
     function resizeViews() {
       view3d.initPerspective();
       view3d.initModelView();
-      view2d.drawModel();
       view3d.render();
-    }
-
-    function setCommandAreaOpen(open) {
-      document.body.classList.toggle('command-area-open', open);
-      syncToggles();
-      resizeViews();
+      if (document.body.classList.contains('view2d-open')) {
+        view2d.fit();
+        view2d.drawModel();
+      }
     }
 
     // Animation loop
@@ -147,7 +141,9 @@
         view3d.initBuffers();
         view3d.initModelView();
       }
-      view2d.drawModel();
+      if (document.body.classList.contains('view2d-open')) {
+        view2d.drawModel();
+      }
       view3d.render();
       helper.draw();
       requestAnimationFrame(loop);
@@ -159,10 +155,15 @@
       // Le lien entre data-load et dataset.load est une conversion automatique
       btn.addEventListener('click', () => load(btn.dataset.load))
     })
-    document.getElementById('toggleCommandArea').addEventListener('click', () => {
-      setCommandAreaOpen(!document.body.classList.contains('command-area-open'));
-      document.getElementById('nav').style.display = 'none';
-      document.getElementById('burger').setAttribute('aria-expanded', 'false');
+    // UI-only toggles (not model flags): body gets a "<data-ui>-open" class
+    document.querySelectorAll('#nav button[data-ui]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.body.classList.toggle(`${btn.dataset.ui}-open`);
+        syncToggles();
+        resizeViews();
+        document.getElementById('nav').style.display = 'none';
+        document.getElementById('burger').setAttribute('aria-expanded', 'false');
+      });
     });
 
     // Burger toggle: open/close nav, refresh checkmarks when opening
@@ -182,13 +183,14 @@
       }
     });
 
-    // Reflect model boolean state as a checkmark on toggle buttons
+    // Reflect model boolean state, and UI-only open/closed state, as a checkmark on toggle buttons
     function syncToggles() {
       document.querySelectorAll('#nav button[data-flag]').forEach(btn => {
         btn.dataset.checked = model[btn.dataset.flag] ? 'true' : 'false';
       });
-      const consoleBtn = document.getElementById('toggleCommandArea');
-      consoleBtn.dataset.checked = document.body.classList.contains('command-area-open') ? 'true' : 'false';
+      document.querySelectorAll('#nav button[data-ui]').forEach(btn => {
+        btn.dataset.checked = document.body.classList.contains(`${btn.dataset.ui}-open`) ? 'true' : 'false';
+      });
     }
 
     function load(id) {
@@ -207,15 +209,11 @@
 </script>
 <!-- Inline commands -->
 <template id="open">read</template>
-<template id="exportInstructions">write</template>
+<template id="exportInstructions">instructions</template>
 <template id="exportSvg">svg</template>
-<template id="exportFold">writeFold</template>
+<template id="exportFold">fold</template>
 <template id="exportDiagrams">diagrams</template>
 <template id="undo">undo</template>
-<template id="lines">lines</template>
-<template id="edges">edges</template>
-<template id="snap">snap</template>
-<template id="overlayCde">overlay</template>
 <template id="labels">labels</template>
 <template id="textures">textures</template>
 <!-- Inline models -->

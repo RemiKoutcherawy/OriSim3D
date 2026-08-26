@@ -181,6 +181,24 @@ Deno.test("Model", async (t) => {
         assertEquals(faces.length, 1, 'Model first face should be found');
         assertEquals(faces[0], model.faces[0], 'Model first face should be found');
     });
+    await t.step("sharedSegments", () => {
+        const model = new Model().init(200, 200);
+        model.splitBy2d(model.points[0], model.points[2]);
+        const [f0, f1] = model.faces;
+
+        const shared = model.sharedSegments(f0, f1);
+        assertEquals(shared.length, 1, 'adjacent faces share exactly one edge');
+        assertEquals(shared[0], model.getSegment(model.points[0], model.points[2]));
+
+        // A face with no border segment in common with f0
+        const p4 = new Point(0, 0, 500, 500, 0);
+        const p5 = new Point(0, 0, 600, 500, 0);
+        const p6 = new Point(0, 0, 550, 600, 0);
+        model.points.push(p4, p5, p6);
+        const unrelated = new Face([p4, p5, p6]);
+        model.faces.push(unrelated);
+        assertEquals(model.sharedSegments(f0, unrelated).length, 0);
+    });
     await t.step("split", async (t) => {
         await t.step("splitFaceByPlane3d", () => {
             const model = new Model().init(200, 200);

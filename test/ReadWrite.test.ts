@@ -41,7 +41,6 @@ Deno.test("ReadWrite", async (t) => {
     await t.step('loadText script fold and empty', () => {
         const model = new Model().init(200, 200);
         model.labels = false;
-        model.edges = true;
         const command = new Command(model);
         const area = {textarea: {value: 'old', selectionStart: 0, selectionEnd: 0}};
         command.commandArea = area;
@@ -56,14 +55,32 @@ Deno.test("ReadWrite", async (t) => {
 
         const json = ReadWrite.toJSONFold(new Model().init(200, 200));
         model.labels = false;
-        model.edges = true;
         const kindFold = ReadWrite.loadText(command, json);
         assertEquals(kindFold, 'fold');
         assertEquals(command.model.points[0] instanceof Point, true);
         assertEquals(command.model.labels, false, 'display flags are kept');
-        assertEquals(command.model.edges, true, 'edges flag is kept');
         assertEquals(area.textarea.value, '');
         assertEquals(command.model.points.length, 4);
+    });
+
+    await t.step('loadText updates addLine commandArea without a textarea', () => {
+        const model = new Model().init(200, 200);
+        const command = new Command(model);
+        const lines: string[] = [];
+        command.commandArea = {
+            addLine(text: string) { lines.push(text); },
+            clear() { lines.length = 0; },
+        };
+
+        const kindScript = ReadWrite.loadText(command, 'd 200 200\nlabels');
+        assertEquals(kindScript, 'script');
+        assertEquals(lines, ['d 200 200\nlabels']);
+        command.anim();
+
+        const json = ReadWrite.toJSONFold(new Model().init(200, 200));
+        const kindFold = ReadWrite.loadText(command, json);
+        assertEquals(kindFold, 'fold');
+        assertEquals(lines, [], 'FOLD load clears the log');
     });
 
     await t.step('writeSVG exports 3D view from xCanvas/yCanvas', async () => {

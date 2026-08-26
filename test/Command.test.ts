@@ -392,19 +392,17 @@ Deno.test('Command', async (t) => {
         assertEquals(model.faces[0].offset, 0);
     });
 
-    await t.step('toggles labels overlay lines snap textures', () => {
+    await t.step('toggles labels lines snap textures', () => {
         cde.command('d 200 200').anim();
         const before = {
             labels: model.labels,
-            overlay: model.overlay,
             lines: model.lines,
             snap: model.snap,
             textures: model.textures,
         };
-        cde.command('labels overlay lines snap textures');
+        cde.command('labels lines snap textures');
         while (cde.anim()) { /* wait */ }
         assertEquals(model.labels, !before.labels);
-        assertEquals(model.overlay, !before.overlay);
         assertEquals(model.lines, !before.lines);
         assertEquals(model.snap, !before.snap);
         assertEquals(model.textures, !before.textures);
