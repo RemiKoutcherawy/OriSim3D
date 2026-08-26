@@ -1,0 +1,137 @@
+import {assertEquals, assert} from "@std/assert";
+import {describe, it} from "jsr:@std/testing/bdd";
+import {Model} from "../js/Model.js";
+import {Point} from "../js/Point.js";
+import {Command} from "../js/Command.js";
+import {Folder, FoldType, OR} from "../js/Folder.js";
+import {ReadWrite} from "../js/ReadWrite.js";
+
+function bookFoldModel() {
+    const model = new Model().init(200, 200);
+    model.splitBy2d(new Point(0, -200), new Point(0, 200));
+    const crease = model.getSegment(
+        model.points.find((p) => p.xf === 0 && p.yf === -200),
+        model.points.find((p) => p.xf === 0 && p.yf === 200),
+    );
+    crease.assignment = FoldType.VALLEY;
+    return {model, crease};
+}
+
+describe("Folder", () => {
+    it("book fold maps the moving half onto the fixed face", () => {
+        const {model} = bookFoldModel();
+        assertEquals(model.faces.length, 2);
+        const result = Folder.fold(model);
+        assert(result.answerCount >= 1, "at least one layer assignment");
+
+        // Face 0 (left) stays; the right half mirrors across x=0 onto x=-200.
+        const right = model.points.filter((p) => p.xf > 1);
+        for (const p of right) {
+            assertEquals(Math.round(p.x), -200, `xf=${p.xf} should fold to x=-200, got ${p.x}`);
+            assertEquals(Math.round(p.z), 0);
+        }
+        const left = model.points.filter((p) => p.xf < -1);
+        for (const p of left) {
+            assertEquals(Math.round(p.x), -200);
+        }
+        const creasePts = model.points.filter((p) => Math.abs(p.xf) < 1);
+        for (const p of creasePts) {
+            assertEquals(Math.round(p.x), 0);
+        }
+        assertEquals(model.points[0].xf, -200);
+    });
+
+    it("valley book fold stacks the moving face above the other", () => {
+        const {model} = bookFoldModel();
+        const result = Folder.fold(model);
+        const or = result.overlapRelation;
+        assertEquals(or.length, 2);
+        assert(or[0][1] === OR.UPPER || or[0][1] === OR.LOWER);
+        assertEquals(or[1][0], or[0][1] === OR.UPPER ? OR.LOWER : OR.UPPER);
+        const offsets = model.faces.map((f) => f.offset);
+        assert(offsets[0] !== offsets[1], `offsets should differ: ${offsets}`);
+    });
+
+    it("mountain is the opposite of valley", () => {
+        const valley = bookFoldModel();
+        Folder.fold(valley.model);
+        const mountain = bookFoldModel();
+        mountain.crease.assignment = FoldType.MOUNTAIN;
+        Folder.fold(mountain.model);
+        assert(
+            valley.model.faces[0].offset !== mountain.model.faces[0].offset
+            || valley.model.faces[1].offset !== mountain.model.faces[1].offset,
+            "mountain and valley should invert layer offsets",
+        );
+    });
+
+    it("fold without estimation keeps z-order at 0", () => {
+        const {model} = bookFoldModel();
+        Folder.fold(model, {fullEstimation: false});
+        assertEquals(model.faces[0].offset, 0);
+        assertEquals(model.faces[1].offset, 0);
+        const right = model.points.filter((p) => p.xf > 1);
+        assertEquals(Math.round(right[0].x), -200);
+    });
+
+    it("two sequential folds (quarter sheet)", () => {
+        const model = new Model().init(200, 200);
+        model.splitBy2d(new Point(0, -200), new Point(0, 200));
+        model.splitBy2d(new Point(-200, 0), new Point(200, 0));
+        assertEquals(model.faces.length, 4);
+        for (const s of model.segments) {
+            if (model.searchFacesWithAB(s.p1, s.p2).length === 2) s.assignment = FoldType.VALLEY;
+        }
+        const result = Folder.fold(model);
+        assert(result.answerCount >= 1);
+        const corners = [model.points[0], model.points[1], model.points[2], model.points[3]];
+        const xs = corners.map((p) => Math.round(p.x));
+        const ys = corners.map((p) => Math.round(p.y));
+        assertEquals(new Set(xs).size, 1, `corners x ${xs}`);
+        assertEquals(new Set(ys).size, 1, `corners y ${ys}`);
+    });
+
+    it("command foldcp / mountain / valley", () => {
+        const model = new Model().init(200, 200);
+        const cmd = new Command(model);
+        cmd.command("d 200 200").anim();
+        cmd.command("split s0 0.5").anim();
+        cmd.command("split s2 0.5").anim();
+        cmd.command("by2d p4 p5").anim();
+        const crease = model.segments.find((s) =>
+            Math.abs(s.p1.xf) < 1 && Math.abs(s.p2.xf) < 1
+        );
+        assert(crease, "vertical crease");
+        const n = model.segments.indexOf(crease);
+        cmd.command(`valley s${n}`).anim();
+        assertEquals(crease.assignment, FoldType.VALLEY);
+        cmd.command("foldcp").anim();
+        const right = model.points.filter((p) => p.xf > 1);
+        assertEquals(Math.round(right[0].x), -200);
+    });
+
+    it("serialize keeps Segment.assignment", () => {
+        const {model, crease} = bookFoldModel();
+        const json = model.serialize();
+        const restored = Model.deserialize(json);
+        const restoredCrease = restored.segments.find((s) =>
+            Math.abs(s.p1.xf) < 1 && Math.abs(s.p2.xf) < 1
+        );
+        assertEquals(restoredCrease?.assignment, FoldType.VALLEY);
+        assertEquals(crease.assignment, FoldType.VALLEY);
+    });
+
+    it("FOLD import keeps edges_assignment", () => {
+        const model = new Model().init(200, 200);
+        model.splitBy2d(new Point(0, -200), new Point(0, 200));
+        const crease = model.segments.find((s) =>
+            Math.abs(s.p1.xf) < 1 && Math.abs(s.p2.xf) < 1
+        );
+        crease.assignment = FoldType.MOUNTAIN;
+        const json = ReadWrite.toJSONFold(model);
+        const parsed = JSON.parse(json);
+        assert(parsed.edges_assignment.includes("M"));
+        const loaded = ReadWrite.jsonFoldToModel(json);
+        assert(loaded.segments.some((s) => s.assignment === FoldType.MOUNTAIN));
+    });
+});

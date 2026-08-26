@@ -265,6 +265,10 @@ export class ReadWrite {
         });
         const edges_assignment = [];
         segments.forEach((s) => {
+            if (s.assignment && s.assignment !== 'U') {
+                edges_assignment.push(s.assignment);
+                return;
+            }
             const faces = model.searchFacesWithAB(s.p1, s.p2);
             edges_assignment.push(faces.length === 1 ? "B" : "F");
         });

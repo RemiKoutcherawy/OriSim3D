@@ -3,13 +3,13 @@ import {Point} from './Point.js';
 
 export class Segment {
 
-    constructor(p1, p2) {
+    constructor(p1, p2, type) {
         this.p1 = p1;
         this.p2 = p2;
         this.hover = false;
         this.select = false;
         // FOLD crease assignment: M mountain, V valley, B boundary, F flat, U unassigned
-        this.assignment = 'U';
+        this.assignment = type || 'U';
     }
 
     // 2d distance from Segment to Point

@@ -88,6 +88,7 @@
     <button type="button" data-load="cocotte">Cocotte</button>
     <button type="button" data-load="boat">Bateau</button>
     <button type="button" data-load="test">Test</button>
+    <button type="button" data-load="mitani">Pli Mitani</button>
   </details>
 </nav>
 
@@ -217,6 +218,16 @@
 <template id="labels">labels</template>
 <template id="textures">textures</template>
 <!-- Inline models -->
+<template id="mitani">
+  // Pli à plat Mitani / ORIPA : un pli vallée, puis estimation des couches
+  d 200 200
+  split s0 0.5
+  split s2 0.5
+  by2d p4 p5
+  valley s6
+  foldcp
+  t 400 ty 360
+</template>
 <template id="test">
   d 200 200
   across2d p1 p2

@@ -40,6 +40,8 @@ Work in progress, any help is welcome.
   account whether each face's normal points to the front or the back: order f1 f0 f3
 - writeDiagrams / diagrams: replays the recorded instruction history and exports one
   3D-view SVG diagram per step, laid out in a grid (reuses the same renderer as `svg`)
+- mountain / valley: mark crease types (FOLD M/V) on segments: valley s4
+- foldcp / mitani: fold the crease pattern (Mitani/ORIPA): walk+mirror, then layer order → Face.offset. `foldcp 0` skips layer estimation
 
 ### Helper interprets mouse moves to make commands
 - click selects point, segment, face, or marks them
