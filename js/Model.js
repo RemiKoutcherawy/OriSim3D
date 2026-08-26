@@ -16,7 +16,8 @@ function polygonArea3d(points) {
         ny += (a.z - b.z) * (a.x + b.x);
         nz += (a.x - b.x) * (a.y + b.y);
     }
-    return Math.hypot(nx, ny, nz);
+    // Newell's accumulated normal has magnitude 2x the true polygon area
+    return Math.hypot(nx, ny, nz) / 2;
 }
 
 // -1 left, 0 on the line, +1 right
@@ -97,7 +98,7 @@ export class Model {
     }
 
     // Get point on the flat crease pattern
-    getPoint(xf, yf, epsilon = 2) {
+    getPoint(xf, yf, epsilon = 0.01) {
         return this.points.find((p) => Math.abs(p.xf - xf) + Math.abs(p.yf - yf) < epsilon);
     }
 
