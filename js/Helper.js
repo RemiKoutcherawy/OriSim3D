@@ -1,39 +1,36 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
-import {Vector3} from './Vector3.js';
-import * as mat4 from './lib/mat4.js';
+
+const CLICK_PX_MOUSE = 12;
+const CLICK_PX_TOUCH = 24;
 
 export class Helper {
-    constructor(model, command, canvas2d, view3d, overlay) {
+    constructor(model, command, view3d, view2d) {
         this.model = model;
         this.command = command;
-        this.canvas2d = canvas2d;
         this.view3d = view3d;
-        this.overlay = overlay;
+        this.view2d = view2d;
         this.touchTime = 0;
-        this.label = undefined;
+        this.lastClickPoints = [];
+        this.pointerType = 'mouse';
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
-        // Point, segment, or face selected on down
-        this.downPoint = this.downSegment = this.downFace = undefined;
-        this.upPoint = this.upSegment = this.upFace = undefined;
-        // All faces stacked under the up position (not just the topmost)
-        this.upFaces = [];
-        // Drag of an already-selected point → move command
-        this.moving = false;
 
-        // Current canvas: 2d or 3d
-        this.currentCanvas = undefined;
-        // To test with Deno overlay is null
+        // To test with Deno, view3d (and its overlay) may be null
+        const overlay = view3d?.overlay;
         if (overlay) {
-            // 3d
             overlay.addEventListener('pointerdown', (event) => this.down3d(event));
             overlay.addEventListener('pointermove', (event) => this.move3d(event));
             overlay.addEventListener('pointerup', (event) => this.up3d(event));
             overlay.addEventListener('pointercancel', (event) => this.out(event));
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
-            // 2d — pointer* covers mouse and touch
+            // Keyboard
+            document.addEventListener('keydown', (event) => this.keydown(event));
+        }
+        // Flat crease-pattern view — pointer* covers mouse and touch
+        const canvas2d = view2d?.canvas2d;
+        if (canvas2d) {
             canvas2d.addEventListener('pointerdown', (event) => {
                 try { canvas2d.setPointerCapture(event.pointerId); } catch { /* ignore */ }
                 this.down2d(event);
@@ -41,11 +38,33 @@ export class Helper {
             canvas2d.addEventListener('pointermove', (event) => this.move2d(event));
             canvas2d.addEventListener('pointerup', (event) => this.up2d(event));
             canvas2d.addEventListener('pointercancel', (event) => this.out(event));
-            // Keyboard
-            document.addEventListener('keydown', (event) => this.keydown(event));
         }
         this.out();
     }
+
+    get overlay() {
+        return this.view3d?.overlay;
+    }
+
+    get canvas2d() {
+        return this.view2d?.canvas2d;
+    }
+
+    /** @returns {'mark'|'fold'} */
+    get mode() {
+        return this.model.faces.some(f => f.select) ? 'fold' : 'mark';
+    }
+
+    clickThreshold() {
+        return this.pointerType === 'touch' ? CLICK_PX_TOUCH : CLICK_PX_MOUSE;
+    }
+
+    isClick() {
+        const dx = (this.currentX ?? 0) - (this.firstX ?? 0);
+        const dy = (this.currentY ?? 0) - (this.firstY ?? 0);
+        return Math.hypot(dx, dy) < this.clickThreshold();
+    }
+
     keydown(event) {
         // Control Z to undo
         if (event.key === 'z' && (event.ctrlKey || event.metaKey)) {
@@ -62,232 +81,486 @@ export class Helper {
         return '';
     }
 
-    // init properties
     out() {
+        this.downPoints = [];
+        this.downSegments = [];
         this.downPoint = this.downSegment = this.downFace = undefined;
+        this.upPoints = [];
+        this.upSegments = [];
         this.upPoint = this.upSegment = this.upFace = undefined;
         this.upFaces = [];
-        this.currentCanvas = this.label = undefined;
-        this.moving = false;
-        this.rawX = this.rawY = undefined;
+        this.downFaces = [];
+        this.label = undefined;
+        this.hoverAxis = undefined;
+        this.currentSegment = undefined;
     }
 
-    // Draw only if a point, segment, or face is selected
+    clearSelection() {
+        this.model.points.forEach(p => { p.select = false; });
+        this.model.segments.forEach(s => { s.select = false; });
+        this.model.faces.forEach(f => { f.select = false; });
+    }
+
+    selectedAxis() {
+        return this.model.segments.find(s => s.select);
+    }
+
+    // Matches View3d.AXIS_AMBER — kept as a literal to avoid a View3d import here
+    static FOLD_AMBER = '#e6a817';
+
+    // Draw drag preview when down on a point, segment, or face: a filled arrow
+    // for creasing (by/across/bisector), a hollow arrow only when the drag will
+    // actually fold the face (willFold()) — see Arrow.svg.
     draw() {
         if (!this.downPoint && !this.downSegment && !this.downFace) {
             return;
         }
         const context = (this.currentCanvas === '2d' ? this.canvas2d : this.overlay).getContext('2d');
-        context.lineWidth = 4;
-        context.lineCap = 'round';
-        context.strokeStyle = this.moving ? 'orange' : 'green';
-        context.beginPath();
-        context.moveTo(this.firstX, this.firstY);
-        context.lineTo(this.currentX, this.currentY);
-        context.stroke();
+        if (this.downFace && this.willFold()) {
+            this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
+        } else {
+            this.drawFilledArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
+        }
         if (this.label) {
-            // Circle
             const radius = 18;
             context.fillStyle = 'skyblue';
             context.beginPath();
             context.arc(this.currentX, this.currentY - 16, radius, 0, 2 * Math.PI);
             context.stroke();
             context.fill();
-            // Text
             context.fillStyle = 'black';
             context.font = '20px serif';
             context.fillText(this.label, this.currentX - 10, this.currentY - 8);
         }
     }
 
+    // Thin straight shaft + small solid triangular head, both a fixed size —
+    // only the shaft stretches with the drag. Crease preview (by3d/across3d/bisector3d).
+    drawFilledArrow(context, x1, y1, x2, y2) {
+        const HEAD_LEN = 12, HEAD_HALF_W = 5;
+        const dx = x2 - x1, dy = y2 - y1;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        const px = -uy, py = ux;
+        const shaftLen = Math.max(len - HEAD_LEN, 0);
+        const sx = x1 + ux * shaftLen, sy = y1 + uy * shaftLen;
+
+        context.strokeStyle = context.fillStyle = 'green';
+        context.lineWidth = 2;
+        context.lineCap = 'round';
+        context.beginPath();
+        context.moveTo(x1, y1);
+        context.lineTo(sx, sy);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(x2, y2);
+        context.lineTo(sx + px * HEAD_HALF_W, sy + py * HEAD_HALF_W);
+        context.lineTo(sx - px * HEAD_HALF_W, sy - py * HEAD_HALF_W);
+        context.closePath();
+        context.fill();
+    }
+
+    // Straight thick shaft + hollow (outlined) triangular head, both a fixed size —
+    // only the shaft stretches with the drag. Fold preview (rotating a face).
+    drawHollowArrow(context, x1, y1, x2, y2) {
+        const HEAD_LEN = 20, HEAD_HALF_W = 14, HALF_W = 6;
+        const dx = x2 - x1, dy = y2 - y1;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        const px = -uy, py = ux;
+        const shaftLen = Math.max(len - HEAD_LEN, 0);
+        const sx = x1 + ux * shaftLen, sy = y1 + uy * shaftLen; // shaft end / head base
+
+        context.fillStyle = '#fff';
+        context.strokeStyle = Helper.FOLD_AMBER;
+        context.lineWidth = 2;
+        context.lineJoin = 'round';
+        context.beginPath();
+        context.moveTo(x1 + px * HALF_W, y1 + py * HALF_W);
+        context.lineTo(sx + px * HALF_W, sy + py * HALF_W);
+        context.lineTo(sx + px * HEAD_HALF_W, sy + py * HEAD_HALF_W);
+        context.lineTo(x2, y2);
+        context.lineTo(sx - px * HEAD_HALF_W, sy - py * HEAD_HALF_W);
+        context.lineTo(sx - px * HALF_W, sy - py * HALF_W);
+        context.lineTo(x1 - px * HALF_W, y1 - py * HALF_W);
+        context.closePath();
+        context.fill();
+        context.stroke();
+    }
+
     // Logic begins here
     down(points, segments, faces, x, y) {
-        this.downPoint = points[0];
-        this.downSegment = !this.downPoint ? segments[0] : undefined;
-        this.downFace = !this.downPoint && !this.downSegment ? faces[0] : undefined;
-        this.firstX = this.currentX = this.rawX = x;
-        this.firstY = this.currentY = this.rawY = y;
-        // Move starts from an already-selected point in 3D only
-        this.moving = !!(this.downPoint && this.downPoint.select && this.currentCanvas === '3d');
+        this.downPoints = points.length ? points : [];
+        this.downPoint = this.downPoints[0];
+        this.downSegments = !this.downPoint && segments.length ? segments : [];
+        this.downSegment = this.downSegments[0];
+        this.downFaces = !this.downPoint && !this.downSegment ? faces : [];
+        this.downFace = this.downFaces[0];
+        this.firstX = this.currentX = x;
+        this.firstY = this.currentY = y;
+        this.label = undefined;
+        this.hoverAxis = undefined;
+    }
+
+    /** Select all stacked points, or deselect all if every one is already selected. */
+    togglePointStack(points) {
+        if (!points.length) return;
+        const allOn = points.every(p => p.select);
+        points.forEach(p => { p.select = !allOn; });
+    }
+
+    /**
+     * Toggle a stack of superimposed segments as the fold axis.
+     * Selecting the stack clears any other selected segments.
+     */
+    toggleSegmentStack(segments) {
+        if (!segments.length) return;
+        const allOn = segments.every(s => s.select);
+        this.model.segments.forEach(s => { s.select = false; });
+        if (!allOn) {
+            segments.forEach(s => { s.select = true; });
+        }
+    }
+
+    logSelectedSegments() {
+        const ids = this.model.segments.filter(s => s.select).map(s => this.id(s));
+        if (ids.length) {
+            this.command.command(`// selectSegments ${ids.join(' ')}`);
+        }
+    }
+
+    sameStack(a, b) {
+        if (!a?.length || !b?.length || a.length !== b.length) return false;
+        return a.every(o => b.includes(o));
+    }
+
+    samePointStack(a, b) {
+        return this.sameStack(a, b);
+    }
+
+    isDoubleClickPoints(points) {
+        return Date.now() - this.touchTime < 400
+            && this.samePointStack(points, this.lastClickPoints);
+    }
+
+    faceCentroidCanvas(face) {
+        const pts = face.points;
+        let x = 0, y = 0;
+        for (const p of pts) {
+            x += p.xCanvas;
+            y += p.yCanvas;
+        }
+        return {x: x / pts.length, y: y / pts.length};
+    }
+
+    faceBorderSegments(face) {
+        const segs = [];
+        const pts = face.points;
+        for (let i = 0; i < pts.length; i++) {
+            const s = this.model.getSegment(pts[i], pts[(i + 1) % pts.length]);
+            if (s) segs.push(s);
+        }
+        return segs;
+    }
+
+    nearestBorderSegment(face, x, y) {
+        let best, bestD = Infinity;
+        for (const s of this.faceBorderSegments(face)) {
+            const d = Segment.distance2d(
+                s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, x, y,
+            );
+            if (d < bestD) {
+                bestD = d;
+                best = s;
+            }
+        }
+        return best;
     }
 
     // Signed rotation angle (degrees) from ref point to cursor, around segment.
     rotationLabel(s, refX, refY, x, y) {
-        let distToFirst, distToCurrent;
-        if (this.currentCanvas === '2d') {
-            // Signed distance from the reference point to segment.
-            distToFirst = (refX - s.p1.xf) * (s.p2.yf - s.p1.yf) - (refY - s.p1.yf) * (s.p2.xf - s.p1.xf);
-            // Signed distance from current point to segment. Which is cos(angle) * distToFirst.
-            distToCurrent = (x - s.p1.xf) * (s.p2.yf - s.p1.yf) - (-y - s.p1.yf) * (s.p2.xf - s.p1.xf); // Note inverse y
-        } else {
-            const p1Proj = [s.p1.xCanvas, s.p1.yCanvas], p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
-            distToFirst = (refX - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (refY - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-            distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-        }
+        const p1Proj = [s.p1.xCanvas, s.p1.yCanvas], p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
+        const distToFirst = (refX - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (refY - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
+        const distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
         if (Math.abs(distToFirst) < 1e-6) return 0;
-        // Clamp ratio = distToCurrent/distToFirst
         let ratio = Math.abs(distToCurrent / distToFirst);
         ratio = Math.round(ratio * 100) / 100;
-        // Angle in degrees
         let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
-        // Round to step 10
         angle = Math.round(angle / 10) * 10;
-        // Clamp near-zero angle to 0
         return Math.abs(angle) < 10 ? 0 : angle;
     }
 
     move(points, segments, faces, x, y) {
         this.model.hover2d3d(points, segments, faces);
+        this.currentX = x;
+        this.currentY = y;
+        this.currentSegment = segments[0];
+        this.label = undefined;
+        this.hoverAxis = undefined;
+
         if (this.downPoint) {
-            this.downPoint.hover = true;
-            // Rotation preview only when not dragging a selected point to move it
-            const s = this.model.segments.find(s => s.select);
-            if (s && !this.moving) {
-                // Deselect other segments
-                this.model.segments.filter(sg => sg.select && sg !== s).forEach(sg => sg.select = false);
-                // The point we move from
-                const p = this.downPoint;
-                p.select = true;
-                const refX = this.currentCanvas === '2d' ? p.xf : p.xCanvas;
-                const refY = this.currentCanvas === '2d' ? p.yf : p.yCanvas;
-                this.label = this.rotationLabel(s, refX, refY, x, y);
-            }
+            this.downPoints.forEach(p => { p.hover = true; });
         } else if (this.downSegment) {
-            this.downSegment.hover = true;
+            this.downSegments.forEach(s => { s.hover = true; });
+        } else if (this.downFace) {
+            this.downFace.hover = true;
+            // Only the fold-axis candidate should highlight — clear other segment hovers
+            this.model.segments.forEach(s => { s.hover = false; });
+            const axis = this.foldAxis(this.currentSegment);
+            this.hoverAxis = axis;
+            if (axis) {
+                axis.hover = true;
+                this.label = this.angleFor(axis);
+            }
         }
-        this.currentX = this.rawX = x;
-        this.currentY = this.rawY = y;
     }
 
     up(points, segments, faces) {
-        this.upPoint = points[0];
-        this.upSegment = !this.upPoint ? segments[0] : undefined;
+        this.upPoints = points.length ? points : [];
+        this.upPoint = this.upPoints[0];
+        this.upSegments = !this.upPoint && segments.length ? segments : [];
+        this.upSegment = this.upSegments[0];
         this.upFaces = !this.upPoint && !this.upSegment ? faces : [];
         this.upFace = this.upFaces[0];
 
-        if (this.downPoint) this.fromPoint();
-        else if (this.downSegment) this.fromSegment();
-        else if (this.downFace) this.fromFace();
-        else {
-            this.model.points.forEach(p => p.select = false);
-            this.model.segments.forEach(s => s.select = false);
-            this.model.faces.forEach(f => f.select = false);
+        if (!this.downPoint && !this.downSegment && !this.downFace) {
+            if (this.isClick()) this.clearSelection();
+        } else if (this.downPoint) {
+            this.fromPoint();
+        } else if (this.downSegment) {
+            this.fromSegment();
+        } else if (this.downFace) {
+            this.fromFace();
         }
         this.out();
     }
 
     fromPoint() {
-        if (this.moving) {
-            this.moveSelectedPoint();
+        const sameStack = this.isClick()
+            && this.downPoints.length
+            && this.samePointStack(this.downPoints, this.upPoints);
+
+        if (sameStack) {
+            if (this.isDoubleClickPoints(this.downPoints)) {
+                const ids = this.downPoints.map(p => this.id(p)).join(' ');
+                this.command.command(`adjust ${ids}`);
+                this.touchTime = 0;
+                this.lastClickPoints = [];
+                return;
+            }
+            this.touchTime = Date.now();
+            this.lastClickPoints = [...this.downPoints];
+            this.togglePointStack(this.downPoints);
+            return;
+        }
+
+        if (this.mode === 'fold') {
+            // Creases blocked in fold
             return;
         }
         if (this.upPoint) {
-            if (this.downPoint === this.upPoint) {
-                this.downPoint.select = !this.downPoint.select;
-            } else {
-                const cmd = this.model.getSegment(this.downPoint, this.upPoint) ? 'across' : 'by';
-                this.sendCmd(cmd, this.downPoint, this.upPoint);
-            }
-        } else if (this.label) {
-            this.rotatePoints();
+            const cmd = this.model.getSegment(this.downPoint, this.upPoint) ? 'across' : 'by';
+            this.sendCmd(cmd, this.downPoint, this.upPoint);
         } else if (this.upSegment) {
             this.sendCmd('p', this.upSegment, this.downPoint);
         }
     }
 
-    // Click on a selected point: deselect. Drag: move then check.
-    moveSelectedPoint() {
-        const dist = Math.hypot(
-            (this.rawX ?? this.currentX) - this.firstX,
-            (this.rawY ?? this.currentY) - this.firstY,
-        );
-        if (dist < 4) {
-            this.downPoint.select = !this.downPoint.select;
+    fromSegment() {
+        const sameStack = this.isClick()
+            && this.downSegments.length
+            && this.sameStack(this.downSegments, this.upSegments);
+
+        if (sameStack) {
+            this.toggleSegmentStack(this.downSegments);
+            this.logSelectedSegments();
             return;
         }
-        const {dx, dy, dz} = this.dragToWorld();
-        if (dx === 0 && dy === 0 && dz === 0) return;
-        this.command.command(`move ${dx} ${dy} ${dz} ${this.id(this.downPoint)} check`);
-    }
 
-    dragToWorld() {
-        const round = (n) => Math.round(n * 10) / 10;
-        const delta = this.canvasDragToWorld3d(
-            this.firstX, this.firstY, this.currentX, this.currentY, this.downPoint,
-        );
-        return {dx: round(delta.dx), dy: round(delta.dy), dz: round(delta.dz)};
-    }
-
-    // Unproject overlay drag at the point's projected depth (screen-parallel plane).
-    canvasDragToWorld3d(x0, y0, x1, y1, point) {
-        const fallback = {dx: x1 - x0, dy: -(y1 - y0), dz: 0};
-        const m = this.view3d?.canvasView;
-        if (!m || !point) return fallback;
-        const inv = mat4.invert(mat4.create(), m);
-        if (!inv) return fallback;
-        const z = Vector3.transformMat4(point, m).z;
-        const world0 = Vector3.transformMat4({x: x0, y: y0, z}, inv);
-        const world1 = Vector3.transformMat4({x: x1, y: y1, z}, inv);
-        return {
-            dx: world1.x - world0.x,
-            dy: world1.y - world0.y,
-            dz: world1.z - world0.z,
-        };
-    }
-
-    fromSegment() {
+        if (this.mode === 'fold') {
+            return;
+        }
         if (this.upSegment) {
-            if (this.upSegment === this.downSegment) {
-                this.downSegment.select = !this.downSegment.select;
-                this.command.command(`// Différences ${this.model.indexOf(this.downSegment)} ${Segment.length2d(this.downSegment)} ${Segment.length3d(this.downSegment)}`);
-            } else {
-                this.sendCmd('bisector', this.downSegment, this.upSegment);
-            }
+            this.sendCmd('bisector', this.downSegment, this.upSegment);
         } else if (this.upPoint) {
-            this.sendCmd('p', this.downSegment, this.upPoint);
+            this.command.command(
+                `// splitParallel ${this.id(this.downSegment)} ${this.id(this.upPoint)}`,
+            );
         }
     }
 
     fromFace() {
-        if (this.upFace === this.downFace) {
-            const select = !this.downFace.select;
-            this.upFaces.forEach(f => f.select = select);
-            const info = this.upFaces.map(f => `${this.id(f)} offset ${f.offset}`).join(', ');
-            this.command.command(`// faces ${info}`);
+        if (this.isClick()) {
+            this.fromFaceClick();
+            return;
+        }
+        // A drag starting on a face folds it directly — no separate "select the
+        // face first" step, matching how picking up a flap of real paper works.
+        this.fromFaceDrag();
+    }
+
+    fromFaceClick() {
+        const samePile = this.downFace && this.upFaces.includes(this.downFace);
+        if (samePile) {
+            this.toggleFaceStack(this.upFaces.length ? this.upFaces : this.downFaces);
         } else if (this.upFace) {
-            this.fromFaceToFace(this.downFace, this.upFace);
-            this.splitSegments();
-        } else {
-            this.splitSegments();
+            // Different face: select Up front only; keep points/segments
+            this.upFace.select = true;
+        }
+        const ids = this.model.faces.filter(f => f.select).map(f => this.id(f));
+        if (ids.length) {
+            this.command.command(`// selectFaces ${ids.join(' ')}`);
         }
     }
 
-    fromFaceToFace(f1, f2) {
-        this.command.command(`// From ${this.id(f1)} to ${this.id(f2)}`);
-        this.model.faces.filter(f => f.select).forEach(f => {
-            this.command.command(`// Selected ${this.id(f)}`);
-        });
+    /** Select all stacked faces, or deselect all if every one is already selected. */
+    toggleFaceStack(faces) {
+        if (!faces.length) return;
+        const allOn = faces.every(f => f.select);
+        faces.forEach(f => { f.select = !allOn; });
     }
 
-    splitSegments() {
-        this.command.command(`// To another face Split`);
-        const is2d = this.currentCanvas === '2d';
-        const ySign = is2d ? -1 : 1;
-        const first = {xf: this.firstX, yf: ySign * this.firstY};
-        const current = {xf: this.currentX, yf: ySign * this.currentY};
-        this.model.segments.forEach((s, i) => {
-            const p1 = is2d ? s.p1 : {xf: s.p1.xCanvas, yf: s.p1.yCanvas};
-            const p2 = is2d ? s.p2 : {xf: s.p2.xCanvas, yf: s.p2.yCanvas};
-            const inter = Segment.intersectionFlat(first, current, p1, p2);
-            if (inter) {
-                const ratio = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
-                // Use local temps so flat paper (z===0) is not mutated as a side effect
-                const z1 = s.p1.z || 0.1;
-                const z2 = s.p2.z || 0.1;
-                const t = Math.round((is2d ? ratio : (ratio * z1) / ((1 - ratio) * z2 + ratio * z1)) * 100) / 100;
-                this.command.command(`split s${i} ${t}`);
+    /**
+     * A drag starting on a face is either scoring a new crease across the paper
+     * or folding the flap around a hinge, decided by a priority ladder:
+     *  1. an explicit pin, or a segment you're aiming directly at that borders
+     *     this face ("drag into an adjacent segment") — always folds there;
+     *  2. otherwise a real cut across existing paper — whether an unrelated
+     *     face or empty background beyond this face's own edge — scores it;
+     *  3. otherwise (just nudging the flap, not aiming anywhere specific and
+     *     not crossing anything) — fold around the nearest border edge.
+     */
+    fromFaceDrag() {
+        if (this.upPoint) {
+            return;
+        }
+        const axis = this.foldAxis(this.upSegment);
+        if (axis) {
+            const angle = this.angleFor(axis);
+            if (angle) {
+                this.foldAlong(axis, angle);
+                return;
             }
+        }
+        this.splitSegments();
+    }
+
+    /** Rotation angle (degrees) if hinging the dragged face on `axis` right now. */
+    angleFor(axis) {
+        const c = this.faceCentroidCanvas(this.downFace);
+        return this.rotationLabel(axis, c.x, c.y, this.currentX, this.currentY);
+    }
+
+    /** Explicit pin, else a segment you're aiming directly at that borders this face. */
+    priorityAxis(nearSegment) {
+        return this.selectedAxis()
+            || (nearSegment && this.faceBorderSegments(this.downFace).includes(nearSegment) ? nearSegment : undefined);
+    }
+
+    /**
+     * Axis to fold the dragged face around right now, or undefined if this
+     * drag should score a crease instead: a priorityAxis() always wins; the
+     * nearest border edge is only a fallback when nothing crosses either.
+     */
+    foldAxis(nearSegment) {
+        const priority = this.priorityAxis(nearSegment);
+        if (priority) return priority;
+        if (this.computeCrossedSegments().length > 0) return undefined;
+        return this.nearestBorderSegment(this.downFace, this.currentX, this.currentY);
+    }
+
+    /** Would releasing now actually rotate the dragged face? */
+    willFold() {
+        if (this.upPoint) return false;
+        const axis = this.foldAxis(this.currentSegment);
+        return !!(axis && this.angleFor(axis));
+    }
+
+    foldAlong(axis, angle) {
+        this.model.segments.forEach(sg => { sg.select = false; });
+        axis.select = true;
+        this.rotatePoints(axis, angle);
+        this.clearSelection();
+    }
+
+    /**
+     * Convert a screen-space ratio r along a projected segment (0 at p1, 1 at p2)
+     * into the perspective-correct parameter t along the 3D segment.
+     * w1/w2 are homogeneous clip w (≈ -zEye) at the endpoints.
+     */
+    static screenRatioToSegmentT(r, w1, w2) {
+        const a = w1 || 1;
+        const b = w2 || 1;
+        const denom = (1 - r) * b + r * a;
+        if (Math.abs(denom) < 1e-12) return r;
+        return (r * a) / denom;
+    }
+
+    /** Clip-space w used for the point's canvas projection (perspective weight). */
+    clipW(point) {
+        // Flat crease pattern is orthographic — no perspective weighting
+        if (this.currentCanvas === '2d') return 1;
+        const m = this.view3d?.canvasView;
+        if (m) {
+            const w = m[3] * point.x + m[7] * point.y + m[11] * point.z + m[15];
+            if (Math.abs(w) > 1e-9) return w;
+        }
+        // zEye is negative in front of the camera; clip w ≈ -zEye
+        const zEye = point.zEye;
+        if (zEye !== undefined && zEye !== null && Math.abs(zEye) > 1e-9) {
+            return -zEye;
+        }
+        return 1;
+    }
+
+    // A point's flat-drawing coordinates on the canvas the current gesture is on
+    canvasPoint(p) {
+        return this.currentCanvas === '2d'
+            ? {xf: p.xf, yf: -p.yf}
+            : {xf: p.xCanvas, yf: p.yCanvas};
+    }
+
+    /**
+     * Segments the current drag actually cuts across, as {index, ratio} pairs.
+     * Pure (no commands issued) so both splitSegments() and the live arrow
+     * preview can share this without splitSegments() firing twice.
+     */
+    computeCrossedSegments() {
+        const first = {xf: this.firstX, yf: this.firstY};
+        const current = {xf: this.currentX, yf: this.currentY};
+        // In 3d, layers can overlap on screen. Ignore a segment that's occluded
+        // behind the face being dragged — the drag can only be scoring a line on
+        // the visible surface, not a hidden layer that merely projects onto it.
+        const downDepth = this.currentCanvas === '3d' && this.downFace && this.view3d?.faceDepth
+            ? this.view3d.faceDepth(this.downFace)
+            : undefined;
+        const crossings = [];
+        this.model.segments.forEach((s, i) => {
+            if (downDepth !== undefined) {
+                const faces = this.model.searchFacesWithAB(s.p1, s.p2);
+                const visible = faces.length === 0
+                    || faces.some(f => this.view3d.faceDepth(f) <= downDepth + 1e-6);
+                if (!visible) return;
+            }
+            const p1 = this.canvasPoint(s.p1);
+            const p2 = this.canvasPoint(s.p2);
+            const inter = Segment.intersectionFlat(first, current, p1, p2);
+            if (!inter) return;
+            const len = Math.hypot(p2.xf - p1.xf, p2.yf - p1.yf);
+            if (len < 1e-9) return;
+            const r = Math.hypot(inter.xf - p1.xf, inter.yf - p1.yf) / len;
+            const t = Helper.screenRatioToSegmentT(r, this.clipW(s.p1), this.clipW(s.p2));
+            const ratio = Math.round(t * 100) / 100;
+            if (ratio > 0 && ratio < 1) crossings.push({index: i, ratio});
         });
+        return crossings;
+    }
+
+    /** @returns {boolean} true if the drag actually cut across at least one existing segment */
+    splitSegments() {
+        const crossings = this.computeCrossedSegments();
+        crossings.forEach(({index, ratio}) => this.command.command(`split s${index} ${ratio}`));
+        return crossings.length > 0;
     }
 
     sendCmd(base, ...objs) {
@@ -296,44 +569,58 @@ export class Helper {
         this.command.command(`${base}${suffix} ${args.join(' ')}`);
     }
 
-    // Rotate selected points around selected segment
-    rotatePoints() {
-        const s = this.model.segments.find(s => s.select);
-        const pts = this.model.points.filter(p => p.select).map(p => this.id(p));
-        this.command.command(`t 1000 r ${this.id(s)} ${this.label} ${pts.join(' ')}`);
+    rotatePointIds() {
+        const pts = new Set();
+        this.model.points.filter(p => p.select).forEach(p => pts.add(p));
+        this.model.faces.filter(f => f.select).forEach(f => {
+            f.points.forEach(p => pts.add(p));
+        });
+        if (this.downFace) {
+            this.downFace.points.forEach(p => pts.add(p));
+        }
+        return [...pts].map(p => this.id(p));
+    }
+    rotateFaceCommentIds() {
+        const faces = new Set(this.model.faces.filter(f => f.select));
+        if (this.downFace) faces.add(this.downFace);
+        return [...faces].map(f => this.id(f));
     }
 
-    // Flat 2d
+    rotatePoints(axis, angle) {
+        const pts = this.rotatePointIds();
+        const faces = this.rotateFaceCommentIds();
+        const faceComment = faces.length ? ` // ${faces.join(' ')}` : '';
+        this.command.command(`t 1000 r ${this.id(axis)} ${angle} ${pts.join(' ')}${faceComment}`);
+    }
+
+    // Canvas 2d (flat crease pattern)
     event2d(event) {
         if (!(event instanceof Event)) return event; // Used for test
         const rect = this.canvas2d.getBoundingClientRect();
-        const x = (event.clientX - rect.left) * this.canvas2d.width / rect.width;
-        const y = (event.clientY - rect.top) * this.canvas2d.height / rect.height;
-        const context2d = this.canvas2d.getContext('2d');
-        const transform = context2d.getTransform();
-        const p = new DOMPoint(x, y);
-        const q = transform.inverse().transformPoint(p);
+        const canvasX = event.clientX - rect.left;
+        const canvasY = event.clientY - rect.top;
+        const {scale, xOffset, yOffset} = this.view2d;
         return {
-            xf: q.x,
-            yf: -q.y, // Note inverse y coordinate
+            xf: (canvasX - xOffset) / scale,
+            yf: (yOffset - canvasY) / scale,
         };
     }
+
     // Points, then segments, then faces near xf, yf
     search2d(xf, yf) {
-        // Points near xf, yf
-        const points = this.model.points.filter(p => Math.hypot(p.xf - xf, p.yf - yf) < 10);
-        // Segments near xf, yf
-        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 4);
-        // Face containing xf, yf
+        const scale = this.view2d?.scale || 1;
+        const points = this.model.points.filter(p => Math.abs(p.xf - xf) + Math.abs(p.yf - yf) < 10 / scale);
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 6 / scale);
         const faces = this.model.faces.filter(f => Face.contains2d(f, xf, yf));
         return {points, segments, faces};
     }
+
     // Down on flat 2d
     down2d(event) {
         this.currentCanvas = '2d';
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
-        this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate
+        this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate (drawing space)
     }
     // Move on flat 2d
     move2d(event) {
@@ -431,9 +718,10 @@ export class Helper {
 
     // Mouse wheel on 3d overlay
     wheel(event) {
-        // deltaY => up or down zoom view
-        this.view3d.scale = event.scale !== undefined ? event.scale / 10 : this.view3d.scale + event.deltaY / 300;
-        this.view3d.scale = Math.max(0.2, Math.min(3, this.view3d.scale)); // 0.2 < scale < 3
+        this.view3d.scale = event.scale !== undefined
+            ? event.scale / 10
+            : this.view3d.scale + event.deltaY / 300;
+        this.view3d.scale = Math.max(0.2, Math.min(3, this.view3d.scale));
         this.view3d.initModelView();
         this.view3d.initPerspective();
     }

@@ -35,6 +35,10 @@ export class View2d {
         // Compute offset to center drawing
         const xOffset = viewWidth / 2;
         const yOffset = viewHeight / 2;
+        // Kept so pointer events (Helper) can invert canvas pixels back to xf,yf
+        this.scale = scale;
+        this.xOffset = xOffset;
+        this.yOffset = yOffset;
 
         const context2d = this.canvas2d.getContext('2d');
         context2d.setTransform(scale, 0, 0, scale, xOffset, yOffset);

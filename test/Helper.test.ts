@@ -1,11 +1,12 @@
 import { Model } from "../js/Model.js";
 import { Command } from "../js/Command.js";
 import { Helper } from "../js/Helper.js";
-import * as mat4 from "../js/lib/mat4.js";
+import { Point } from "../js/Point.js";
+import { Segment } from "../js/Segment.js";
+import { Face } from "../js/Face.js";
 
 import { assertEquals } from "@std/assert";
 
-// Mock View3d class to test Helper.search3d
 class MockView3d {
   indexMap = new Map();
   scale = 10;
@@ -13,10 +14,14 @@ class MockView3d {
     model.points.forEach((point, index) => {
       this.indexMap.set(point, index);
     });
-    model.points[0].xCanvas = -200; model.points[0].yCanvas = -200;
-    model.points[1].xCanvas = 200; model.points[1].yCanvas = -200;
-    model.points[2].xCanvas = 200; model.points[2].yCanvas = 200;
-    model.points[3].xCanvas = -200; model.points[3].yCanvas = 200;
+    model.points[0].xCanvas = -200;
+    model.points[0].yCanvas = -200;
+    model.points[1].xCanvas = 200;
+    model.points[1].yCanvas = -200;
+    model.points[2].xCanvas = 200;
+    model.points[2].yCanvas = 200;
+    model.points[3].xCanvas = -200;
+    model.points[3].yCanvas = 200;
   }
   faceDepth(face: { points: { zEye?: number; z?: number }[] }) {
     let z = 0;
@@ -25,22 +30,45 @@ class MockView3d {
   }
 }
 
+function captureCmds(command: Command) {
+  const cmds: string[] = [];
+  const original = command.command.bind(command);
+  command.command = (cde) => {
+    cmds.push(cde);
+    return original(cde);
+  };
+  return cmds;
+}
+
+function setup() {
+  const model = new Model().init(200, 200);
+  const command = new Command(model);
+  const helper = new Helper(model, command, null);
+  new MockView3d(model);
+  return { model, command, helper };
+}
+
 Deno.test("Helper Tests", async (t) => {
   await t.step("id() returns correct identifier strings", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-
+    const { model, helper } = setup();
     assertEquals(helper.id(model.points[0]), "p0");
     assertEquals(helper.id(model.segments[0]), "s0");
     assertEquals(helper.id(model.faces[0]), "f0");
     assertEquals(helper.id(null), "");
   });
 
-  await t.step("down() sets initial selection", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+  await t.step("mode is mark until a face is selected", () => {
+    const { model, helper } = setup();
+    assertEquals(helper.mode, "mark");
+    model.points[0].select = true;
+    model.segments[0].select = true;
+    assertEquals(helper.mode, "mark");
+    model.faces[0].select = true;
+    assertEquals(helper.mode, "fold");
+  });
+
+  await t.step("down() sets point, segment, or face", () => {
+    const { model, helper } = setup();
 
     helper.down([model.points[0]], [], [], 10, 20);
     assertEquals(helper.downPoint, model.points[0]);
@@ -56,341 +84,583 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.downPoint, undefined);
     assertEquals(helper.downSegment, undefined);
     assertEquals(helper.downFace, model.faces[0]);
-
-    helper.down([], [], [], 0, 0);
-    assertEquals(helper.downPoint, undefined);
-    assertEquals(helper.downSegment, undefined);
-    assertEquals(helper.downFace, undefined);
+    assertEquals(helper.downFaces[0], model.faces[0]);
   });
 
-  await t.step("fromPoint interactions", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+  await t.step("mark P→P toggle, across, by", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const [p0, p1, p2] = model.points;
 
-    const cmds: string[] = [];
-    const original = command.command.bind(command);
-    command.command = (cde) => {
-      cmds.push(cde);
-      return original(cde);
-    };
-
-    helper.currentCanvas = '2d';
-
-    // Same point -> toggle select
-    const p0 = model.points[0];
-    p0.select = false;
-    helper.downPoint = p0;
-    helper.upPoint = p0;
-    helper.fromPoint();
+    helper.down([p0], [], [], 0, 0);
+    helper.up([p0], [], []);
     assertEquals(p0.select, true);
 
-    // Point to Point on same segment -> across2d
-    const p1 = model.points[1]; // segment between p0 and p1 exists
     cmds.length = 0;
-    helper.downPoint = p0;
-    helper.upPoint = p1;
-    helper.fromPoint();
-    assertEquals(cmds[0], "across2d p0 p1");
+    helper.down([p0], [], [], 0, 0);
+    helper.currentX = 50;
+    helper.currentY = 0;
+    helper.up([p1], [], []);
+    assertEquals(cmds[0], "across3d p0 p1");
 
-    // Point to Point not on same segment -> by2d
-    const p2 = model.points[2]; // diagonal, no segment between p0 and p2
     cmds.length = 0;
-    helper.downPoint = p0;
-    helper.upPoint = p2;
-    helper.fromPoint();
-    assertEquals(cmds[0], "by2d p0 p2");
-
-    // Point to segment without label -> perpendicular (p2d)
-    const s0 = model.segments[0];
-    cmds.length = 0;
-    helper.label = undefined;
-    helper.downPoint = p0;
-    helper.upPoint = undefined;
-    helper.upSegment = s0;
-    helper.fromPoint();
-    assertEquals(cmds[0], "p2d s0 p0");
-
-    // Point with rotation label -> rotatePoints
-    p0.select = false;
-    s0.select = true;
-    p2.select = true;
-    helper.label = 90;
-    helper.upPoint = undefined;
-    helper.upSegment = undefined;
-    cmds.length = 0;
-    helper.downPoint = p0;
-    helper.fromPoint();
-    assertEquals(cmds[0], "t 1000 r s0 90 p2");
-
-    command.command = original;
+    helper.down([p0], [], [], 0, 0);
+    helper.currentX = 50;
+    helper.currentY = 50;
+    helper.up([p2], [], []);
+    assertEquals(cmds[0], "by3d p0 p2");
   });
 
-  await t.step("fromSegment interactions", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+  await t.step("click on stacked points selects all of them", () => {
+    const { model, helper } = setup();
+    const p0 = model.points[0];
+    // Same canvas projection, distinct model point (folded stack)
+    const pExtra = new Point(1, 1, p0.x, p0.y, p0.z);
+    pExtra.xCanvas = p0.xCanvas;
+    pExtra.yCanvas = p0.yCanvas;
+    model.points.push(pExtra);
+    const stack = [p0, pExtra];
 
-    const cmds: string[] = [];
-    const original = command.command.bind(command);
-    command.command = (cde) => {
-      cmds.push(cde);
-      return original(cde);
-    };
+    helper.down(stack, [], [], 0, 0);
+    helper.up(stack, [], []);
+    assertEquals(p0.select, true);
+    assertEquals(pExtra.select, true);
 
-    helper.currentCanvas = '2d';
-    const s0 = model.segments[0];
-    const s1 = model.segments[1];
+    // Not a double-click: clear the timer before toggling off
+    helper.touchTime = 0;
+    helper.lastClickPoints = [];
+    helper.down(stack, [], [], 0, 0);
+    helper.up(stack, [], []);
+    assertEquals(p0.select, false);
+    assertEquals(pExtra.select, false);
+  });
+
+  await t.step("double-click on a point sends adjust", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
     const p0 = model.points[0];
 
-    // Same segment -> toggle select
-    s0.select = false;
-    helper.downSegment = s0;
-    helper.upSegment = s0;
-    helper.fromSegment();
-    assertEquals(s0.select, true);
+    helper.down([p0], [], [], 0, 0);
+    helper.up([p0], [], []);
+    assertEquals(p0.select, true);
 
-    // Segment to another segment -> bisector2d
     cmds.length = 0;
-    helper.downSegment = s0;
-    helper.upSegment = s1;
-    helper.fromSegment();
-    assertEquals(cmds[0], "bisector2d s0 s1");
-
-    // Segment to point -> perpendicular (p2d)
-    cmds.length = 0;
-    helper.downSegment = s0;
-    helper.upSegment = undefined;
-    helper.upPoint = p0;
-    helper.fromSegment();
-    assertEquals(cmds[0], "p2d s0 p0");
-
-    command.command = original;
+    helper.touchTime = Date.now();
+    helper.lastClickPoints = [p0];
+    helper.down([p0], [], [], 0, 0);
+    helper.up([p0], [], []);
+    assertEquals(cmds[0], "adjust p0");
   });
 
-  await t.step("fromFace interactions", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+  await t.step("mark P→S sends p3d; S→P sends commented splitParallel", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const p0 = model.points[0];
+    const s0 = model.segments[0];
 
-    const cmds: string[] = [];
-    const original = command.command.bind(command);
-    command.command = (cde) => {
-      cmds.push(cde);
-      return original(cde);
+    helper.down([p0], [], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.up([], [s0], []);
+    assertEquals(cmds[0], "p3d s0 p0");
+
+    cmds.length = 0;
+    helper.down([], [s0], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.up([p0], [], []);
+    assertEquals(cmds[0], "// splitParallel s0 p0");
+  });
+
+  await t.step("mark S→S toggle and bisector", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const [s0, s1] = model.segments;
+
+    helper.down([], [s0], [], 0, 0);
+    helper.up([], [s0], []);
+    assertEquals(s0.select, true);
+    assertEquals(cmds[0], "// selectSegments s0");
+
+    cmds.length = 0;
+    helper.down([], [s0], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 40;
+    helper.up([], [s1], []);
+    assertEquals(cmds[0], "bisector3d s0 s1");
+  });
+
+  await t.step("click on stacked segments selects all and logs ids", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const s0 = model.segments[0];
+    const sExtra = new Segment(s0.p1, s0.p2);
+    model.segments.push(sExtra);
+    const stack = [s0, sExtra];
+
+    helper.down([], stack, [], 0, 0);
+    helper.up([], stack, []);
+    assertEquals(s0.select, true);
+    assertEquals(sExtra.select, true);
+    assertEquals(cmds[0], `// selectSegments ${helper.id(s0)} ${helper.id(sExtra)}`);
+  });
+
+  await t.step("click on stacked faces selects all of them, toggles off, and logs ids", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    // Two overlapping faces in one pile (depth order)
+    model.splitBy2d(model.points[0], model.points[2]);
+    const f0 = model.faces[0];
+    const f1 = model.faces[1];
+    const stack = [f0, f1];
+
+    helper.down([], [], stack, 0, 0);
+    helper.up([], [], stack);
+    assertEquals(f0.select, true);
+    assertEquals(f1.select, true);
+    assertEquals(helper.mode, "fold");
+    assertEquals(cmds[0], `// selectFaces ${helper.id(f0)} ${helper.id(f1)}`);
+
+    cmds.length = 0;
+    helper.down([], [], stack, 0, 0);
+    helper.up([], [], stack);
+    assertEquals(f0.select, false);
+    assertEquals(f1.select, false);
+    assertEquals(helper.mode, "mark");
+    assertEquals(cmds.length, 0);
+
+    // Points/segments untouched by the face-stack toggle
+    model.points[0].select = true;
+    model.segments[0].select = true;
+    helper.toggleFaceStack(stack);
+    assertEquals(f0.select, true);
+    assertEquals(f1.select, true);
+    helper.toggleFaceStack(stack);
+    assertEquals(f0.select, false);
+    assertEquals(f1.select, false);
+    assertEquals(model.points[0].select, true);
+    assertEquals(model.segments[0].select, true);
+  });
+
+  await t.step("mark F→F different faces selects Up front only", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    model.splitBy2d(model.points[0], model.points[2]);
+    const f0 = model.faces[0];
+    const f1 = model.faces[1];
+    model.points[0].select = true;
+    model.segments[0].select = true;
+
+    helper.down([], [], [f0], 0, 0);
+    helper.up([], [], [f1]);
+    assertEquals(f1.select, true);
+    assertEquals(f0.select, false);
+    assertEquals(model.points[0].select, true);
+    assertEquals(model.segments[0].select, true);
+    assertEquals(cmds[0], "// selectFaces f1");
+  });
+
+  await t.step("empty click clears selection", () => {
+    const { model, helper } = setup();
+    model.points[0].select = true;
+    model.segments[0].select = true;
+    model.faces[0].select = true;
+
+    helper.down([], [], [], 0, 0);
+    helper.up([], [], []);
+    assertEquals(model.points[0].select, false);
+    assertEquals(model.segments[0].select, false);
+    assertEquals(model.faces[0].select, false);
+    assertEquals(helper.mode, "mark");
+  });
+
+  await t.step("fold blocks crease gestures; allows P/S toggle", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    model.faces[0].select = true;
+    const [p0, p1] = model.points;
+    const [s0, s1] = model.segments;
+
+    helper.down([p0], [], [], 0, 0);
+    helper.currentX = 50;
+    helper.currentY = 50;
+    helper.up([p1], [], []);
+    assertEquals(cmds.length, 0);
+
+    helper.down([p0], [], [], 0, 0);
+    helper.up([p0], [], []);
+    assertEquals(p0.select, true);
+
+    cmds.length = 0;
+    helper.down([], [s0], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 40;
+    helper.up([], [s1], []);
+    assertEquals(cmds.length, 0);
+
+    helper.down([], [s0], [], 0, 0);
+    helper.up([], [s0], []);
+    assertEquals(s0.select, true);
+  });
+
+  await t.step("screenRatioToSegmentT is perspective-correct", () => {
+    // Equal depth → screen ratio equals segment parameter
+    assertEquals(Helper.screenRatioToSegmentT(0.5, 1, 1), 0.5);
+    // Farther endpoint (larger w) → screen midpoint maps before geometric midpoint
+    assertEquals(Helper.screenRatioToSegmentT(0.5, 1, 3), 0.25);
+    assertEquals(Helper.screenRatioToSegmentT(0, 2, 5), 0);
+    assertEquals(Helper.screenRatioToSegmentT(1, 2, 5), 1);
+  });
+
+  await t.step("splitSegments uses clip w not model z for the ratio", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const s1 = model.segments[1]; // vertical at xCanvas=200
+    // Fake a perspective projection: screen from y=-200..200, unequal clip w
+    s1.p1.xCanvas = 200;
+    s1.p1.yCanvas = -200;
+    s1.p2.xCanvas = 200;
+    s1.p2.yCanvas = 200;
+    s1.p1.z = 0;
+    s1.p2.z = 0;
+    // clipW from a stub canvasView: w = 1 at p1, w = 3 at p2
+    // Row3 of mat4 column-major: m[3],m[7],m[11],m[15] → w = m[15] + m[11]*z
+    // Use identity-like with constant w via m[15], but we need different w per point.
+    // Easier: set zEye so clipW uses -zEye
+    s1.p1.zEye = -1;
+    s1.p2.zEye = -3;
+
+    // Drag crosses the segment at its screen midpoint (y=0)
+    helper.firstX = 100;
+    helper.firstY = 0;
+    helper.currentX = 300;
+    helper.currentY = 0;
+    helper.splitSegments();
+
+    // r=0.5, w1=1, w2=3 → t=0.25
+    assertEquals(cmds.some((c) => c === "split s1 0.25"), true);
+  });
+
+  await t.step("splitSegments in 3d ignores a segment occluded behind the dragged face", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    const s1 = model.segments[1]; // right edge, xCanvas=200, y from -200..200
+    // deno-lint-ignore no-explicit-any
+    (f0.points as any[]).forEach((p) => { p.zEye = -10; }); // close to the camera
+
+    // A second face, far behind, whose own edge happens to project onto the
+    // same screen line as s1 — a real thing once paper is actually folded.
+    // deno-lint-ignore no-explicit-any
+    const back1: any = new Point(0, 0, 200, -200, 500);
+    // deno-lint-ignore no-explicit-any
+    const back2: any = new Point(0, 0, 200, 200, 500);
+    // deno-lint-ignore no-explicit-any
+    const back3: any = new Point(0, 0, 260, 0, 500);
+    back1.xCanvas = 200; back1.yCanvas = -200; back1.zEye = 500;
+    back2.xCanvas = 200; back2.yCanvas = 200; back2.zEye = 500;
+    back3.xCanvas = 260; back3.yCanvas = 0; back3.zEye = 500;
+    model.points.push(back1, back2, back3);
+    const backSegment = new Segment(back1, back2);
+    model.segments.push(backSegment);
+    model.faces.push(new Face([back1, back2, back3]));
+
+    helper.view3d = {
+      // deno-lint-ignore no-explicit-any
+      faceDepth: (face: any) => {
+        let z = 0;
+        for (const p of face.points) z += p.zEye ?? 0;
+        return z / face.points.length;
+      },
     };
+    helper.currentCanvas = '3d';
+    helper.downFace = f0;
 
+    // Drag straight across both overlapping screen-space lines
+    helper.firstX = 100;
+    helper.firstY = 0;
+    helper.currentX = 300;
+    helper.currentY = 0;
+    helper.splitSegments();
+
+    const s1Index = model.segments.indexOf(s1);
+    const backIndex = model.segments.indexOf(backSegment);
+    assertEquals(cmds.some((c) => c.startsWith(`split s${s1Index} `)), true);
+    assertEquals(cmds.some((c) => c.startsWith(`split s${backIndex} `)), false);
+  });
+
+  await t.step("drag across a segment scores it, no prior selection needed", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
     const f0 = model.faces[0];
 
-    // Same face -> toggle select
-    f0.select = false;
-    helper.downFace = f0;
-    helper.upFace = f0;
-    helper.upFaces = [f0];
-    helper.fromFace();
-    assertEquals(f0.select, true);
+    helper.down([], [], [f0], -100, 0);
+    helper.currentX = 250;
+    helper.currentY = 0;
+    // Dragging from inside the face straight out past its own border ("to
+    // nothing") previews as filled, not hollow: it will score, not fold.
+    assertEquals(helper.willFold(), false);
+    helper.up([], [], []);
+    assertEquals(cmds.some((c) => c.startsWith("split ")), true);
+    assertEquals(helper.mode, "mark");
+  });
 
-    // Split face so we have 2 faces for face-to-face test
-    model.splitBy2d(model.points[0], model.points[2]);
-    const f1 = model.faces[1];
-    f1.select = true;
+  await t.step("drag on an unselected face folds it directly (no select-first step)", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    const s0 = model.segments[0];
+    assertEquals(f0.select, false);
+
+    // Drag toward the top edge s0, staying inside the face (no crossing)
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    const label = helper.label as number;
+    assertEquals(label !== 0, true);
+    // Previews as hollow: this drag will actually fold
+    assertEquals(helper.willFold(), true);
+
+    helper.up([], [], [f0]);
+    assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
+    assertEquals(helper.mode, "mark");
+  });
+
+  await t.step("fold mode move highlights only the hover axis segment", () => {
+    const { model, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true;
+    model.segments.forEach(s => { s.hover = true; }); // noise
+
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    const hovered = model.segments.filter(s => s.hover);
+    assertEquals(hovered.length, 1);
+    assertEquals(hovered[0], helper.hoverAxis);
+  });
+
+  await t.step("fold F→F with axis rotates then clears all", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    const s0 = model.segments[0];
+    f0.select = true;
+    s0.select = true;
+    model.points[2].select = true;
+
+    // Drag far enough for a non-zero angle (centroid at ~0,0; move toward s0)
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    const label = helper.label;
+    assertEquals(typeof label, "number");
+    assertEquals(label !== 0 && label !== undefined, true);
 
     cmds.length = 0;
-    helper.downFace = model.faces[0];
-    helper.upFace = f1;
-    helper.fromFace();
-    assertEquals(cmds[0], "// From f0 to f1");
-
-    command.command = original;
+    helper.up([], [], [f0]);
+    assertEquals(cmds.length, 1);
+    assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
+    assertEquals(cmds[0].includes("// f0"), true);
+    assertEquals(f0.select, false);
+    assertEquals(s0.select, false);
+    assertEquals(model.points[2].select, false);
+    assertEquals(helper.mode, "mark");
   });
 
-  await t.step("up() sets upPoint, upSegment, upFace", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
+  await t.step("fold F→F without axis: angle uses hover border segment", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    f0.select = true;
 
-    let capturedUpPoint, capturedUpSegment, capturedUpFace;
-    const originalOut = helper.out.bind(helper);
-    helper.out = () => {
-      capturedUpPoint = helper.upPoint;
-      capturedUpSegment = helper.upSegment;
-      capturedUpFace = helper.upFace;
-      originalOut();
-    };
+    helper.down([], [], [f0], 0, 0);
+    // Move near top edge s0 (y=-200) to hover it, with enough angle
+    helper.move([], [], [f0], 0, -150);
+    assertEquals(helper.hoverAxis, model.segments[0]);
+    const label = helper.label as number;
+    assertEquals(label !== 0, true);
 
-    helper.up([model.points[0]], [], []);
-    assertEquals(capturedUpPoint, model.points[0]);
-    assertEquals(capturedUpSegment, undefined);
-    assertEquals(capturedUpFace, undefined);
-    assertEquals(helper.upPoint, undefined);
+    cmds.length = 0;
+    helper.up([], [], [f0]);
+    assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
+    assertEquals(helper.mode, "mark");
+  });
 
-    helper.up([], [model.segments[0]], []);
-    assertEquals(capturedUpPoint, undefined);
-    assertEquals(capturedUpSegment, model.segments[0]);
-    assertEquals(capturedUpFace, undefined);
-    assertEquals(helper.upSegment, undefined);
+  await t.step("a crossing drag scores even on an already-selected (foldable) face", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    f0.select = true;
 
+    // Nothing is pinned and nothing borders the cursor, so the crossing wins:
+    // no misleading rotation preview, and it scores instead of folding.
+    helper.down([], [], [f0], -100, 0);
+    helper.move([], [], [f0], 250, 0);
+    assertEquals(helper.label, undefined);
+    assertEquals(helper.willFold(), false);
+
+    cmds.length = 0;
+    helper.up([], [], []);
+    assertEquals(cmds.some((c) => c.startsWith("split ")), true);
+  });
+
+  await t.step("dragging onto a bordering segment folds it, even though the drag also crosses it", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    const s1 = model.segments[1]; // right edge, xCanvas=200, y from -200..200
+
+    // Same crossing drag as above, but this time the release lands on s1
+    // itself (as a real drag landing near that edge would set upSegment) —
+    // aiming at the edge wins over scoring it.
+    helper.down([], [], [f0], -100, 0);
+    helper.currentX = 250;
+    helper.currentY = 0;
+    helper.currentSegment = s1;
+    assertEquals(helper.willFold(), true);
+
+    cmds.length = 0;
+    helper.up([], [s1], []);
+    assertEquals(cmds.length, 1);
+    assertEquals(cmds[0].startsWith(`t 1000 r s1`), true);
+  });
+
+  await t.step("fold F→F up on point does nothing, and previews as filled (not fold)", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    const s0 = model.segments[0];
+    const p2 = model.points[2];
+    f0.select = true;
+    s0.select = true;
+
+    helper.down([], [], [f0], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 40;
+    helper.upPoint = p2; // as move()/up() would set it while hovering p2
+    assertEquals(helper.willFold(), false);
+    helper.up([p2], [], []);
+    assertEquals(cmds.length, 0);
+  });
+
+  await t.step("segment selected in mark remains when entering fold", () => {
+    const { model, helper } = setup();
+    model.segments[0].select = true;
+    helper.down([], [], [model.faces[0]], 0, 0);
     helper.up([], [], [model.faces[0]]);
-    assertEquals(capturedUpPoint, undefined);
-    assertEquals(capturedUpSegment, undefined);
-    assertEquals(capturedUpFace, model.faces[0]);
-    assertEquals(helper.upFace, undefined);
+    assertEquals(model.faces[0].select, true);
+    assertEquals(model.segments[0].select, true);
+    assertEquals(helper.mode, "fold");
   });
 
-  await t.step("search2d() points, segments, faces near xf,yf", () => {
+  await t.step("clickThreshold is larger for touch", () => {
+    const { helper } = setup();
+    helper.pointerType = "mouse";
+    assertEquals(helper.clickThreshold(), 12);
+    helper.pointerType = "touch";
+    assertEquals(helper.clickThreshold(), 24);
+  });
+
+  await t.step("search3d() points, segments, faces near x,y", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
     const mockView3d = new MockView3d(model);
-    const helper = new Helper(model, command, null, mockView3d, null);
+    const helper = new Helper(model, command, mockView3d);
 
-    const result = helper.search2d(200, 200);
+    const result = helper.search3d(200, 200);
     assertEquals(result.points.length, 1);
     assertEquals(result.segments.length, 2);
     assertEquals(result.faces.length, 1);
   });
 
-  await t.step(
-    "search3d() points, segments, faces near x,y in 3d canvas", () => {
-      const model = new Model().init(200, 200);
-      const command = new Command(model);
-      const mockView3d = new MockView3d(model);
-      const helper = new Helper(model, command, null, mockView3d, null);
-
-      const result = helper.search3d(200, 200);
-      assertEquals(result.points.length, 1);
-      assertEquals(result.segments.length, 2);
-      assertEquals(result.faces.length, 1);
-    },
-  );
-
-  await t.step("down on selected point enters move mode in 3d only", () => {
+  await t.step("pickFaces3d(contextFace) narrows to faces adjacent to it, via Model.sharedSegments", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    const p0 = model.points[0];
-
-    helper.currentCanvas = "3d";
-    p0.select = false;
-    helper.down([p0], [], [], 10, 20);
-    assertEquals(helper.moving, false);
-
-    p0.select = true;
-    helper.down([p0], [], [], 10, 20);
-    assertEquals(helper.moving, true);
-    assertEquals(helper.downPoint, p0);
-
-    helper.currentCanvas = "2d";
-    helper.down([p0], [], [], 10, 20);
-    assertEquals(helper.moving, false);
-  });
-
-  await t.step("fromPoint move sends move check", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    const cmds: string[] = [];
-    const original = command.command.bind(command);
-    command.command = (cde) => {
-      cmds.push(cde);
-      return original(cde);
+    // deno-lint-ignore no-explicit-any
+    const pt = (x: number, y: number): any => {
+      const p = new Point(0, 0, 0, 0, 0);
+      Object.assign(p, { xCanvas: x, yCanvas: y });
+      return p;
     };
 
-    const p0 = model.points[0];
-    p0.select = true;
-    helper.currentCanvas = "3d";
-    helper.moving = true;
-    helper.downPoint = p0;
-    helper.firstX = 0;
-    helper.firstY = 0;
-    helper.currentX = 10;
-    helper.currentY = -20;
-    helper.fromPoint();
-    assertEquals(cmds[0], "move 10 20 0 p0 check");
+    // Two rectangles sharing edge a-b, both overlapping screen point (0,0) —
+    // as happens once paper is actually folded into overlapping layers.
+    const a = pt(-10, -10), b = pt(10, -10), c = pt(10, 10), h = pt(-10, 10);
+    model.points.push(a, b, c, h);
+    const faceA = new Face([a, b, c, h]); // y: -10..10
+    const i = pt(10, 5), j = pt(-10, 5);
+    model.points.push(i, j);
+    const faceB = new Face([a, b, i, j]); // shares edge a-b; y: -10..5
+    model.segments.push(new Segment(a, b));
+    model.faces.push(faceA, faceB);
 
-    // Move wins over crease even if the pointer is over another point
-    cmds.length = 0;
-    helper.moving = true;
-    helper.downPoint = p0;
-    helper.upPoint = model.points[1];
-    helper.firstX = 0;
-    helper.firstY = 0;
-    helper.currentX = 10;
-    helper.currentY = 0;
-    helper.fromPoint();
-    assertEquals(cmds[0], "move 10 0 0 p0 check");
+    // An unrelated rectangle, same footprint but distinct points/no shared segment
+    const e = pt(-10, -10), f = pt(10, -10), g = pt(10, 10), k = pt(-10, 10);
+    model.points.push(e, f, g, k);
+    const unrelated = new Face([e, f, g, k]);
+    model.faces.push(unrelated);
 
-    command.command = original;
+    const indexMap = new Map();
+    model.points.forEach((p, i2) => indexMap.set(p, i2));
+    const view3d = { indexMap, faceDepth: () => 0 };
+    const helper = new Helper(model, command, view3d);
+
+    // deno-lint-ignore no-explicit-any
+    const picked = helper.pickFaces3d(0, 0, faceA as any);
+    assertEquals(picked.includes(faceB), true);
+    assertEquals(picked.includes(faceA), false);
+    assertEquals(picked.includes(unrelated), false);
   });
 
-  await t.step("fromPoint move click without drag toggles select", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, null, null);
-    const cmds: string[] = [];
-    command.command = (cde) => {
-      cmds.push(cde);
-      return command;
-    };
-
-    const p0 = model.points[0];
-    p0.select = true;
-    helper.moving = true;
-    helper.downPoint = p0;
-    helper.firstX = 0;
-    helper.firstY = 0;
-    helper.currentX = 1;
-    helper.currentY = 1;
-    helper.fromPoint();
-    assertEquals(p0.select, false);
-    assertEquals(cmds.length, 0);
-  });
-
-  await t.step("canvasDragToWorld3d unprojects at constant depth", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    const helper = new Helper(model, command, null, { canvasView: mat4.create() }, null);
-    const p = model.points[0];
-    p.x = 10;
-    p.y = 20;
-    p.z = 30;
-    const delta = helper.canvasDragToWorld3d(10, 20, 15, 25, p);
-    assertEquals(Math.round(delta.dx), 5);
-    assertEquals(Math.round(delta.dy), 5);
-    assertEquals(Math.round(delta.dz), 0);
-  });
-
-  await t.step("draw() uses orange while moving a selected point", () => {
-    const model = new Model().init(200, 200);
-    const command = new Command(model);
-    let strokeStyle = "";
-    const overlay = {
+  // deno-lint-ignore no-explicit-any
+  function mockOverlayCanvas(onStroke: (ctx: any) => void) {
+    return {
       getContext: () => ({
         lineWidth: 0,
         lineCap: "",
+        lineJoin: "",
         strokeStyle: "",
         fillStyle: "",
         font: "",
         beginPath() {},
+        closePath() {},
         moveTo() {},
         lineTo() {},
-        stroke() {
-          strokeStyle = this.strokeStyle;
-        },
+        stroke() { onStroke(this); },
         fill() {},
         arc() {},
         fillText() {},
       }),
     };
-    const helper = new Helper(model, command, null, null, null);
-    helper.overlay = overlay;
-    helper.currentCanvas = "3d";
+  }
+
+  await t.step("draw() uses a green filled arrow when creasing (downPoint)", () => {
+    const { model, command } = setup();
+    let strokeStyle = "";
+    const overlay = mockOverlayCanvas((ctx) => { strokeStyle = ctx.strokeStyle; });
+    const helper = new Helper(model, command, null);
+    helper.view3d = { overlay };
     helper.downPoint = model.points[0];
-    helper.moving = true;
     helper.firstX = 0;
     helper.firstY = 0;
     helper.currentX = 10;
     helper.currentY = 10;
     helper.draw();
-    assertEquals(strokeStyle, "orange");
+    assertEquals(strokeStyle, "green");
+  });
+
+  await t.step("draw() uses an amber hollow arrow when folding (downFace)", () => {
+    const { model, command } = setup();
+    let strokeStyle = "";
+    let fillStyle = "";
+    const overlay = mockOverlayCanvas((ctx) => { strokeStyle = ctx.strokeStyle; fillStyle = ctx.fillStyle; });
+    const helper = new Helper(model, command, null);
+    helper.view3d = { overlay };
+    helper.downFace = model.faces[0];
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 10;
+    helper.currentY = 10;
+    helper.draw();
+    assertEquals(strokeStyle, Helper.FOLD_AMBER);
+    assertEquals(fillStyle, "#fff");
   });
 });

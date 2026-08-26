@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Reference for Helper.draw()'s drag-preview arrows: a filled arrow for
+     creasing (by/across/bisector), a hollow arrow for folding. Head size and
+     shaft thickness are fixed — only the shaft stretches with the drag.
+     Shown here at a representative length; see drawFilledArrow /
+     drawHollowArrow in Helper.js for the generating formulas. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 48">
+    <g id="filled-arrow" transform="translate(5,14)" stroke-linecap="round">
+        <path d="M0,0 L36,0" fill="none" stroke="#000" stroke-width="2"/>
+        <path d="M60,0 L36,-12 L36,12 Z" fill="#000" stroke="none"/>
+    </g>
+    <g id="hollow-arrow" transform="translate(5,34)" stroke-linejoin="round">
+        <path d="M0,6 L60,6 L60,14 L80,0 L60,-14 L60,-6 L0,-6 Z"
+              fill="#fff" stroke="#000" stroke-width="2"/>
+    </g>
+</svg>

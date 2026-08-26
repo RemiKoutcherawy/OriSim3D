@@ -39,10 +39,8 @@ export class Model {
         // Helper
         this.labels = false;
         this.textures = false;
-        this.overlay = false; // show points segments and face
-        this.edges = false;   // draw segments on overlay (hover and select)
-        this.lines = false;   // render lines on 3d
-        this.snap = false;     // snap nearest points
+        this.lines = true;   // render lines on 3d
+        this.snap = true;     // snap nearest points
     }
 
     // Initialize with 2d coordinates
@@ -65,8 +63,6 @@ export class Model {
         // Options
         this.labels = false;
         this.textures = false;
-        this.overlay = true; // show points segments and face
-        this.edges = true;   // draw segments on overlay (hover and select)
         this.lines = true;   // render lines on 3d
         this.snap = true;    // snap nearest points
         return this;
@@ -545,6 +541,17 @@ export class Model {
         return this.faces.filter((f) => f.points.includes(a) && f.points.includes(b));
     }
 
+    // Segments that border both faceA and faceB (their shared edges)
+    sharedSegments(faceA, faceB) {
+        const pts = faceA.points;
+        const segs = [];
+        for (let i = 0; i < pts.length; i++) {
+            const s = this.getSegment(pts[i], pts[(i + 1) % pts.length]);
+            if (s && Model.incidentFaces(this, s).includes(faceB)) segs.push(s);
+        }
+        return segs;
+    }
+
     // Move a list of points by dx,dy,dz
     movePoints(dx, dy, dz, points) {
         if (points.length === 0) points = this.points;
@@ -576,8 +583,8 @@ export class Model {
         });
     }
 
-    // snap align points near each other, and round coordinates
-    align() {
+    // snap points near each other, and round coordinates
+    snapPoints() {
         this.points.forEach((p, i) => {
             if (Math.abs(p.z) <= 2) p.z = 0;
             p.x = Math.round(p.x * 100) / 100;
