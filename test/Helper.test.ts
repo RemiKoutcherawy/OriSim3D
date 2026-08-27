@@ -696,4 +696,135 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(strokeStyle, Helper.FOLD_AMBER);
     assertEquals(fillStyle, "#fff");
   });
+
+  await t.step("down on selected point in 3d sets moving; 2d does not", () => {
+    const { model, helper } = setup();
+    const p0 = model.points[0];
+    helper.currentCanvas = "3d";
+    helper.down([p0], [], [], 10, 20);
+    assertEquals(helper.moving, false);
+
+    p0.select = true;
+    helper.down([p0], [], [], 10, 20);
+    assertEquals(helper.moving, true);
+
+    helper.currentCanvas = "2d";
+    helper.down([p0], [], [], 10, 20);
+    assertEquals(helper.moving, false);
+  });
+
+  await t.step("moving selected point sends animated m then adjust other selected", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const [p0, p1] = model.points;
+    p0.select = true;
+    p1.select = true;
+
+    helper.currentCanvas = "3d";
+    helper.moving = true;
+    helper.downPoint = p0;
+    helper.downPoints = [p0];
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 40;
+    helper.currentY = -20;
+    helper.fromPoint();
+    assertEquals(cmds[0], "t 1000 m 40 20 0 p0 adjust p1");
+
+    // Only the hovered point is listed in m; move wins over crease toward another point
+    cmds.length = 0;
+    p0.select = true;
+    p1.select = true;
+    helper.moving = true;
+    helper.downPoint = p0;
+    helper.upPoint = p1;
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.fromPoint();
+    assertEquals(cmds[0], "t 1000 m 40 0 0 p0 adjust p1");
+  });
+
+  await t.step("moving with only the hovered point selected has no adjust", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const p0 = model.points[0];
+    p0.select = true;
+    helper.moving = true;
+    helper.downPoint = p0;
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.fromPoint();
+    assertEquals(cmds[0], "t 1000 m 40 0 0 p0");
+  });
+
+  await t.step("moving click without drag falls through to a normal single-click toggle", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const p0 = model.points[0];
+    p0.select = true;
+    helper.currentCanvas = "3d";
+
+    helper.down([p0], [], [], 0, 0);
+    assertEquals(helper.moving, true);
+    helper.up([p0], [], []);
+    assertEquals(p0.select, false);
+    assertEquals(cmds.length, 0);
+  });
+
+  await t.step("double-click on an already-selected point in 3d sends adjust", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const p0 = model.points[0];
+    helper.currentCanvas = "3d";
+
+    // First click selects the point (moving is false: not selected yet).
+    helper.down([p0], [], [], 0, 0);
+    assertEquals(helper.moving, false);
+    helper.up([p0], [], []);
+    assertEquals(p0.select, true);
+
+    // Second click within the double-click window: down() now sets moving
+    // true (point already selected), but a plain click must still reach the
+    // double-click/adjust logic instead of being swallowed by moveSelectedPoint().
+    cmds.length = 0;
+    helper.down([p0], [], [], 0, 0);
+    assertEquals(helper.moving, true);
+    helper.up([p0], [], []);
+    assertEquals(cmds[0], "adjust p0");
+  });
+
+  await t.step("canvasDragToWorld3d unprojects at constant depth", async () => {
+    const { model, command } = setup();
+    const mat4 = await import("../js/lib/mat4.js");
+    const helper = new Helper(model, command, { canvasView: mat4.create() });
+    const p = model.points[0];
+    p.x = 10;
+    p.y = 20;
+    p.z = 30;
+    const delta = helper.canvasDragToWorld3d(10, 20, 15, 25, p);
+    assertEquals(Math.round(delta.dx), 5);
+    assertEquals(Math.round(delta.dy), 5);
+    assertEquals(Math.round(delta.dz), 0);
+  });
+
+  await t.step("draw() uses orange while moving a selected point", () => {
+    const { model, command } = setup();
+    let strokeStyle = "";
+    const overlay = mockOverlayCanvas((ctx) => { strokeStyle = ctx.strokeStyle; });
+    const helper = new Helper(model, command, null);
+    helper.view3d = { overlay };
+    helper.currentCanvas = "3d";
+    helper.downPoint = model.points[0];
+    helper.moving = true;
+    helper.firstX = 0;
+    helper.firstY = 0;
+    helper.currentX = 10;
+    helper.currentY = 10;
+    helper.draw();
+    assertEquals(strokeStyle, "orange");
+  });
 });

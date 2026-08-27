@@ -1,5 +1,7 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
+import {Vector3} from './Vector3.js';
+import * as mat4 from './lib/mat4.js';
 
 const CLICK_PX_MOUSE = 12;
 const CLICK_PX_TOUCH = 24;
@@ -93,6 +95,7 @@ export class Helper {
         this.label = undefined;
         this.hoverAxis = undefined;
         this.currentSegment = undefined;
+        this.moving = false;
     }
 
     clearSelection() {
@@ -119,7 +122,10 @@ export class Helper {
         if (this.downFace && this.willFold()) {
             this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
         } else {
-            this.drawFilledArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
+            this.drawFilledArrow(
+                context, this.firstX, this.firstY, this.currentX, this.currentY,
+                this.moving ? 'orange' : 'green',
+            );
         }
         if (this.label) {
             const radius = 18;
@@ -135,8 +141,9 @@ export class Helper {
     }
 
     // Thin straight shaft + small solid triangular head, both a fixed size —
-    // only the shaft stretches with the drag. Crease preview (by3d/across3d/bisector3d).
-    drawFilledArrow(context, x1, y1, x2, y2) {
+    // only the shaft stretches with the drag. Crease preview (by3d/across3d/bisector3d);
+    // orange when dragging a selected point to move it in 3d.
+    drawFilledArrow(context, x1, y1, x2, y2, color = 'green') {
         const HEAD_LEN = 12, HEAD_HALF_W = 5;
         const dx = x2 - x1, dy = y2 - y1;
         const len = Math.hypot(dx, dy) || 1;
@@ -145,7 +152,7 @@ export class Helper {
         const shaftLen = Math.max(len - HEAD_LEN, 0);
         const sx = x1 + ux * shaftLen, sy = y1 + uy * shaftLen;
 
-        context.strokeStyle = context.fillStyle = 'green';
+        context.strokeStyle = context.fillStyle = color;
         context.lineWidth = 2;
         context.lineCap = 'round';
         context.beginPath();
@@ -200,6 +207,8 @@ export class Helper {
         this.firstY = this.currentY = y;
         this.label = undefined;
         this.hoverAxis = undefined;
+        // 3d drag of an already-selected (hovered) point → animated move
+        this.moving = !!(this.downPoint && this.downPoint.select && this.currentCanvas === '3d');
     }
 
     /** Select all stacked points, or deselect all if every one is already selected. */
@@ -339,6 +348,11 @@ export class Helper {
     }
 
     fromPoint() {
+        if (this.moving && !this.isClick()) {
+            this.moveSelectedPoint();
+            return;
+        }
+
         const sameStack = this.isClick()
             && this.downPoints.length
             && this.samePointStack(this.downPoints, this.upPoints);
@@ -367,6 +381,47 @@ export class Helper {
         } else if (this.upSegment) {
             this.sendCmd('p', this.upSegment, this.downPoint);
         }
+    }
+
+    /**
+     * Drag of a selected point in 3d: move only that hovered point (animated),
+     * then adjust every other selected point to restore segment lengths.
+     */
+    moveSelectedPoint() {
+        const {dx, dy, dz} = this.dragToWorld();
+        if (dx === 0 && dy === 0 && dz === 0) return;
+        const movedId = this.id(this.downPoint);
+        const others = this.model.points
+            .filter((p) => p.select && p !== this.downPoint)
+            .map((p) => this.id(p));
+        let cmd = `t 1000 m ${dx} ${dy} ${dz} ${movedId}`;
+        if (others.length) cmd += ` adjust ${others.join(' ')}`;
+        this.command.command(cmd);
+    }
+
+    dragToWorld() {
+        const round = (n) => Math.round(n * 10) / 10;
+        const delta = this.canvasDragToWorld3d(
+            this.firstX, this.firstY, this.currentX, this.currentY, this.downPoint,
+        );
+        return {dx: round(delta.dx), dy: round(delta.dy), dz: round(delta.dz)};
+    }
+
+    // Unproject overlay drag at the point's projected depth (screen-parallel plane).
+    canvasDragToWorld3d(x0, y0, x1, y1, point) {
+        const fallback = {dx: x1 - x0, dy: -(y1 - y0), dz: 0};
+        const m = this.view3d?.canvasView;
+        if (!m || !point) return fallback;
+        const inv = mat4.invert(mat4.create(), m);
+        if (!inv) return fallback;
+        const z = Vector3.transformMat4(point, m).z;
+        const world0 = Vector3.transformMat4({x: x0, y: y0, z}, inv);
+        const world1 = Vector3.transformMat4({x: x1, y: y1, z}, inv);
+        return {
+            dx: world1.x - world0.x,
+            dy: world1.y - world0.y,
+            dz: world1.z - world0.z,
+        };
     }
 
     fromSegment() {
