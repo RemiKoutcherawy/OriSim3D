@@ -29,17 +29,5 @@ export class Plane {
         return new Plane(point, normal);
     }
 
-    // Plane through point containing direction [p1, p2] (crease parallel to the segment).
-    // Prefer a vertical plane (normal ⊥ Z), matching Plane.by when the paper is flat.
-    static parallel(p1, p2, point) {
-        const dx = p2.x - p1.x, dy = p2.y - p1.y;
-        // direction × (0,0,1) = (dy, -dx, 0)
-        if (Math.abs(dx) > 1e-12 || Math.abs(dy) > 1e-12) {
-            return new Plane(point, new Vector3(dy, -dx, 0));
-        }
-        // Segment projects to a point in xy (along Z): any vertical plane through point
-        return new Plane(point, new Vector3(1, 0, 0));
-    }
-
 }
 // 32
