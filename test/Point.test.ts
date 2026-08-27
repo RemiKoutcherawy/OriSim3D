@@ -1,3 +1,5 @@
+// NOSONAR - SonarQube's S2187 test-detection doesn't recognize Deno's Deno.test()
+// API as test cases; this file contains 4 Deno.test cases (18 assertions) for Point.js.
 import { Point } from "../js/Point.js";
 import { assertEquals } from "@std/assert";
 

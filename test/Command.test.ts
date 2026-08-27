@@ -1,3 +1,5 @@
+// NOSONAR - SonarQube's S2187 test-detection doesn't recognize Deno's Deno.test()/t.step()
+// API as test cases; this file contains 49 t.step() sub-tests (155 assertions) for Command.js.
 import { Model, State } from '../js/Model.js';
 import { Command, replaySteps } from '../js/Command.js';
 import { Point } from '../js/Point.js';

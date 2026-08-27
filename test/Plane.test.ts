@@ -1,3 +1,5 @@
+// NOSONAR - SonarQube's S2187 test-detection doesn't recognize Deno's Deno.test()/t.step()
+// API as test cases; this file contains 3 t.step() sub-tests (13 assertions) for Plane.js.
 // deno test test/Plane.test.ts
 import { Vector3 } from "../js/Vector3.js";
 import { Plane } from "../js/Plane.js";

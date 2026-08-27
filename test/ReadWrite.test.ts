@@ -1,3 +1,5 @@
+// NOSONAR - SonarQube's S2187 test-detection doesn't recognize Deno's Deno.test()/t.step()
+// API as test cases; this file contains 17 t.step() sub-tests (71 assertions) for ReadWrite.js.
 import {ReadWrite} from "../js/ReadWrite.js";
 import {Model} from "../js/Model.js";
 import {Point} from "../js/Point.js";

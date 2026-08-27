@@ -1,3 +1,5 @@
+// NOSONAR - SonarQube's S2187 test-detection doesn't recognize Deno's Deno.test()/t.step()
+// API as test cases; this file contains 9 t.step() sub-tests (28 assertions) for Interpolator.js.
 import { Interpolator } from "../js/Interpolator.js";
 import { assertEquals } from "@std/assert";
 

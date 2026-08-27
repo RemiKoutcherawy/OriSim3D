@@ -1,3 +1,5 @@
+// NOSONAR - SonarQube's S2187 test-detection doesn't recognize Deno's Deno.test()/t.step()
+// API as test cases; this file contains 12 t.step() sub-tests (33 assertions) for View3d.js.
 import { View3d } from "../js/View3d.js";
 import { Model } from "../js/Model.js";
 import * as mat4 from "../js/lib/mat4.js";
