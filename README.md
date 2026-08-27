@@ -48,7 +48,7 @@ Work in progress, any help is welcome.
 - click drag from a point to a point adds a crease, or if the crease exists, adds a perpendicular crease
 - click drag from a segment to a segment adds a bisector
 - click drag a point rotates around a selected segment
-- click drag an already-selected point moves it (`move` then `check`); the drag line is orange
+- click drag an already-selected point in 3d moves it (`t … m dx dy dz pN` then `adjust` on other selected points); the drag line is orange
 - undo via ⌘/Ctrl+Z
 
 ### Console de commandes (menu Édition → Console)
