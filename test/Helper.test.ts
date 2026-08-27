@@ -728,21 +728,40 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], "t 1000 m 40 0 0 p0");
   });
 
-  await t.step("moving click without drag toggles select", () => {
+  await t.step("moving click without drag falls through to a normal single-click toggle", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const p0 = model.points[0];
     p0.select = true;
-    helper.moving = true;
-    helper.downPoint = p0;
-    helper.downPoints = [p0];
-    helper.firstX = 0;
-    helper.firstY = 0;
-    helper.currentX = 1;
-    helper.currentY = 1;
-    helper.fromPoint();
+    helper.currentCanvas = "3d";
+
+    helper.down([p0], [], [], 0, 0);
+    assertEquals(helper.moving, true);
+    helper.up([p0], [], []);
     assertEquals(p0.select, false);
     assertEquals(cmds.length, 0);
+  });
+
+  await t.step("double-click on an already-selected point in 3d sends adjust", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const p0 = model.points[0];
+    helper.currentCanvas = "3d";
+
+    // First click selects the point (moving is false: not selected yet).
+    helper.down([p0], [], [], 0, 0);
+    assertEquals(helper.moving, false);
+    helper.up([p0], [], []);
+    assertEquals(p0.select, true);
+
+    // Second click within the double-click window: down() now sets moving
+    // true (point already selected), but a plain click must still reach the
+    // double-click/adjust logic instead of being swallowed by moveSelectedPoint().
+    cmds.length = 0;
+    helper.down([p0], [], [], 0, 0);
+    assertEquals(helper.moving, true);
+    helper.up([p0], [], []);
+    assertEquals(cmds[0], "adjust p0");
   });
 
   await t.step("canvasDragToWorld3d unprojects at constant depth", async () => {

@@ -345,7 +345,7 @@ export class Helper {
     }
 
     fromPoint() {
-        if (this.moving) {
+        if (this.moving && !this.isClick()) {
             this.moveSelectedPoint();
             return;
         }
@@ -383,13 +383,8 @@ export class Helper {
     /**
      * Drag of a selected point in 3d: move only that hovered point (animated),
      * then adjust every other selected point to restore segment lengths.
-     * A click without drag toggles selection (same as a normal point click).
      */
     moveSelectedPoint() {
-        if (this.isClick()) {
-            this.togglePointStack(this.downPoints.length ? this.downPoints : [this.downPoint]);
-            return;
-        }
         const {dx, dy, dz} = this.dragToWorld();
         if (dx === 0 && dy === 0 && dz === 0) return;
         const movedId = this.id(this.downPoint);
