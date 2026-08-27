@@ -389,16 +389,23 @@ export class Model {
         this.splitAllFacesByPlane3d(Plane.orthogonal(s.p1, s.p2, point));
     }
 
-    // Split faces by a line through point parallel to segment (2d crease pattern)
+    // Crease between segment and point: fold that brings the line onto the point
+    // (perpendicular bisector of the point and its projection on the line of s).
     splitParallel2d(s, point) {
         const dx = s.p2.xf - s.p1.xf, dy = s.p2.yf - s.p1.yf;
-        if (dx === 0 && dy === 0) return;
-        this.splitAllFacesByLine2d(point, {xf: point.xf + dx, yf: point.yf + dy});
+        const l2 = dx * dx + dy * dy;
+        if (l2 === 0) return;
+        const t = ((point.xf - s.p1.xf) * dx + (point.yf - s.p1.yf) * dy) / l2;
+        const foot = {xf: s.p1.xf + t * dx, yf: s.p1.yf + t * dy};
+        if (Point.distance2d(point, foot) < 1e-9) return;
+        this.splitCross2d(point, foot);
     }
 
-    // Split faces by a plane through point parallel to segment (3d)
+    // Crease between segment and point in 3d (plane that brings the line onto the point).
     splitParallel3d(s, point) {
-        this.splitAllFacesByPlane3d(Plane.parallel(s.p1, s.p2, point));
+        const foot = Vector3.closestPoint(point, s.p1, s.p2);
+        if (Vector3.length3d(Vector3.sub(point, foot)) < 1e-9) return;
+        this.splitAllFacesByPlane3d(Plane.across(point, foot));
     }
 
     // Split faces by a plane between two lines [ab] [cd]
