@@ -43,10 +43,14 @@ export class Point {
     }
 
     // Normalize as if Vector 2d
-    static normalise(a) {
+    static normalize(a) {
         const length = Math.hypot(a.xf, a.yf);
         if (length === 0) return {xf: 0, yf: 0};
         return {xf: a.xf / length, yf: a.yf / length};
     }
+
+    // Alias for backward compatibility (British English spelling)
+    static normalise(a) {
+        return Point.normalize(a);
+    }
 }
-// 54 lines

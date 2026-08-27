@@ -39,3 +39,17 @@ Deno.test("distance2d", () => {
     const d = Point.distance2d(a, b);
     assertEquals(d, 50, "distance should be 50");
 });
+
+Deno.test("Point.normalize and Point.normalise alias", () => {
+  const norm = Point.normalize({ xf: 3, yf: 4 });
+  assertEquals(norm.xf, 0.6);
+  assertEquals(norm.yf, 0.8);
+
+  const normAlias = Point.normalise({ xf: 3, yf: 4 });
+  assertEquals(normAlias.xf, 0.6);
+  assertEquals(normAlias.yf, 0.8);
+
+  const zero = Point.normalize({ xf: 0, yf: 0 });
+  assertEquals(zero.xf, 0);
+  assertEquals(zero.yf, 0);
+});
