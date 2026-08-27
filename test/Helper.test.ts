@@ -152,7 +152,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], "adjust p0");
   });
 
-  await t.step("mark P→S sends p3d; S→P sends commented splitParallel", () => {
+  await t.step("mark P→S sends p3d; S→P sends parallel3d", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const p0 = model.points[0];
@@ -169,7 +169,40 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([p0], [], []);
-    assertEquals(cmds[0], "// splitParallel s0 p0");
+    assertEquals(cmds[0], "parallel3d s0 p0");
+  });
+
+  await t.step("mark S→P on 2d canvas sends parallel2d", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const p0 = model.points[0];
+    const s0 = model.segments[0];
+    helper.currentCanvas = "2d";
+
+    helper.down([], [s0], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.up([p0], [], []);
+    assertEquals(cmds[0], "parallel2d s0 p0");
+  });
+
+  await t.step("rotationLabel on 2d uses xf/-yf even when xCanvas is stale", () => {
+    const { model, helper } = setup();
+    const f0 = model.faces[0];
+    const s0 = model.segments[0]; // bottom edge yf=-200 → drawing y=200
+    // Poison 3d projection so a bug that still reads xCanvas would give a wrong angle
+    model.points.forEach((p) => {
+      p.xCanvas = 999;
+      p.yCanvas = 999;
+    });
+    helper.currentCanvas = "2d";
+    helper.down([], [], [f0], 0, 0);
+    // Move toward the bottom edge in drawing space (y increases downward in -yf)
+    helper.move([], [], [f0], 0, 150);
+    const label = helper.label as number;
+    assertEquals(typeof label, "number");
+    assertEquals(label !== 0 && label !== undefined, true);
+    assertEquals(helper.hoverAxis, s0);
   });
 
   await t.step("mark S→S toggle and bisector", () => {

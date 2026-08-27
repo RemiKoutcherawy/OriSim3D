@@ -247,8 +247,9 @@ export class Helper {
         const pts = face.points;
         let x = 0, y = 0;
         for (const p of pts) {
-            x += p.xCanvas;
-            y += p.yCanvas;
+            const c = this.canvasPoint(p);
+            x += c.xf;
+            y += c.yf;
         }
         return {x: x / pts.length, y: y / pts.length};
     }
@@ -266,9 +267,9 @@ export class Helper {
     nearestBorderSegment(face, x, y) {
         let best, bestD = Infinity;
         for (const s of this.faceBorderSegments(face)) {
-            const d = Segment.distance2d(
-                s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, x, y,
-            );
+            const p1 = this.canvasPoint(s.p1);
+            const p2 = this.canvasPoint(s.p2);
+            const d = Segment.distance2d(p1.xf, p1.yf, p2.xf, p2.yf, x, y);
             if (d < bestD) {
                 bestD = d;
                 best = s;
@@ -278,8 +279,10 @@ export class Helper {
     }
 
     // Signed rotation angle (degrees) from ref point to cursor, around segment.
+    // Uses canvasPoint() so 2d (xf,-yf) and 3d (xCanvas,yCanvas) stay consistent.
     rotationLabel(s, refX, refY, x, y) {
-        const p1Proj = [s.p1.xCanvas, s.p1.yCanvas], p2Proj = [s.p2.xCanvas, s.p2.yCanvas];
+        const p1 = this.canvasPoint(s.p1), p2 = this.canvasPoint(s.p2);
+        const p1Proj = [p1.xf, p1.yf], p2Proj = [p2.xf, p2.yf];
         const distToFirst = (refX - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (refY - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
         const distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
         if (Math.abs(distToFirst) < 1e-6) return 0;
@@ -383,9 +386,7 @@ export class Helper {
         if (this.upSegment) {
             this.sendCmd('bisector', this.downSegment, this.upSegment);
         } else if (this.upPoint) {
-            this.command.command(
-                `// splitParallel ${this.id(this.downSegment)} ${this.id(this.upPoint)}`,
-            );
+            this.sendCmd('parallel', this.downSegment, this.upPoint);
         }
     }
 

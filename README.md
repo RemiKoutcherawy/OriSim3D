@@ -30,6 +30,7 @@ Work in progress, any help is welcome.
 - by: crease between two points
 - across: crease across a face
 - perpendicular: crease perpendicular from a point to a segment: perpendicular p1 s1
+- parallel: crease between a point and a segment (fold bringing the line onto the point): parallel2d / parallel3d s1 p1
 - bisector: crease bisector between two segments: bisector s1 s2
 - splitSegment: split a segment in by 'ratio': split s1 ratio 0.5
 - rotate: rotate around 'Seg' with 'Angle' all 'Points': rotate s1 angle p1 p2 p3...
@@ -46,6 +47,7 @@ Work in progress, any help is welcome.
 ### Helper interprets mouse moves to make commands
 - click selects point, segment, face, or marks them
 - click drag from a point to a point adds a crease, or if the crease exists, adds a perpendicular crease
+- click drag from a point to a segment adds a perpendicular crease; from a segment to a point adds a crease between them (line onto point)
 - click drag from a segment to a segment adds a bisector
 - click drag a point rotates around a selected segment
 - click drag an already-selected point moves it (`move` then `check`); the drag line is orange

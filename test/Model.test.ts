@@ -407,6 +407,37 @@ Deno.test("Model", async (t) => {
             assertEquals(model.faces.length, 2, 'Model should have 2 faces');
             assertEquals(model.points.length, 7, 'Model should have 7 points');
         });
+        await t.step("splitParallel2d", () => {
+            const model = new Model().init(200, 200);
+            // Point on right edge mid; crease halfway to bottom edge s0 → yf = -100
+            const p = model.addPoint(200, 0, 200, 0, 0);
+            model.splitParallel2d(model.segments[0], p);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            // 4 corners + crease ends + the seed point on the right edge
+            assertEquals(model.points.length, 7, 'Model should have 7 points');
+            assertEquals(
+                model.points.some((q) => Math.abs(q.yf + 100) < 1e-6),
+                true,
+                'crease at yf=-100 (between point and segment)',
+            );
+        });
+        await t.step("splitParallel3d", () => {
+            const model = new Model().init(200, 200);
+            // Center to bottom edge: crease halfway at y = -100
+            const p = model.addPoint(0, 0, 0, 0, 0);
+            model.splitParallel3d(model.segments[0], p);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 7, 'Model should have 7 points');
+            const onCrease = model.points.filter((q) => Math.abs(q.y + 100) < 1e-6);
+            assertEquals(onCrease.length >= 2, true, 'crease plane y=-100');
+        });
+        await t.step("splitParallel2d no-op when point is on the line", () => {
+            const model = new Model().init(200, 200);
+            const before = model.faces.length;
+            // p0 is an endpoint of s0
+            model.splitParallel2d(model.segments[0], model.points[0]);
+            assertEquals(model.faces.length, before);
+        });
     });
     await t.step("bisector", async (t) => {
         await t.step("bisector2d", () => {

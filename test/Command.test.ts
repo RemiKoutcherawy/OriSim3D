@@ -130,6 +130,20 @@ Deno.test('Command', async (t) => {
         cde.command('p2d S0 P4').anim();
         assertEquals(model.segments.length, 5);
     });
+    await t.step('command parallel 3d', () => {
+        cde.command('d 200 200').anim();
+        model.points.push(new Point(0, 0, 0, 0, 0));
+        cde.command('parallel3d S0 P4').anim();
+        assertEquals(model.faces.length, 2);
+        assertEquals(model.segments.length, 7);
+    });
+    await t.step('command parallel 2d', () => {
+        cde.command('d 200 200').anim();
+        model.points.push(new Point(200, 0, 200, 0, 0));
+        cde.command('parallel2d S0 P4').anim();
+        assertEquals(model.faces.length, 2);
+        assertEquals(model.segments.length, 7);
+    });
     await t.step('command bisector2d', () => {
         cde.command('d 200 200').anim();
         cde.command('bisector2d S0 S1').anim();
