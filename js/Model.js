@@ -22,7 +22,9 @@ function polygonArea3d(points) {
 
 // -1 left, 0 on the line, +1 right
 function side2d(d, epsilon) {
-    return d < -epsilon ? -1 : d > epsilon ? 1 : 0;
+    if (d < -epsilon) return -1;
+    if (d > epsilon) return 1;
+    return 0;
 }
 
 export class Model {
@@ -71,7 +73,9 @@ export class Model {
 
     // First non-empty pick among points, then segments, then faces
     firstHit(points, segments, faces) {
-        return points.length ? points : segments.length ? segments : faces;
+        if (points.length) return points;
+        if (segments.length) return segments;
+        return faces;
     }
 
     // Update hover2d3d on points, segments, faces 2d and 3d
@@ -166,7 +170,11 @@ export class Model {
         const left = [], right = [];
         let lastInter;
         const epsilon = 10;
-        const side = (d) => (Math.abs(d) <= epsilon ? 0 : d < 0 ? -1 : 1);
+        const side = (d) => {
+            if (Math.abs(d) <= epsilon) return 0;
+            if (d < 0) return -1;
+            return 1;
+        };
 
         // Begin with the last point
         let last = face.points[face.points.length - 1];
@@ -505,7 +513,9 @@ export class Model {
                 // Move B = A + AB * r with r = l2d / l3d
                 // AB * r is based on length 3d to match length 2d
                 const r = lg2d / lg3d;
-                const other = s.p2 === point ? s.p1 : s.p1 === point ? s.p2 : null;
+                let other = null;
+                if (s.p2 === point) other = s.p1;
+                else if (s.p1 === point) other = s.p2;
                 if (!other) continue;
                 pm.x += other.x + (point.x - other.x) * r;
                 pm.y += other.y + (point.y - other.y) * r;

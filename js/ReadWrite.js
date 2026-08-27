@@ -4,6 +4,24 @@ import {Segment} from "./Segment.js";
 import {Model, State} from "./Model.js";
 import {Face} from "./Face.js";
 
+// JSON.parse reviver for FOLD files: `this` is the object node currently being
+// revived, so `is3d` set while visiting 'frame_attributes' is still readable
+// on `this` when 'vertices_coords' (a sibling key) is visited next.
+function reviverFold(key, value) {
+    if (key === 'frame_attributes') {
+        this.is3d = (value[0] === '3D');
+        return value;
+    } else if (key === 'vertices_coords') {
+        if (this.is3d) {
+            return value.map((xyz) => new Point(xyz[0], xyz[1], xyz[0], xyz[1], xyz[2]));
+        } else {
+            return value.map((xy) => new Point(xy[0], xy[1]));
+        }
+    } else {
+        return value;
+    }
+}
+
 export class ReadWrite {
 
     static chooseFile() {
@@ -69,7 +87,8 @@ export class ReadWrite {
         const area = command.commandArea;
         if (!area) return;
         if (area.textarea) {
-            const withNl = text === '' ? '' : (text.endsWith('\n') ? text : `${text}\n`);
+            let withNl = '';
+            if (text !== '') withNl = text.endsWith('\n') ? text : `${text}\n`;
             area.textarea.value = withNl;
             area.textarea.selectionStart = area.textarea.selectionEnd = withNl.length;
             return;
@@ -309,7 +328,7 @@ export class ReadWrite {
         let json = JSON.stringify(FOLD, undefined, 2);
 
         // Cosmetic
-        let reg = /\[[\n\s]*(-?\d+),[\n\s]*(-?\d+)[\n\s]*]/mg;
+        let reg = /\[\s*(-?\d+),\s*(-?\d+)\s*]/mg;
         json = json.replaceAll(reg, (_match, g1, g2) => `[${g1},${g2}]`);
         reg = /\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*]/g;
         // More cosmetics
@@ -361,21 +380,6 @@ export class ReadWrite {
         });
 
         return model;
-
-        function reviverFold(key, value) {
-            if (key === 'frame_attributes') {
-                this.is3d = (value[0] === '3D');
-                return value;
-            } else if (key === 'vertices_coords') {
-                if (this.is3d) {
-                    return value.map((xyz) => new Point(xyz[0], xyz[1], xyz[0], xyz[1], xyz[2]));
-                } else {
-                    return value.map((xy) => new Point(xy[0], xy[1]));
-                }
-            } else {
-                return value;
-            }
-        }
     }
 
     static async writeFile(text, filename = 'OriSim3d.txt') {

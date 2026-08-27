@@ -104,7 +104,7 @@ export class Helper {
         if (!this.downPoint && !this.downSegment && !this.downFace) {
             return;
         }
-        const context = (this.currentCanvas === '2d' ? this.view2d?.canvas2d : this.view3d?.overlay).getContext('2d');
+        const context = (this.currentCanvas === '2d' ? this.view2d.canvas2d : this.view3d.overlay).getContext('2d');
         if (this.downFace && this.willFold()) {
             this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
         } else {
@@ -193,7 +193,7 @@ export class Helper {
         this.firstY = this.currentY = y;
         this.label = undefined;
         // 3d drag of an already-selected (hovered) point → animated move
-        this.moving = !!(this.downPoint && this.downPoint.select && this.currentCanvas === '3d');
+        this.moving = !!(this.downPoint?.select && this.currentCanvas === '3d');
     }
 
     /** Select all stacked points, or deselect all if every one is already selected. */
@@ -522,12 +522,10 @@ export class Helper {
      * into the perspective-correct parameter t along the 3D segment.
      * w1/w2 are homogeneous clip w (≈ -zEye) at the endpoints.
      */
-    static screenRatioToSegmentT(r, w1, w2) {
-        const a = w1 || 1;
-        const b = w2 || 1;
-        const denom = (1 - r) * b + r * a;
-        if (Math.abs(denom) < 1e-12) return r;
-        return (r * a) / denom;
+    static screenRatioToSegmentT(r, a =1, b =1) {
+        const denominator = (1 - r) * b + r * a;
+        if (Math.abs(denominator) < 1e-12) return r;
+        return (r * a) / denominator;
     }
 
     /** Clip-space w used for the point's canvas projection (perspective weight). */
@@ -565,7 +563,7 @@ export class Helper {
         // In 3d, layers can overlap on screen. Ignore a segment that's occluded
         // behind the face being dragged — the drag can only be scoring a line on
         // the visible surface, not a hidden layer that merely projects onto it.
-        const downDepth = this.currentCanvas === '3d' && this.downFace && this.view3d?.faceDepth
+        const downDepth = this.currentCanvas === '3d' && this.downFace && this.view3d.faceDepth
             ? this.view3d.faceDepth(this.downFace)
             : undefined;
         const crossings = [];
@@ -651,7 +649,7 @@ export class Helper {
 
     // Points, then segments, then faces near xf, yf
     search2d(xf, yf) {
-        const scale = this.view2d?.scale || 1;
+        const scale = this.view2d.scale || 1;
         const points = this.model.points.filter(p => Math.abs(p.xf - xf) + Math.abs(p.yf - yf) < 10 / scale);
         const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 6 / scale);
         const faces = this.model.faces.filter(f => Face.contains2d(f, xf, yf));
@@ -682,7 +680,7 @@ export class Helper {
     // Canvas 3d
     eventCanvas3d(event) {
         if (!(event instanceof Event)) return event; // Used for test
-        const rect = this.view3d?.overlay.getBoundingClientRect();
+        const rect = this.view3d.overlay.getBoundingClientRect();
         return {
             xCanvas: event.clientX - rect.left,
             yCanvas: event.clientY - rect.top,

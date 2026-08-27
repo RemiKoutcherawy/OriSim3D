@@ -2,7 +2,6 @@
 import {Interpolator} from './Interpolator.js';
 import {Model, State} from './Model.js';
 import {ReadWrite} from './ReadWrite.js';
-import {Folder, FoldType} from './Folder.js';
 
 export class Command {
     model; // Current model
@@ -413,12 +412,8 @@ on('check', (cmd) => {
 });
 on('o offset', (cmd) => cmd.model.offset(Number.parseFloat(cmd.next()) / 10, cmd.tokens('f')));
 on('order', order);
-on('mountain mv', (cmd) => cmd.tokens('s').forEach((s) => { s.assignment = FoldType.MOUNTAIN; }));
-on('valley', (cmd) => cmd.tokens('s').forEach((s) => { s.assignment = FoldType.VALLEY; }));
-on('foldcp mitani', (cmd) => {
-    const full = cmd.isNumber(cmd.peek()) ? Number.parseFloat(cmd.next()) !== 0 : true;
-    Folder.fold(cmd.model, {fullEstimation: full});
-});
+on('mountain mv', (cmd) => cmd.tokens('s').forEach((s) => { s.assignment = 'M'; }));
+on('valley', (cmd) => cmd.tokens('s').forEach((s) => { s.assignment = 'V'; }));
 
 on('tx', turn('x'));
 on('ty', turn('y'));
