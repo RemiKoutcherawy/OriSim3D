@@ -267,7 +267,7 @@ Deno.test("View3d", async (t) => {
     }, overlay);
   });
 
-  await t.step("drawSegments() draws amber axis for the first selected segment", () => {
+  await t.step("drawSegments() draws red axis for the first selected segment", () => {
     const { ctx, calls } = createMockContext2d();
     const overlay = createMockOverlay(ctx);
     withStubbedDom(() => {
@@ -282,8 +282,8 @@ Deno.test("View3d", async (t) => {
 
       calls.length = 0;
       view3d.drawSegments(model.segments);
-      const amber = calls.filter((c) => c.method === "stroke" && c.strokeStyle === View3d.AXIS_AMBER);
-      assertEquals(amber.length > 0, true);
+      const red = calls.filter((c) => c.method === "stroke" && c.strokeStyle === "red");
+      assertEquals(red.length > 0, true);
     }, overlay);
   });
 
@@ -298,13 +298,15 @@ Deno.test("View3d", async (t) => {
 
       for (const p of model.points) { p.xCanvas = p.xf; p.yCanvas = p.yf; }
       model.faces[0].select = true;
-      model.segments[0].hover = true;
+      model.segments[0].select = true;
+      model.segments[1].hover = true;
 
       calls.length = 0;
       view3d.drawSegments(model.segments);
       const strokes = calls.filter((c) => c.method === "stroke");
       assertEquals(strokes.length > 0, true);
-      assertEquals(strokes.every((c) => c.strokeStyle === View3d.AXIS_AMBER), true);
+      assertEquals(strokes.some((c) => c.strokeStyle === "red"), true);
+      assertEquals(strokes.some((c) => c.strokeStyle === View3d.AXIS_AMBER), true);
     }, overlay);
   });
 

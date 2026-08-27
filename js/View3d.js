@@ -523,14 +523,14 @@ export class View3d {
 
     static AXIS_AMBER = '#e6a817';
 
-    /** Amber fold axis (solid) or candidate (dashed). Caps only on solid. */
+    /** Selected fold axis (solid red, like points) or hover candidate (dashed amber). Caps only on solid. */
     drawAxis(segment, {dashed = false} = {}) {
         const context2d = this.context2d;
         const x1 = segment.p1.xCanvas, y1 = segment.p1.yCanvas;
         const x2 = segment.p2.xCanvas, y2 = segment.p2.yCanvas;
         if (x1 == null || x2 == null) return;
         context2d.save();
-        context2d.strokeStyle = View3d.AXIS_AMBER;
+        context2d.strokeStyle = dashed ? View3d.AXIS_AMBER : 'red';
         context2d.lineWidth = dashed ? 4 : 5;
         context2d.lineCap = 'round';
         if (dashed) context2d.setLineDash([8, 6]);
@@ -627,7 +627,7 @@ export class View3d {
                 context2d,
                 mx, my,
                 String(this.model.segments.indexOf(s)),
-                s.select ? View3d.AXIS_AMBER : 'white',
+                s.select ? 'red' : 'white',
             );
         }
     }
