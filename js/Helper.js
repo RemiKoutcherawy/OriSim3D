@@ -627,7 +627,6 @@ export class Helper {
 
     rotatePointIds() {
         const pts = new Set();
-        this.model.points.filter(p => p.select).forEach(p => pts.add(p));
         this.model.faces.filter(f => f.select).forEach(f => {
             f.points.forEach(p => pts.add(p));
         });
@@ -635,6 +634,14 @@ export class Helper {
             this.downFace.points.forEach(p => pts.add(p));
         }
         return [...pts].map(p => this.id(p));
+    }
+    // Selected points not rotated are adjusted instead
+    adjustPointIds(rotatedIds) {
+        const rotated = new Set(rotatedIds);
+        return this.model.points
+            .filter(p => p.select)
+            .map(p => this.id(p))
+            .filter(id => !rotated.has(id));
     }
     rotateFaceCommentIds() {
         const faces = new Set(this.model.faces.filter(f => f.select));
@@ -644,9 +651,11 @@ export class Helper {
 
     rotatePoints(axis, angle) {
         const pts = this.rotatePointIds();
+        const adjustPts = this.adjustPointIds(pts);
+        const adjust = adjustPts.length ? ` a ${adjustPts.join(' ')}` : '';
         const faces = this.rotateFaceCommentIds();
         const faceComment = faces.length ? ` // ${faces.join(' ')}` : '';
-        this.command.command(`t 1000 r ${this.id(axis)} ${angle} ${pts.join(' ')}${faceComment}`);
+        this.command.command(`t 1000 r ${this.id(axis)} ${angle} ${pts.join(' ')}${adjust}${faceComment}`);
     }
 
     // Canvas 2d (flat crease pattern)
