@@ -57,16 +57,6 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.id(null), "");
   });
 
-  await t.step("mode is mark until a face is selected", () => {
-    const { model, helper } = setup();
-    assertEquals(helper.mode, "mark");
-    model.points[0].select = true;
-    model.segments[0].select = true;
-    assertEquals(helper.mode, "mark");
-    model.faces[0].select = true;
-    assertEquals(helper.mode, "fold");
-  });
-
   await t.step("down() sets point, segment, or face", () => {
     const { model, helper } = setup();
 
@@ -202,7 +192,7 @@ Deno.test("Helper Tests", async (t) => {
     const label = helper.label as number;
     assertEquals(typeof label, "number");
     assertEquals(label !== 0 && label !== undefined, true);
-    assertEquals(helper.hoverAxis, s0);
+    assertEquals(s0.hover, true);
   });
 
   await t.step("mark S→S toggle and bisector", () => {
@@ -251,7 +241,6 @@ Deno.test("Helper Tests", async (t) => {
     helper.up([], [], stack);
     assertEquals(f0.select, true);
     assertEquals(f1.select, true);
-    assertEquals(helper.mode, "fold");
     assertEquals(cmds[0], `// selectFaces ${helper.id(f0)} ${helper.id(f1)}`);
 
     cmds.length = 0;
@@ -259,7 +248,6 @@ Deno.test("Helper Tests", async (t) => {
     helper.up([], [], stack);
     assertEquals(f0.select, false);
     assertEquals(f1.select, false);
-    assertEquals(helper.mode, "mark");
     assertEquals(cmds.length, 0);
 
     // Points/segments untouched by the face-stack toggle
@@ -304,7 +292,6 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(model.points[0].select, false);
     assertEquals(model.segments[0].select, false);
     assertEquals(model.faces[0].select, false);
-    assertEquals(helper.mode, "mark");
   });
 
   await t.step("fold blocks crease gestures; allows P/S toggle", () => {
@@ -435,7 +422,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.willFold(), false);
     helper.up([], [], []);
     assertEquals(cmds.some((c) => c.startsWith("split ")), true);
-    assertEquals(helper.mode, "mark");
+    assertEquals(f0.select, false);
   });
 
   await t.step("drag on an unselected face folds it directly (no select-first step)", () => {
@@ -443,6 +430,7 @@ Deno.test("Helper Tests", async (t) => {
     const cmds = captureCmds(command);
     const f0 = model.faces[0];
     const s0 = model.segments[0];
+    s0.select = false;
     assertEquals(f0.select, false);
 
     // Drag toward the top edge s0, staying inside the face (no crossing)
@@ -455,7 +443,7 @@ Deno.test("Helper Tests", async (t) => {
 
     helper.up([], [], [f0]);
     assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
-    assertEquals(helper.mode, "mark");
+    assertEquals(f0.select, false);
   });
 
   await t.step("fold mode move highlights only the hover axis segment", () => {
@@ -468,7 +456,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.move([], [], [f0], 0, -150);
     const hovered = model.segments.filter(s => s.hover);
     assertEquals(hovered.length, 1);
-    assertEquals(hovered[0], helper.hoverAxis);
+    assertEquals(hovered[0], model.segments[0]);
   });
 
   await t.step("fold F→F with axis rotates then clears all", () => {
@@ -495,7 +483,6 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(f0.select, false);
     assertEquals(s0.select, false);
     assertEquals(model.points[2].select, false);
-    assertEquals(helper.mode, "mark");
   });
 
   await t.step("fold F→F without axis: angle uses hover border segment", () => {
@@ -507,14 +494,14 @@ Deno.test("Helper Tests", async (t) => {
     helper.down([], [], [f0], 0, 0);
     // Move near top edge s0 (y=-200) to hover it, with enough angle
     helper.move([], [], [f0], 0, -150);
-    assertEquals(helper.hoverAxis, model.segments[0]);
+    assertEquals(model.segments[0].hover, true);
     const label = helper.label as number;
     assertEquals(label !== 0, true);
 
     cmds.length = 0;
     helper.up([], [], [f0]);
     assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
-    assertEquals(helper.mode, "mark");
+    assertEquals(f0.select, false);
   });
 
   await t.step("a crossing drag scores even on an already-selected (foldable) face", () => {
@@ -581,7 +568,6 @@ Deno.test("Helper Tests", async (t) => {
     helper.up([], [], [model.faces[0]]);
     assertEquals(model.faces[0].select, true);
     assertEquals(model.segments[0].select, true);
-    assertEquals(helper.mode, "fold");
   });
 
   await t.step("clickThreshold is larger for touch", () => {

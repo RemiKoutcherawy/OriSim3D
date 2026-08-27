@@ -44,19 +44,6 @@ export class Helper {
         this.out();
     }
 
-    get overlay() {
-        return this.view3d?.overlay;
-    }
-
-    get canvas2d() {
-        return this.view2d?.canvas2d;
-    }
-
-    /** @returns {'mark'|'fold'} */
-    get mode() {
-        return this.model.faces.some(f => f.select) ? 'fold' : 'mark';
-    }
-
     clickThreshold() {
         return this.pointerType === 'touch' ? CLICK_PX_TOUCH : CLICK_PX_MOUSE;
     }
@@ -93,7 +80,6 @@ export class Helper {
         this.upFaces = [];
         this.downFaces = [];
         this.label = undefined;
-        this.hoverAxis = undefined;
         this.currentSegment = undefined;
         this.moving = false;
     }
@@ -118,7 +104,7 @@ export class Helper {
         if (!this.downPoint && !this.downSegment && !this.downFace) {
             return;
         }
-        const context = (this.currentCanvas === '2d' ? this.canvas2d : this.overlay).getContext('2d');
+        const context = (this.currentCanvas === '2d' ? this.view2d?.canvas2d : this.view3d?.overlay).getContext('2d');
         if (this.downFace && this.willFold()) {
             this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
         } else {
@@ -144,7 +130,7 @@ export class Helper {
     // only the shaft stretches with the drag. Crease preview (by3d/across3d/bisector3d);
     // orange when dragging a selected point to move it in 3d.
     drawFilledArrow(context, x1, y1, x2, y2, color = 'green') {
-        const HEAD_LEN = 12, HEAD_HALF_W = 5;
+        const HEAD_LEN = 24, HEAD_HALF_W = 10;
         const dx = x2 - x1, dy = y2 - y1;
         const len = Math.hypot(dx, dy) || 1;
         const ux = dx / len, uy = dy / len;
@@ -153,7 +139,7 @@ export class Helper {
         const sx = x1 + ux * shaftLen, sy = y1 + uy * shaftLen;
 
         context.strokeStyle = context.fillStyle = color;
-        context.lineWidth = 2;
+        context.lineWidth = 6;
         context.lineCap = 'round';
         context.beginPath();
         context.moveTo(x1, y1);
@@ -206,7 +192,6 @@ export class Helper {
         this.firstX = this.currentX = x;
         this.firstY = this.currentY = y;
         this.label = undefined;
-        this.hoverAxis = undefined;
         // 3d drag of an already-selected (hovered) point → animated move
         this.moving = !!(this.downPoint && this.downPoint.select && this.currentCanvas === '3d');
     }
@@ -239,17 +224,12 @@ export class Helper {
     }
 
     sameStack(a, b) {
-        if (!a?.length || !b?.length || a.length !== b.length) return false;
-        return a.every(o => b.includes(o));
-    }
-
-    samePointStack(a, b) {
-        return this.sameStack(a, b);
+        return !!a?.length && a.length === b?.length && a.every(o => b.includes(o));
     }
 
     isDoubleClickPoints(points) {
         return Date.now() - this.touchTime < 400
-            && this.samePointStack(points, this.lastClickPoints);
+            && this.sameStack(points, this.lastClickPoints);
     }
 
     faceCentroidCanvas(face) {
@@ -308,7 +288,6 @@ export class Helper {
         this.currentY = y;
         this.currentSegment = segments[0];
         this.label = undefined;
-        this.hoverAxis = undefined;
 
         if (this.downPoint) {
             this.downPoints.forEach(p => { p.hover = true; });
@@ -319,7 +298,6 @@ export class Helper {
             // Only the fold-axis candidate should highlight — clear other segment hovers
             this.model.segments.forEach(s => { s.hover = false; });
             const axis = this.foldAxis(this.currentSegment);
-            this.hoverAxis = axis;
             if (axis) {
                 axis.hover = true;
                 this.label = this.angleFor(axis);
@@ -355,7 +333,7 @@ export class Helper {
 
         const sameStack = this.isClick()
             && this.downPoints.length
-            && this.samePointStack(this.downPoints, this.upPoints);
+            && this.sameStack(this.downPoints, this.upPoints);
 
         if (sameStack) {
             if (this.isDoubleClickPoints(this.downPoints)) {
@@ -371,7 +349,7 @@ export class Helper {
             return;
         }
 
-        if (this.mode === 'fold') {
+        if (this.model.faces.some(f => f.select)) {
             // Creases blocked in fold
             return;
         }
@@ -435,7 +413,7 @@ export class Helper {
             return;
         }
 
-        if (this.mode === 'fold') {
+        if (this.model.faces.some(f => f.select)) {
             return;
         }
         if (this.upSegment) {
@@ -661,7 +639,7 @@ export class Helper {
     // Canvas 2d (flat crease pattern)
     event2d(event) {
         if (!(event instanceof Event)) return event; // Used for test
-        const rect = this.canvas2d.getBoundingClientRect();
+        const rect = this.view2d.canvas2d.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
         const canvasY = event.clientY - rect.top;
         const {scale, xOffset, yOffset} = this.view2d;
@@ -704,7 +682,7 @@ export class Helper {
     // Canvas 3d
     eventCanvas3d(event) {
         if (!(event instanceof Event)) return event; // Used for test
-        const rect = this.overlay.getBoundingClientRect();
+        const rect = this.view3d?.overlay.getBoundingClientRect();
         return {
             xCanvas: event.clientX - rect.left,
             yCanvas: event.clientY - rect.top,
