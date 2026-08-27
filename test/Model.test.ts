@@ -407,6 +407,22 @@ Deno.test("Model", async (t) => {
             assertEquals(model.faces.length, 2, 'Model should have 2 faces');
             assertEquals(model.points.length, 7, 'Model should have 7 points');
         });
+        await t.step("splitParallel2d", () => {
+            const model = new Model().init(200, 200);
+            // Parallel to bottom edge (s0) through right-edge midpoint → horizontal midline
+            const p = model.addPoint(200, 0, 200, 0, 0);
+            model.splitParallel2d(model.segments[0], p);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 6, 'Model should have 6 points');
+        });
+        await t.step("splitParallel3d", () => {
+            const model = new Model().init(200, 200);
+            // Parallel to bottom edge through center → horizontal split
+            const p = model.addPoint(0, 0, 0, 0, 0);
+            model.splitParallel3d(model.segments[0], p);
+            assertEquals(model.faces.length, 2, 'Model should have 2 faces');
+            assertEquals(model.points.length, 7, 'Model should have 7 points');
+        });
     });
     await t.step("bisector", async (t) => {
         await t.step("bisector2d", () => {

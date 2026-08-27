@@ -389,6 +389,18 @@ export class Model {
         this.splitAllFacesByPlane3d(Plane.orthogonal(s.p1, s.p2, point));
     }
 
+    // Split faces by a line through point parallel to segment (2d crease pattern)
+    splitParallel2d(s, point) {
+        const dx = s.p2.xf - s.p1.xf, dy = s.p2.yf - s.p1.yf;
+        if (dx === 0 && dy === 0) return;
+        this.splitAllFacesByLine2d(point, {xf: point.xf + dx, yf: point.yf + dy});
+    }
+
+    // Split faces by a plane through point parallel to segment (3d)
+    splitParallel3d(s, point) {
+        this.splitAllFacesByPlane3d(Plane.parallel(s.p1, s.p2, point));
+    }
+
     // Split faces by a plane between two lines [ab] [cd]
     bisector3d(a, b, c, d) {
         const {p, q} = Segment.closestSegment(a, b, c, d);
