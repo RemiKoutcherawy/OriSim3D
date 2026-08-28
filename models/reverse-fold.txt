@@ -1,0 +1,21 @@
+// Inside reverse fold
+// A narrow "leg" (the top part of a tall rectangle) is first folded
+// outward at a hinge (p4-p5), then a second, higher crease (p6-p7) is
+// added across it. Reversing that second crease by a large angle flips
+// the tip back past the first hinge instead of away from it - the same
+// move used to tuck a crane's head or a bird's foot inward.
+define 60 200
+textures
+across2d p0 p3
+split s3 0.5
+perpendicular3d s5 p6
+// Fold the leg outward at the first hinge
+t 400 r s6 70 p2 p3 p6 p7
+// Reverse the tip at the second crease: it flips back the other way
+t 500 r s9 -160 p2 p3
+// Show
+iao
+t 1000 z 0.5 0 0
+t 1000 fit
+iao
+t 1000 ty 360

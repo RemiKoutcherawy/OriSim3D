@@ -1,0 +1,20 @@
+// Petal fold
+// Fold the square in half to get a symmetric kite (base = diagonal p1-p3,
+// apex p2 on the axis of symmetry). Two valley creases, one from each
+// base corner, bring the side edges in to meet on the axis; closing them
+// lifts the apex p2 up like an opening petal.
+define 200 200
+textures
+by2d p1 p3
+// Two angle bisectors from the base corners, meeting on the axis of symmetry
+bisector2d s4 s1
+bisector2d s4 s2
+// Close the creases: the sides come together and the apex p2 lifts
+t 500 r s6 110 p1 p2 p6
+t 400 r s9 70 p1
+// Show
+iao
+t 1000 z 0.5 0 0
+t 1000 fit
+iao
+t 1000 ty 360

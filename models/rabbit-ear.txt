@@ -1,0 +1,20 @@
+// Rabbit ear fold
+// Take the corner triangle of the square (base = diagonal p0-p2, apex =
+// the free corner p1). Two valley creases, one from each base corner,
+// bisect the angle there and meet at an interior point; closing both
+// pinches the apex up into a thin standing "ear".
+define 200 200
+textures
+by2d p0 p2
+// Two angle bisectors from the base corners, meeting inside the triangle
+bisector2d s4 s0
+bisector2d s4 s1
+// Close the creases: the flap narrows and the apex p1 lifts into an ear
+t 500 r s6 100 p0 p1 p6
+t 400 r s9 60 p0
+// Show
+iao
+t 1000 z 0.5 0 0
+t 1000 fit
+iao
+t 1000 ty 360
