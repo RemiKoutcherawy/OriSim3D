@@ -1,0 +1,28 @@
+// Inside and outside reverse folds on a protruding flap
+d 200 200
+iad
+by2d p0 p2
+bisector2d s1 s4
+bisector2d s2 s4
+offset -1 f1
+t 400 r s6 -180 p1
+offset -1 f3
+t 400 r s8 180 p3
+split s4 0.5
+perpendicular3d s4 p6
+offset 1 f2
+t 500 r s17 -90 p2 p7
+a p2 p7
+// Inside reverse fold
+offset -1 f2
+t 600 r s17 180 p2
+a p2 p7
+t 400 r s17 -180 p2
+a p2 p7
+// Outside reverse fold
+offset 2 f2
+t 600 r s17 180 p2
+a p2 p7
+t 300 fit
+iao
+t 800 ty 360

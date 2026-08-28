@@ -65,6 +65,14 @@
 </button>
 <nav id="nav">
   <details>
+    <summary>Plis de base<span class="chev">›</span></summary>
+    <button type="button" data-load="squash-fold">Squash fold</button>
+    <button type="button" data-load="petal-fold">Petal fold</button>
+    <button type="button" data-load="rabbit-ear-fold">Rabbit-ear fold</button>
+    <button type="button" data-load="reverse-fold">Reverse fold</button>
+  </details>
+
+  <details>
     <summary>Exemples<span class="chev">›</span></summary>
     <button type="button" data-load="cocotte">Cocotte</button>
     <button type="button" data-load="boat">Bateau</button>
@@ -193,11 +201,22 @@
       });
     }
 
-    function load(id) {
+    async function load(id) {
       const nav = document.getElementById('nav');
       nav.style.display = 'none';
       document.getElementById('burger').setAttribute('aria-expanded', 'false');
-      const text = /** @type {HTMLTemplateElement} */ (document.getElementById(id)).content.textContent;
+      const inline = document.getElementById(id);
+      let text;
+      if (inline instanceof HTMLTemplateElement) {
+        text = inline.content.textContent;
+      } else {
+        const res = await fetch(`templates/${id}.txt`);
+        if (!res.ok) {
+          console.error('Template not found:', id);
+          return;
+        }
+        text = await res.text();
+      }
       command.command(text);
       syncToggles();
     }
