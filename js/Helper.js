@@ -94,7 +94,6 @@ export class Helper {
         return this.model.segments.find(s => s.select);
     }
 
-    // Matches View3d.AXIS_AMBER — kept as a literal to avoid a View3d import here
     static FOLD_AMBER = '#e6a817';
 
     // Draw drag preview when down on a point, segment, or face: a filled arrow

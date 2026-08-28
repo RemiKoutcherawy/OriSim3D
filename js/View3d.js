@@ -499,94 +499,71 @@ export class View3d {
         if (!context2d) return;
         context2d.clearRect(0, 0, this.overlay.width, this.overlay.height);
         // Black segments are done by webgl, see this.model.lines
+        // Faces first so their fill/hover outline sits under segment and point highlights.
+        this.drawFaces(this.model.faces);
         this.drawSegments(this.model.segments);
         this.drawPoints(this.model.points);
-        this.drawFaces(this.model.faces);
         if (this.model.labels) {
             this.drawLabels(context2d);
         }
     }
 
     // Draw on overlay. Called from render()
+    // Only selected/hovered points are drawn; selected drawn last (on top).
     drawPoints(points) {
         const context2d = this.context2d;
-        const priority = p => p.select ? 2 : p.hover ? 1 : 0;
-        const ordered = [...points].sort((a, b) => priority(a) - priority(b));
-        for (const p of ordered) {
+        const visible = points.filter(p => p.select || p.hover);
+        visible.sort((a, b) => (a.select ? 1 : 0) - (b.select ? 1 : 0));
+        for (const p of visible) {
             // Circle with color for selected, bigger for hovered
             context2d.beginPath();
             context2d.arc(p.xCanvas, p.yCanvas, p.hover ? 10 : 6, 0, 2 * Math.PI);
-            context2d.fillStyle = p.select ? 'red' : p.hover ? 'blue' : 'skyblue';
+            context2d.fillStyle = p.select ? 'red' : 'blue';
             context2d.fill();
         }
     }
 
-    static AXIS_AMBER = '#e6a817';
-
-    /** Selected fold axis (solid red, like points) or hover candidate (dashed amber). Caps only on solid. */
-    drawAxis(segment, {dashed = false} = {}) {
+    // Stroke a single segment on the overlay: red/width 4 for the fold axis
+    // (and its hover candidate in fold mode), blue/width 6 for a plain hover.
+    strokeSegment(segment, strokeStyle, lineWidth) {
         const context2d = this.context2d;
         const x1 = segment.p1.xCanvas, y1 = segment.p1.yCanvas;
         const x2 = segment.p2.xCanvas, y2 = segment.p2.yCanvas;
         if (x1 == null || x2 == null) return;
-        context2d.save();
-        context2d.strokeStyle = dashed ? View3d.AXIS_AMBER : 'red';
-        context2d.lineWidth = dashed ? 4 : 5;
-        context2d.lineCap = 'round';
-        if (dashed) context2d.setLineDash([8, 6]);
         context2d.beginPath();
         context2d.moveTo(x1, y1);
         context2d.lineTo(x2, y2);
+        context2d.strokeStyle = strokeStyle;
+        context2d.lineWidth = lineWidth;
+        context2d.lineCap = 'round';
         context2d.stroke();
-        if (!dashed) {
-            context2d.setLineDash([]);
-            const dx = x2 - x1, dy = y2 - y1;
-            const len = Math.hypot(dx, dy) || 1;
-            const px = (-dy / len) * 8, py = (dx / len) * 8;
-            context2d.lineWidth = 3;
-            for (const [x, y] of [[x1, y1], [x2, y2]]) {
-                context2d.beginPath();
-                context2d.moveTo(x - px, y - py);
-                context2d.lineTo(x + px, y + py);
-                context2d.stroke();
-            }
-        }
-        context2d.restore();
     }
 
     // Draw on overlay. Called from render()
+    // Only the selected (axis) or hovered segments are drawn.
     drawSegments(segments) {
-        const context2d = this.context2d;
-        const foldMode = this.model.faces.some(f => f.select);
+        // A face being dragged is only .hover (not yet .select) until the fold
+        // commits, so the axis candidate must count that too, or it renders blue.
+        const foldMode = this.model.faces.some(f => f.select || f.hover);
         // Only the first selected segment is the fold axis
         const axis = segments.find(s => s.select);
 
         for (const s of segments) {
-            if (axis && s === axis) continue;
-            if (foldMode) {
-                if (!s.hover) continue;
-                this.drawAxis(s, {dashed: true});
-                continue;
-            }
-            if (!s.hover) continue;
-            context2d.lineWidth = s.hover ? 6 : 3;
-            context2d.beginPath();
-            context2d.moveTo(s.p1.xCanvas, s.p1.yCanvas);
-            context2d.lineTo(s.p2.xCanvas, s.p2.yCanvas);
-            context2d.strokeStyle = s.hover ? 'blue' : 'skyblue';
-            context2d.stroke();
+            if (s === axis || !s.hover) continue;
+            if (foldMode) this.strokeSegment(s, 'red', 4);
+            else this.strokeSegment(s, 'blue', 6);
         }
-        if (axis) this.drawAxis(axis, {dashed: false});
+        if (axis) this.strokeSegment(axis, 'red', 4);
     }
 
     // Draw faces: selected = fill only (no full border — that hid the fold axis).
     // Hover without select still gets a blue outline.
+    // Only selected/hovered faces are drawn; selected drawn last (on top).
     drawFaces(faces) {
         const context2d = this.context2d;
-        const priority = f => f.select ? 2 : f.hover ? 1 : 0;
-        const ordered = [...faces].sort((a, b) => priority(a) - priority(b));
-        for (const f of ordered) {
-            if (!f.select && !f.hover) continue;
+        const visible = faces.filter(f => f.select || f.hover);
+        visible.sort((a, b) => (a.select ? 1 : 0) - (b.select ? 1 : 0));
+        for (const f of visible) {
             const pts = f.points;
             if (!pts || pts.length === 0) continue;
             context2d.beginPath();

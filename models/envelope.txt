@@ -3,8 +3,8 @@
 // then lift the last flap back up to show it as an open envelope.
 d 200 200
 // Crease both diagonals to locate the center
-by3d p0 p2
-by3d p1 p3
+by2d p0 p2
+by2d p1 p3
 // Fold each corner onto the center
 across3d p0 p4
 t 600 r s12 180 p0

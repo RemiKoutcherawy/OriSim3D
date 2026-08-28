@@ -242,8 +242,7 @@ Deno.test("View3d", async (t) => {
       assertEquals(glCalls.includes("drawArrays"), true);
       assertEquals(glCalls.includes("drawElements"), true); // model.lines defaults to true
       assertEquals(ctxCalls.some((c) => c.method === "clearRect"), true);
-      assertEquals(ctxCalls.some((c) => c.method === "fill"), true);
-      assertEquals(ctxCalls.some((c) => c.method === "stroke"), true);
+      assertEquals(ctxCalls.some((c) => c.method === "stroke"), true); // selected segment drawn as axis
     }, overlay);
   });
 
@@ -289,7 +288,7 @@ Deno.test("View3d", async (t) => {
     }, overlay);
   });
 
-  await t.step("drawSegments() in fold mode only draws hover candidate and axis", () => {
+  await t.step("drawSegments() in fold mode draws axis and hover candidate, both as axis style", () => {
     const { ctx, calls } = createMockContext2d();
     const overlay = createMockOverlay(ctx);
     withStubbedDom(() => {
@@ -306,9 +305,31 @@ Deno.test("View3d", async (t) => {
       calls.length = 0;
       view3d.drawSegments(model.segments);
       const strokes = calls.filter((c) => c.method === "stroke");
-      assertEquals(strokes.length > 0, true);
-      assertEquals(strokes.some((c) => c.strokeStyle === "red"), true);
-      assertEquals(strokes.some((c) => c.strokeStyle === View3d.AXIS_AMBER), true);
+      assertEquals(strokes.length, 2); // axis + hover candidate
+      assertEquals(strokes.every((c) => c.strokeStyle === "red"), true);
+    }, overlay);
+  });
+
+  await t.step("drawSegments() treats a hovered (mid-drag) face like a selected one for the axis candidate", () => {
+    const { ctx, calls } = createMockContext2d();
+    const overlay = createMockOverlay(ctx);
+    withStubbedDom(() => {
+      const model = new Model().init(200, 200);
+      const { gl } = createMockGL();
+      const canvas3d = createMockCanvas3d(gl);
+      const view3d = new View3d(model, canvas3d);
+
+      for (const p of model.points) { p.xCanvas = p.xf; p.yCanvas = p.yf; }
+      // Dragging directly off an unselected face only sets .hover, not .select,
+      // until the fold commits — the axis candidate must still render red.
+      model.faces[0].hover = true;
+      model.segments[0].hover = true;
+
+      calls.length = 0;
+      view3d.drawSegments(model.segments);
+      const strokes = calls.filter((c) => c.method === "stroke");
+      assertEquals(strokes.length, 1);
+      assertEquals(strokes[0].strokeStyle, "red");
     }, overlay);
   });
 

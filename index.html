@@ -65,6 +65,20 @@
 </button>
 <nav id="nav">
   <details>
+    <summary>Exemples<span class="chev">›</span></summary>
+    <button type="button" data-load="cocotte">Cocotte</button>
+    <button type="button" data-load="boat">Bateau</button>
+    <button type="button" data-load="test">Test</button>
+  </details>
+
+  <details>
+    <summary>Édition<span class="chev">›</span></summary>
+    <button type="button" data-ui="view2d">Vue 2D</button>
+    <button type="button" data-ui="command-area">Console</button>
+    <button type="button" data-load="labels" data-flag="labels">Labels</button>
+    <button type="button" data-load="textures" data-flag="textures">Textures</button>
+  </details>
+  <details>
     <summary>Fichier<span class="chev">›</span></summary>
     <button type="button" data-load="open">Ouvrir…</button>
     <details>
@@ -74,20 +88,6 @@
       <button type="button" data-load="exportFold">Exporter FOLD</button>
       <button type="button" data-load="exportDiagrams">Exporter diagrammes (SVG)</button>
     </details>
-  </details>
-  <details>
-    <summary>Édition<span class="chev">›</span></summary>
-    <button type="button" data-load="undo">Undo</button>
-    <button type="button" data-load="textures" data-flag="textures">Textures</button>
-    <button type="button" data-load="labels" data-flag="labels">Labels</button>
-    <button type="button" data-ui="command-area">Console</button>
-    <button type="button" data-ui="view2d">Vue 2D</button>
-  </details>
-  <details>
-    <summary>Exemples<span class="chev">›</span></summary>
-    <button type="button" data-load="cocotte">Cocotte</button>
-    <button type="button" data-load="boat">Bateau</button>
-    <button type="button" data-load="test">Test</button>
   </details>
 </nav>
 
@@ -202,7 +202,7 @@
       syncToggles();
     }
 
-    // Chargement du template "test" au lancement
+    // Chargement du template "plane" au lancement
     load('test');
   }
 
@@ -217,19 +217,54 @@
 <template id="labels">labels</template>
 <template id="textures">textures</template>
 <!-- Inline models -->
+<template id="plane">
+  // Paper airplane
+  define 200 200
+  // Center crease
+  across2d p0 p1
+  // Wing creases while the sheet is still flat
+  across2d p4 p1
+  across2d p4 p0
+  // Fold top corners to the center
+  bisector2d s2 s6
+  bisector2d s5 s6
+  offset -1 f0
+  t 200 r s16 -180 p2 p7
+  offset -1 f7
+  t 200 r s20 180 p3 p9
+  // Crease the folded flaps along the future wing line
+  split s15 0.5
+  split s3 0.5
+  by3d p10 p14
+  by3d p12 p15
+  // Fold in half along the center
+  offset 2 f1 f3 f6 f7 f9
+  t 200 r s6 180 p0 p8 p13 p12 p3 p9 p15
+  // Fold both wings down
+  offset -3 f5 f0
+  t 200 r s9 180 p1 p11
+  offset 3 f1 f9
+  t 200 r s17 180 p0 p13
+  // Open the wings to fly
+  t 300 r s9 -90 p1 p11
+  t 300 r s17 -90 p0 p13
+  // Stand the fuselage up, wings toward the camera
+  t 200 ty -90
+  t 200 tx 35
+  t 200 fit
+  // Show
+  iao
+  t 1000 z 0.5 0 0
+  t 1000 fit
+  iao
+  t 1000 ty 360
+</template>
 <template id="test">
   d 200 200
   across2d p1 p2
   across2d p0 p1
   t 100 r s6 -180 p2 p8 p3
   t 100 fit
-  t 100 ty 180
-  t 100 ty -180
-  by3d p1 p6
-  t 100 r s11 180 p2 a p5
-  t 100 r s11 -180 p2 a p5
-  order f0 f5 f4 f1
-  order f3 f2
 </template>
 <template id="cocotte">
   // Cocotte
