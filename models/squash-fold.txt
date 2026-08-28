@@ -22,6 +22,9 @@ by3d p1 p6
 // Fold that centerline crease flat: the apex comes down onto the hinge midpoint
 across3d p1 p6
 t 500 r s12 180 p1
+// The two collapsed wing faces now coincide with the base; offset them
+// forward so the fold stays readable instead of z-fighting
+offset 40 f1 f2
 // Show
 iao
 t 1000 z 0.5 0 0
