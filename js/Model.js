@@ -507,6 +507,7 @@ export class Model {
             const pm = new Vector3(0, 0, 0);
             for (const s of segments) {
                 const lg3d = Segment.length3d(s) / this.scale;
+                if (lg3d === 0) continue;
                 const lg2d = Segment.length2d(s); // Should not change
                 const d = Math.abs(lg2d - lg3d);
                 if (d > max) max = d;

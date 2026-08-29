@@ -9,7 +9,7 @@ import {Face} from "./Face.js";
 // on `this` when 'vertices_coords' (a sibling key) is visited next.
 function reviverFold(key, value) {
     if (key === 'frame_attributes') {
-        this.is3d = (value[0] === '3D');
+        this.is3d = value.includes('3D');
         return value;
     } else if (key === 'vertices_coords') {
         if (this.is3d) {
@@ -110,17 +110,22 @@ export class ReadWrite {
 
     static async writeFold(model, filename = 'OriSim3d.fold') {
         const json = this.toJSONFold(model);
-        if (typeof Deno !== "undefined") {
-            await Deno.writeTextFile(filename, json);
-            return json;
-        }
         if (!filename.endsWith('.fold')) filename = `${filename}.fold`;
-        const data = new Blob([json], { type: "application/json" });
+        await ReadWrite.saveTextFile(json, filename, 'application/json');
+        return json;
+    }
+
+    // Save text content to disk: a real file under Deno, or a browser download otherwise.
+    static async saveTextFile(text, filename, mimeType) {
+        if (typeof Deno !== "undefined") {
+            await Deno.writeTextFile(filename, text);
+            return;
+        }
+        const data = new Blob([text], {type: mimeType});
         const link = document.createElement("a");
         link.setAttribute("download", filename);
         link.setAttribute("href", globalThis.URL.createObjectURL(data));
         link.click();
-        return json;
     }
 
     // Face fill color for SVG export: blue tint on the front (normal z > 0),
@@ -207,15 +212,7 @@ export class ReadWrite {
 </svg>
 `;
         if (!filename.endsWith('.svg')) filename = `${filename}.svg`;
-        if (typeof Deno !== "undefined") {
-            await Deno.writeTextFile(filename, svg);
-        } else {
-            const data = new Blob([svg], {type: 'image/svg+xml'});
-            const link = document.createElement('a');
-            link.setAttribute('download', filename);
-            link.setAttribute('href', globalThis.URL.createObjectURL(data));
-            link.click();
-        }
+        await ReadWrite.saveTextFile(svg, filename, 'image/svg+xml');
         return svg;
     }
 
@@ -257,15 +254,7 @@ export class ReadWrite {
     static async writeDiagrams(models, filename = 'OriSim3d-diagrams.svg') {
         const svg = ReadWrite.diagramsToSVG(models);
         if (!filename.endsWith('.svg')) filename = `${filename}.svg`;
-        if (typeof Deno !== "undefined") {
-            await Deno.writeTextFile(filename, svg);
-        } else {
-            const data = new Blob([svg], {type: 'image/svg+xml'});
-            const link = document.createElement('a');
-            link.setAttribute('download', filename);
-            link.setAttribute('href', globalThis.URL.createObjectURL(data));
-            link.click();
-        }
+        await ReadWrite.saveTextFile(svg, filename, 'image/svg+xml');
         return svg;
     }
 
@@ -399,16 +388,8 @@ export class ReadWrite {
     }
 
     static async writeFile(text, filename = 'OriSim3d.txt') {
-        if (typeof Deno !== "undefined") {
-            await Deno.writeTextFile(filename, text);
-            return;
-        }
         if (!filename.endsWith('.txt')) filename = `${filename}.txt`;
-        const data = new Blob([text], {type: "text/plain"});
-        const link = document.createElement("a");
-        link.setAttribute("download", filename);
-        link.setAttribute("href", globalThis.URL.createObjectURL(data));
-        link.click();
+        await ReadWrite.saveTextFile(text, filename, 'text/plain');
     }
 
 }

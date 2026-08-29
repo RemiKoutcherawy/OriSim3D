@@ -440,7 +440,7 @@ export class Helper {
             // Different face: select Up front only; keep points/segments
             this.upFace.select = true;
         }
-        const ids = this.model.faces.filter(f => f.select).map(f => this.id(f));
+        const ids = this.model.faces.filter(f => f.select).map(f => `${this.id(f)}(${f.offset})`);
         if (ids.length) {
             this.command.command(`// selectFaces ${ids.join(' ')}`);
         }

@@ -235,8 +235,9 @@ export class Command {
         while (iStart < tokenList.length) {
             const token = tokenList[iStart];
             if (token === '\n' || !token || token[0].toLowerCase() !== prefix) break;
-            const n = Number(token.slice(1));
-            if (Number.isNaN(n) || !collection?.[n]) break;
+            if (token.length < 2) break;
+            const n = Number(token.slice(1));        // '' → 0
+            if (Number.isNaN(n) || !collection?.[n]) break;   // 0 n'est pas NaN, collection[0] existe
             list.push(collection[n]);
             iStart++;
         }
@@ -335,6 +336,7 @@ function move(cmd) {
     const dy = Number(cmd.next()) * d;
     const dz = Number(cmd.next()) * d;
     cmd.model.movePoints(dx, dy, dz, cmd.tokens('p'));
+    cmd.model.checkSegments();
 }
 
 function zoom(cmd) {
