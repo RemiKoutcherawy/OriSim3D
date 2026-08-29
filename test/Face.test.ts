@@ -117,3 +117,16 @@ Deno.test("Face", async (t) => {
         },
     );
 });
+
+
+Deno.test("Face.contains2d test inside and outside", () => {
+  const f = new Face([
+    new Point(0, 0),
+    new Point(10, 0),
+    new Point(10, 10),
+    new Point(0, 10),
+  ]);
+  assertEquals(Face.contains2d(f, 5, 5), true);
+  assertEquals(Face.contains2d(f, 15, 5), false);
+  assertEquals(Face.contains2d(f, 0, 0), true);
+});
