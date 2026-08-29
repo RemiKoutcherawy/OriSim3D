@@ -1,0 +1,14 @@
+// Rabbit-ear fold — fold a corner point down between two creases
+d 200 200
+iad
+by2d p0 p2
+offset -1 f1
+t 400 r s4 -180 p1
+bisector2d s0 s4
+bisector2d s1 s4
+offset -1 f1
+t 600 r s6 -180 p2
+a p2 p4 p5 p1
+t 300 fit
+iao
+t 800 ty 360

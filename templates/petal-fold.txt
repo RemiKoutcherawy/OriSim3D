@@ -1,0 +1,21 @@
+// Petal fold — fold both sides of a flap to the center, then flatten
+d 200 200
+iad
+by2d p0 p2
+by2d p1 p3
+across3d p0 p4
+t 300 r s12 180 p0
+across3d p1 p4
+t 300 r s14 180 p1
+across3d p3 p4
+t 300 r s18 180 p3
+offset -1 f7
+t 500 r s16 -180 p2
+offset -1 f9
+t 500 r s20 -180 p2
+offset 1 f7 f9
+t 500 r s13 -180 p2
+a p2 p8 p9 p10 p11
+t 300 fit
+iao
+t 800 ty 360
