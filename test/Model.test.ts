@@ -32,7 +32,7 @@ Deno.test("Model", async (t) => {
         model.addFace([model.points[2], model.points[3]]);
 
         // Deserialize
-        Object.assign(model, model.deserialize(serialized));
+        Object.assign(model, Model.deserialize(serialized));
         assertEquals(model.points.length, 4, "deserialized should have 4 points");
         assertEquals(model.segments.length, 4, "deserialized should have 4 segments");
         assertEquals(model.faces.length, 1, "deserialized   should have 1 face");
@@ -715,6 +715,32 @@ Deno.test("Model", async (t) => {
         // Folded 180 degrees (opposite normal)
         const f4 = new Face([p4, p3, p2, p1]);
         assertEquals(Model.dihedralAngle(f1, f4), 180);
+    });
+    await t.step('Model.signedDihedralAngle', () => {
+        // Flat square face1: a,b,c,d in the z=0 plane (CCW from +z)
+        const a = new Point(0, 0, 0, 0, 0);
+        const b = new Point(1, 0, 1, 0, 0);
+        const c = new Point(1, 1, 1, 1, 0);
+        const d = new Point(0, 1, 0, 1, 0);
+        const face1 = new Face([a, b, c, d]);
+
+        // Shares edge [b, c], outer edge lifted to +z (same side as face1's normal): Mountain
+        const bUp = new Point(2, 0, 2, 0, 1);
+        const cUp = new Point(2, 1, 2, 1, 1);
+        const mountainFace = new Face([b, bUp, cUp, c]);
+        assertEquals(Model.signedDihedralAngle(face1, mountainFace, b, c), -45, 'lifted outer edge is a Mountain (negative)');
+
+        // Same neighbor but outer edge dipped to -z: Valley
+        const bDown = new Point(2, 0, 2, 0, -1);
+        const cDown = new Point(2, 1, 2, 1, -1);
+        const valleyFace = new Face([b, bDown, cDown, c]);
+        assertEquals(Model.signedDihedralAngle(face1, valleyFace, b, c), 45, 'dipped outer edge is a Valley (positive)');
+
+        // Coplanar (unfolded) neighbor: flat
+        const bFlat = new Point(2, 0, 2, 0, 0);
+        const cFlat = new Point(2, 1, 2, 1, 0);
+        const flatFace = new Face([b, bFlat, cFlat, c]);
+        assertEquals(Model.signedDihedralAngle(face1, flatFace, b, c), 0);
     });
     await t.step('Model.incidentFaces', () => {
         const p1 = new Point(0, 0, 0, 0, 0);

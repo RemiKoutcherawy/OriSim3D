@@ -3,6 +3,8 @@
 import {ReadWrite} from "../js/ReadWrite.js";
 import {Model} from "../js/Model.js";
 import {Point} from "../js/Point.js";
+import {Segment} from "../js/Segment.js";
+import {Face} from "../js/Face.js";
 import {Command, replaySteps} from "../js/Command.js";
 import {assertEquals} from "@std/assert";
 
@@ -240,6 +242,53 @@ Deno.test("ReadWrite", async (t) => {
         assertEquals(model.segments[0].assignment, 'M');
         assertEquals(model.segments[1].assignment, 'U', 'invalid assignment falls back to U');
         assertEquals(model.segments[2].assignment, 'U', 'missing assignment falls back to U');
+    });
+
+    await t.step('toJSONFold round-trips a folded (non-flat) model without flattening it', () => {
+        const model = new Model().init(200, 200);
+        // Simulate a fold: lift one point off the z=0 plane
+        model.points[0].z = 50;
+        const json = ReadWrite.toJSONFold(model);
+        const parsedFold = JSON.parse(json);
+        assertEquals(parsedFold.frame_attributes, ['3D'], 'flags the frame as 3D');
+        assertEquals(parsedFold.vertices_coords[0].length, 3, 'writes x,y,z triples, not xf,yf pairs');
+
+        const reloaded = ReadWrite.jsonFoldToModel(json);
+        assertEquals(reloaded.points.some((p) => p.z !== 0), true, 'folded model stays 3D after a round-trip');
+    });
+
+    await t.step('toJSONFold infers Mountain/Valley from geometry when a crease has no explicit assignment', () => {
+        // Flat square face1: a,b,c,d in the z=0 plane (CCW from +z)
+        const a = new Point(0, 0, 0, 0, 0);
+        const b = new Point(1, 0, 1, 0, 0);
+        const c = new Point(1, 1, 1, 1, 0);
+        const d = new Point(0, 1, 0, 1, 0);
+        // face2 shares crease [b, c], its outer edge lifted to +z: a Mountain fold
+        const bUp = new Point(2, 0, 2, 0, 1);
+        const cUp = new Point(2, 1, 2, 1, 1);
+
+        const model = new Model();
+        model.points = [a, b, c, d, bUp, cUp];
+        const crease = new Segment(b, c); // left as 'U': assignment must come from geometry
+        model.segments = [
+            new Segment(a, b), crease, new Segment(c, d), new Segment(d, a),
+            new Segment(b, bUp), new Segment(bUp, cUp), new Segment(cUp, c),
+        ];
+        model.faces = [new Face([a, b, c, d]), new Face([b, bUp, cUp, c])];
+
+        const json = ReadWrite.toJSONFold(model);
+        const fold = JSON.parse(json);
+        const creaseIndex = model.segments.indexOf(crease);
+        assertEquals(fold.edges_assignment[creaseIndex], 'M', 'lifted outer edge infers a Mountain fold');
+        assertEquals(fold.edges_assignment[0], 'B', 'single-face edges stay boundary');
+    });
+
+    await t.step('toJSONFold keeps a flat model as 2D (no frame_attributes, xf/yf pairs)', () => {
+        const model = new Model().init(200, 200);
+        const json = ReadWrite.toJSONFold(model);
+        const parsedFold = JSON.parse(json);
+        assertEquals(parsedFold.frame_attributes, undefined, 'flat model has no 3D flag');
+        assertEquals(parsedFold.vertices_coords[0].length, 2, 'flat model still writes xf,yf pairs');
     });
 
     await t.step('jsonFoldToModel reads real M/V/B assignment from models/box.fold', async () => {

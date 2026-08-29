@@ -58,11 +58,6 @@ Deno.test("Face", async (t) => {
         assertEquals(d, 10000, "distance to point (100,0) on the right should be > 0");
     });
 
-    await t.step("area3d", () => {
-        const area = Face.area3d(face.points);
-        assertEquals(area, 200 * 200, "Area3d should be 200 * 200");
-    });
-
     await t.step(
         "intersectionPlaneSegment should return intersection point when segment intersects plane",
         () => {

@@ -260,7 +260,7 @@ export class Command {
         }
         const snapshot = this.done.pop();
         if (typeof snapshot === 'string') {
-            Object.assign(this.model, this.model.deserialize(snapshot));
+            Object.assign(this.model, Model.deserialize(snapshot));
         } else if (snapshot?.state === State.anim) {
             this.model.state = State.anim;
             if (snapshot.coords) {

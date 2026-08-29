@@ -388,7 +388,7 @@ export class View3d {
         // Lines buffer, contour built per face above
         if (!this.linBuffer) {this.linBuffer = gl.createBuffer();}
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.lin), gl.STATIC_DRAW);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(this.lin), gl.STATIC_DRAW);
 
         // uniform flag for lines
         gl.uniform1i(gl.getUniformLocation(gl.program, 'uLine'), 0);
@@ -489,7 +489,7 @@ export class View3d {
             gl.uniform1i(uLine, 1); // Draw lines in black
             gl.disable(gl.DEPTH_TEST);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
-            gl.drawElements(gl.LINES, this.lin.length, gl.UNSIGNED_SHORT, 0);
+            gl.drawElements(gl.LINES, this.lin.length, gl.UNSIGNED_INT, 0);
             gl.enable(gl.DEPTH_TEST);
             gl.uniform1i(uLine, 0); // Back to normal
         }

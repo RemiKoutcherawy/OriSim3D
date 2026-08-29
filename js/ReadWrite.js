@@ -271,10 +271,10 @@ export class ReadWrite {
 
     static toJSONFold(model) {
         const points = model.points;
+        const is3d = points.some((p) => p.z !== 0);
         const vertices_coords = [];
         points.forEach((p) => {
-            const xy = [p.xf, p.yf];
-            vertices_coords.push(xy);
+            vertices_coords.push(is3d ? [p.x, p.y, p.z] : [p.xf, p.yf]);
         })
         const segments = model.segments;
         const edges_vertices = [];
@@ -289,7 +289,22 @@ export class ReadWrite {
                 return;
             }
             const faces = model.searchFacesWithAB(s.p1, s.p2);
-            edges_assignment.push(faces.length === 1 ? "B" : "F");
+            if (faces.length !== 2) {
+                edges_assignment.push(faces.length === 1 ? "B" : "F");
+                return;
+            }
+            // Only a folded (3D) model carries real dihedral-angle information;
+            // a flat crease pattern has all faces coplanar, so it's always "F".
+            if (!is3d) {
+                edges_assignment.push("F");
+                return;
+            }
+            const angle = Model.signedDihedralAngle(faces[0], faces[1], s.p1, s.p2);
+            if (Math.abs(angle) < 1) {
+                edges_assignment.push("F");
+            } else {
+                edges_assignment.push(angle < 0 ? "M" : "V");
+            }
         });
         const faces = model.faces;
         const faces_vertices = [];
@@ -319,6 +334,7 @@ export class ReadWrite {
             file_creator: "OriSim3D",
             file_classes: ["singleModel"],
             frame_classes: ["creasePattern"],
+            ...(is3d && {frame_attributes: ["3D"]}),
             vertices_coords: vertices_coords,
             edges_vertices: edges_vertices,
             edges_assignment: edges_assignment,

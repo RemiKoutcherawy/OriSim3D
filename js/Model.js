@@ -738,7 +738,7 @@ export class Model {
     }
 
     // Deserialize the model, revive objects, and return a new model
-    deserialize(json) {
+    static deserialize(json) {
         const data = typeof json === 'string' ? JSON.parse(json) : json;
         const model = new Model();
         Object.assign(model, data);
@@ -760,10 +760,6 @@ export class Model {
             });
         }
         return model;
-    }
-
-    static deserialize(json) {
-        return new Model().deserialize(json);
     }
 
     // Get a segment from two points
@@ -795,6 +791,38 @@ export class Model {
         const n2 = Model.normal(face2);
         const dot = Math.max(-1, Math.min(1, n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2]));
         return Math.round(Math.acos(dot) * 180 / Math.PI);
+    }
+
+    // Signed dihedral angle in degrees between two faces sharing edge [a, b], in the
+    // FOLD edges_foldAngle convention: 0 flat, negative Mountain, positive Valley.
+    // The shared edge is oriented by face1's own vertex winding (n1 x n2 is parallel
+    // to that edge, so its projection on the edge direction gives sin(angle) with a
+    // sign consistent with which way face2 folds relative to face1).
+    static signedDihedralAngle(face1, face2, a, b) {
+        const edgeDir = Model.#edgeDirection(face1, a, b);
+        if (!edgeDir) return 0;
+        const n1 = Model.normal(face1);
+        const n2 = Model.normal(face2);
+        const cross = [
+            n1[1] * n2[2] - n1[2] * n2[1],
+            n1[2] * n2[0] - n1[0] * n2[2],
+            n1[0] * n2[1] - n1[1] * n2[0],
+        ];
+        const sin = cross[0] * edgeDir.x + cross[1] * edgeDir.y + cross[2] * edgeDir.z;
+        const cos = n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2];
+        return Math.round(Math.atan2(sin, cos) * 180 / Math.PI);
+    }
+
+    // Unit direction of edge [a, b] as traversed by face's own vertex loop (a, b in either order)
+    static #edgeDirection(face, a, b) {
+        const pts = face?.points || [];
+        for (let i = 0; i < pts.length; i++) {
+            const p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+            if ((p0 === a && p1 === b) || (p0 === b && p1 === a)) {
+                return Vector3.normalize(Vector3.sub(p1, p0));
+            }
+        }
+        return null;
     }
 
     /**

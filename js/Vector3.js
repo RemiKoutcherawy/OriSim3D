@@ -6,7 +6,7 @@ export class Vector3 {
         this.z = z;
     }
 
-    // The closest point between point C and segment [A, B] return Vector3 on segment AB
+    // The closest point to C on line (A, B) (unclamped: not restricted to the [A, B] segment)
     static closestPoint(C, A, B) {
         // Vector AB and AC
         const AB = new Vector3(B.x - A.x, B.y - A.y, B.z - A.z);
@@ -20,12 +20,12 @@ export class Vector3 {
 
     // Distance between point C and line [A, B] return number
     static pointLineDistance(C, A, B) {
-        const AC = Vector3.sub(C, A);
-        const BC = Vector3.sub(C, B);
-        const cross = Vector3.cross(AC, BC);
-        const AB = Vector3.sub(B, A);
-        const ab = Vector3.length3d(AB);
-        return ab === 0 ? Vector3.length3d(AC) : Vector3.length3d(cross) / ab;
+        return Vector3.distance(C, Vector3.closestPoint(C, A, B));
+    }
+
+    // Euclidean distance between two points
+    static distance(a, b) {
+        return Vector3.length3d(Vector3.sub(a, b));
     }
 
     static dot(u, v) {
@@ -68,7 +68,8 @@ export class Vector3 {
     static transformMat4(v, m) {
         const x = v.x, y = v.y, z = v.z;
         let w = m[3] * x + m[7] * y + m[11] * z + m[15];
-        w = w || 1;
+        // w = w || 1;
+        if (!Number.isFinite(w) || w === 0) w = 1;
         return new Vector3(
             (m[0] * x + m[4] * y + m[8] * z + m[12]) / w,
             (m[1] * x + m[5] * y + m[9] * z + m[13]) / w,

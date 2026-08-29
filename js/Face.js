@@ -59,15 +59,6 @@ export class Face {
         return undefined;
     }
 
-    // Area 3d x,y,z
-    static area3d(points) {
-        let area = 0;
-        for (let i = 0; i < points.length; i++) {
-            area += points[i].x * points[(i + 1) % points.length].y - points[i].y * points[(i + 1) % points.length].x;
-        }
-        return area / 2;
-    }
-
     // Signed distance in 3d
     static planeToPointSignedDistance(plane, point) {
         // Signed distance from plane(origin, normal) to point

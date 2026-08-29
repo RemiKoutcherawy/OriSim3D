@@ -123,14 +123,15 @@ export class View2d {
         faces.forEach(f => {
             const pts = this.getFaceVerticesCCW(f);
             if (!pts || pts.length === 0) return;
-            let [cx, cy] = [0, 0];
+            let [cx, cy] = [pts[0].xf, -pts[0].yf];
             context2d.beginPath();
             context2d.moveTo(pts[0].xf, -pts[0].yf);
-            pts.forEach(p => {
+            for (let i = 1; i < pts.length; i++) {
+                const p = pts[i];
                 context2d.lineTo(p.xf, -p.yf);
                 cx += p.xf;
                 cy += -p.yf;
-            });
+            }
             context2d.closePath();
             context2d.fillStyle = f.hover ? 'lightcyan' : f.select ? 'pink' : 'lightblue';
             context2d.fill();

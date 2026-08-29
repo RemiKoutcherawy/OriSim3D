@@ -143,8 +143,7 @@ export class Segment {
     // 3d distance from segment to segment
     static distanceToSegment(A, B, C, D) {
         const {p, q} = Segment.closestSegment(A, B, C, D);
-        const pq = new Vector3(q.x - p.x, q.y - p.y, q.z - p.z);
-        return Vector3.length3d(pq);
+        return Vector3.distance(p, q);
     }
 
     // Closest points between line [A, B] and line [C, D] return {p, q}
@@ -188,7 +187,7 @@ export class Segment {
                     const denominator = a * e - b * b; // Denominator of cramer system
                     // Segments not parallel, compute closest
                     if (denominator !== 0) {
-                        s = (b * f - c * e) / denominator
+                        s = (b * f - c * e) / denominator;
                         s = Math.max(0, Math.min(1, s));
                     } else {
                         // Arbitrary point, here 0 => p1
