@@ -24,11 +24,16 @@
     body.command-area-open #commandAreaPanel{display:flex}
     #commandAreaPanel label{font:14px sans-serif;margin-bottom:4px}
     #commandArea{flex:1;width:100%;font:14px monospace;resize:none}
-    #burger,#nav,#undoBtn{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #burger,#nav,#undoBtn,#runBtn,#stepBtn{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
     #burger{top:8px;padding:8px;line-height:0;cursor:pointer}
     #burger:hover{background:#eef1f4}
     #undoBtn{top:8px;left:54px;padding:8px;line-height:0;cursor:pointer}
     #undoBtn:hover{background:#eef1f4}
+    #runBtn{top:8px;left:100px;padding:8px;line-height:0;cursor:pointer}
+    #runBtn:hover{background:#eef1f4}
+    #stepBtn{top:8px;left:146px;padding:8px;line-height:0;cursor:pointer}
+    #stepBtn:hover{background:#eef1f4}
+    #stepBtn.active{background:#e6a817}
     #burger span{display:block;width:22px;height:2px;margin:4px 0;background:#1f2328;transition:.15s}
     #burger[aria-expanded="true"] span:first-child{transform:translateY(6px) rotate(45deg)}
     #burger[aria-expanded="true"] span:nth-child(2){opacity:0}
@@ -62,6 +67,12 @@
 </button>
 <button id="undoBtn" data-load="undo" aria-label="Undo">
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 1 1 0 11H11"/></svg>
+</button>
+<button id="runBtn" data-load="run" aria-label="Run" title="Run: resumes normal auto-play after Step has paused the script.">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>
+</button>
+<button id="stepBtn" aria-label="Step" title="Step: pauses the script, then advances one line per click. Click Run to resume.">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l10-8z"/><line x1="18" y1="4" x2="18" y2="20"/></svg>
 </button>
 <nav id="nav">
   <details>
@@ -155,9 +166,23 @@
       }
       view3d.render();
       helper.draw();
+      document.getElementById('stepBtn').classList.toggle('active', command.stepMode);
       requestAnimationFrame(loop);
     }
     loop();
+
+    // Step-by-step debug: first click arms step mode (queued lines pause
+    // instead of auto-running); each further click advances one script line.
+    // Type "run" in the console to resume normal auto-play.
+    document.getElementById('stepBtn').addEventListener('click', () => {
+      command.stepMode = true;
+      if (command.stepLine()) {
+        // loop() only rebuilds the WebGL buffers when command.anim() reports
+        // it advanced something; stepLine() always ends paused, so do it here.
+        view3d.initBuffers();
+        view3d.initModelView();
+      }
+    });
 
     // Add button actions
     document.querySelectorAll('button[data-load]').forEach(btn => {
@@ -234,12 +259,15 @@
 <template id="exportFold">fold</template>
 <template id="exportDiagrams">diagrams</template>
 <template id="undo">undo</template>
+<template id="run">run</template>
 <template id="labels">labels</template>
 <template id="textures">textures</template>
 
 <!-- Inline models -->
 <template id="test">
   d 200 200
+  z 0.5
+  check
 </template>
 
 <template id="plane">
@@ -294,7 +322,7 @@
   iad
   t 100 ty 180
   // Fold one corner
-  offset 1 F13 F14 F30 F31
+  offset 1 f13 f14 f30 f31
   t 100 r s54 -180 p3 p17 p19
   t 100 ty 180
   // Fold from top

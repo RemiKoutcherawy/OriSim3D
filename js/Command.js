@@ -24,6 +24,9 @@ export class Command {
     tStart = 0;
     // Eventual CommandArea
     commandArea;
+    // When true, newly queued instructions pause instead of auto-running, so the
+    // step-by-step debug button can advance them one line at a time.
+    stepMode = false;
     // Optional 3D view (for svg export and other view-dependent commands)
     /** @type {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} */
     view3d;
@@ -56,6 +59,7 @@ export class Command {
             return this;
         } else if (tokens[0] === 'run') {
             this.model.state = State.run;
+            this.stepMode = false;
             return this;
         }
         // A new instruction must leave undo, otherwise anim() keeps calling runUndo
@@ -64,7 +68,38 @@ export class Command {
             this.model.state = State.run;
         }
         this.tokenTodo.push(...tokens);
+        if (this.stepMode) {
+            this.model.state = State.pause;
+        }
         return this;
+    }
+
+    // Execute exactly one already-queued script line, instantly settling any
+    // animated ('t ...') command in it, then pause. Used by the step-by-step
+    // debug button so a bad line can be spotted visually, one line at a time.
+    stepLine() {
+        if (this.model.state === State.pause) {
+            this.model.state = State.run;
+        }
+        let advanced = false;
+        while (this.model.state === State.anim || this.iToken < this.tokenTodo.length) {
+            if (this.model.state === State.anim) {
+                this.tStart = performance.now() - this.duration - 1; // force tn >= 1
+                this.runAnim();
+                advanced = true;
+                continue;
+            }
+            const wasNewline = this.peek() === '\n';
+            if (!this.runNext()) break;
+            advanced = true;
+            if (wasNewline) break;
+        }
+        this.model.state = State.pause;
+        return advanced;
+    }
+
+    isPaused() {
+        return this.model.state === State.pause;
     }
 
     // Tokenize, split the input String in Array of String
@@ -166,7 +201,7 @@ export class Command {
             this.model.state = State.undo;
             return true;
         }
-        this.model.state = State.run;
+        this.model.state = this.stepMode ? State.pause : State.run;
         return true;
     }
 

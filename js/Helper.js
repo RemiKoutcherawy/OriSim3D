@@ -216,7 +216,7 @@ export class Helper {
     }
 
     logSelectedSegments() {
-        const ids = this.model.segments.filter(s => s.select).map(s => this.id(s));
+        const ids = this.model.segments.filter(s => s.select).map(s => `${this.id(s)}(${Math.round(Segment.length2d(s))},${Math.round(Segment.length3d(s) / this.model.scale)})`);
         if (ids.length) {
             this.command.command(`// selectSegments ${ids.join(' ')}`);
         }

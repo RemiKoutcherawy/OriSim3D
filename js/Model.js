@@ -506,7 +506,7 @@ export class Model {
             // Pm is the medium point
             const pm = new Vector3(0, 0, 0);
             for (const s of segments) {
-                const lg3d = Segment.length3d(s) / this.scale;
+                const lg3d = Segment.length3d(s); // Should be divided by this.scale
                 if (lg3d === 0) continue;
                 const lg2d = Segment.length2d(s); // Should not change
                 const d = Math.abs(lg2d - lg3d);
@@ -638,8 +638,11 @@ export class Model {
         this.rotate(s, angle, this.points);
     }
 
-    // Zoom model
+    // Zoom model. Scales 3D distances by `scale`, so the 2d/3d comparison in
+    // adjust()/checkSegments() (which divides length3d by this.scale) must be
+    // kept in sync, the same way scaleModel() does.
     zoom(scale, x = 0, y = 0) {
+        this.scale *= scale;
         this.points.forEach((p) => {
             p.x = x + (p.x - x) * scale;
             p.y = y + (p.y - y) * scale;

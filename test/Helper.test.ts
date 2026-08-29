@@ -205,7 +205,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.down([], [s0], [], 0, 0);
     helper.up([], [s0], []);
     assertEquals(s0.select, true);
-    assertEquals(cmds[0], "// selectSegments s0");
+    assertEquals(cmds[0], `// selectSegments s0(${Math.round(Segment.length2d(s0))},${Math.round(Segment.length3d(s0))})`);
 
     cmds.length = 0;
     helper.down([], [s0], [], 0, 0);
@@ -227,7 +227,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.up([], stack, []);
     assertEquals(s0.select, true);
     assertEquals(sExtra.select, true);
-    assertEquals(cmds[0], `// selectSegments ${helper.id(s0)} ${helper.id(sExtra)}`);
+    assertEquals(cmds[0], `// selectSegments ${helper.id(s0)}(${Math.round(Segment.length2d(s0))},${Math.round(Segment.length3d(s0))}) ${helper.id(sExtra)}(${Math.round(Segment.length2d(sExtra))},${Math.round(Segment.length3d(sExtra))})`);
   });
 
   await t.step("click on stacked faces selects all of them, toggles off, and logs ids", () => {
@@ -243,7 +243,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.up([], [], stack);
     assertEquals(f0.select, true);
     assertEquals(f1.select, true);
-    assertEquals(cmds[0], `// selectFaces ${helper.id(f0)} ${helper.id(f1)}`);
+    assertEquals(cmds[0], `// selectFaces ${helper.id(f0)}(${f0.offset}) ${helper.id(f1)}(${f1.offset})`);
 
     cmds.length = 0;
     helper.down([], [], stack, 0, 0);
@@ -280,7 +280,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(f0.select, false);
     assertEquals(model.points[0].select, true);
     assertEquals(model.segments[0].select, true);
-    assertEquals(cmds[0], "// selectFaces f1");
+    assertEquals(cmds[0], `// selectFaces f1(${f1.offset})`);
   });
 
   await t.step("empty click clears selection", () => {
