@@ -1,7 +1,5 @@
 // Paper airplane
-define 200 280
-textures
-iad
+define 200 200
 // Center crease
 across2d p0 p1
 // Wing creases while the sheet is still flat
@@ -9,7 +7,7 @@ across2d p4 p1
 across2d p4 p0
 // Fold top corners to the center
 bisector2d s2 s6
-bisector2d s5 s6
+bisector2d s11 s6
 offset -1 f0
 t 200 r s16 -180 p2 p7
 offset -1 f7
@@ -32,11 +30,5 @@ t 300 r s9 -90 p1 p11
 t 300 r s17 -90 p0 p13
 // Stand the fuselage up, wings toward the camera
 t 200 ty -90
-t 200 tx 35
+t 200 tx -35
 t 200 fit
-// Show
-iao
-t 1000 z 0.5 0 0
-t 1000 fit
-iao
-t 1000 ty 360

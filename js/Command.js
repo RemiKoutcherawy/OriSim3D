@@ -57,6 +57,17 @@ export class Command {
             this.model.state = State.run;
             this.stepMode = false;
             return this;
+        } else if (tokens[0] === 'stop') {
+            // Typed directly into the command area: same effect as the 'stop' command
+            // below, but takes effect immediately instead of waiting behind whatever is
+            // still queued (e.g. the rest of a loaded script after stepping partway
+            // through it), so the next line typed runs in its place instead of after it.
+            // Unlike 'd', this keeps the model and undo history exactly as they are: it
+            // only drops the pending queue. Does not affect an animation already in
+            // progress ('t ...'); step through with the Step button to a clean line
+            // boundary first.
+            this.tokenTodo.length = this.iToken;
+            return this;
         }
         // A new instruction must leave undo, otherwise anim() keeps calling runUndo
         // and tokenTodo is never consumed (mouse / commandArea look "dead").
@@ -212,8 +223,9 @@ export class Command {
         for (let i = 1; i <= steps; i++) {
             this.tni = this.tpi + (targetTni - this.tpi) * i / steps;
             this.iToken = iBeginAnim;
+            const recordUndo = i === steps;
             while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {
-                this.execute(this.iToken);
+                this.execute(this.iToken, recordUndo);
             }
             this.tpi = this.tni;
         }
@@ -240,8 +252,10 @@ export class Command {
         }
     }
 
-    // Execute one instruction from tokenTodo starting at idx on the model
-    execute(idx) {
+    // Execute one instruction from tokenTodo starting at idx on the model.
+    // pushUndo defaults to true (every non-animated call site wants a snapshot);
+    // runAnim() passes false for all but an animated line's last real-frame substep.
+    execute(idx, pushUndo = true) {
         this.iToken = idx;
         const token = this.next();
         const command = COMMANDS[token];
@@ -250,7 +264,7 @@ export class Command {
         } else if (token !== '\n') {
             this.skipUnexpected();
         }
-        this.pushUndo();
+        if (pushUndo) this.pushUndo();
     }
 
     skipUnexpected() {
@@ -450,6 +464,10 @@ function help(cmd) {
 
 on('d define', define);
 on('pause', (cmd) => { cmd.model.state = State.pause; });
+// Breakpoint: when a script (loaded as one block, e.g. from a template) reaches this
+// token, discard everything still queued after it — the rest of that script never runs
+// — so lines typed next in the command area take over from here instead of after it.
+on('stop', (cmd) => { cmd.tokenTodo.length = cmd.iToken; });
 
 on('by by3d', (cmd) => take(cmd, 'p', 2, 'by3d needs 2 points', (a, b) => cmd.model.splitBy3d(a, b)));
 on('by2d', (cmd) => take(cmd, 'p', 2, 'by2d needs 2 points', (a, b) => cmd.model.splitBy2d(a, b)));

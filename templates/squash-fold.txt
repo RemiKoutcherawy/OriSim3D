@@ -7,5 +7,16 @@ t 500 r s6 -180 p3 p8 p2
 c3d p0 p1
 by3d p6 p1
 o -10 f1
+t 500 fit
 t 1000 r s9 -180 p2 a p5
+pause
 check
+// Square base
+d 200 200
+by2d p0 p2 by2d p1 p3
+c2d p0 p1 c2d p1 p2
+t 500 r s11 -180 p1 r s15 -180 p3 a p5 p2 p7
+t 500 r s6 -90 p7 r s7 -90 p5 a p2
+t 500 fit
+b3d s4 s11
+t 500 r s4 -180 p11 a p7

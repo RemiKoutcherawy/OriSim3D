@@ -325,6 +325,28 @@ Deno.test('Command', async (t) => {
         assertEquals(animSnapshot.coords.length, m.points.length * 3);
     });
 
+    await t.step('one real animation frame pushes exactly one undo snapshot, however many substeps it took', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('d 200 200').anim();
+        assertEquals(cmd.done.length, 1);
+
+        const clock = installClock(0);
+        try {
+            cmd.command('t 100 rotate S0 90 P2 P3');
+            cmd.anim(); // runNext: pushes pre-animation snapshot, enters State.anim
+            assertEquals(cmd.done.length, 2);
+
+            // A single real frame covering 90% of the duration in one jump forces
+            // runAnim()'s substep loop to run dozens of substeps internally.
+            clock.now = 90;
+            cmd.anim();
+            assertEquals(cmd.done.length, 3, 'one real frame must push exactly one undo snapshot');
+        } finally {
+            clock.restore();
+        }
+    });
+
     await t.step('command t 10 rotate S0 90 P2 P3', () => {
         cde.command('t 10 rotate S0 90 P2 P3');
         while(cde.anim()) {/* wait for animation to finish */}
@@ -553,6 +575,42 @@ Deno.test('Command', async (t) => {
         assertEquals(cde.anim(), false);
         cde.command('run');
         assertEquals(model.state, State.run);
+    });
+
+    await t.step('stop discards the not-yet-executed tail of the queue', () => {
+        cde.command('d 200 200').anim();
+        // Queue three instructions but only let the first one run.
+        cde.command('by2d p0 p2\nby2d p1 p3\nc2d p0 p1');
+        cde.anim();
+        const consumed = cde.iToken;
+        assertEquals(consumed > 0, true);
+        assertEquals(cde.tokenTodo.length > consumed, true);
+
+        cde.command('stop');
+        assertEquals(cde.tokenTodo.length, consumed);
+        assertEquals(cde.iToken, consumed);
+        assertEquals(cde.anim(), false); // nothing left queued to run
+
+        // A freshly typed instruction runs normally, unaffected by the discarded tail.
+        const facesBefore = model.faces.length;
+        cde.command('c2d p1 p2');
+        cde.anim();
+        assertEquals(model.faces.length > facesBefore, true);
+    });
+
+    await t.step('stop as a token embedded in a loaded script halts it there', () => {
+        // Simulates a whole template loaded in one command() call (e.g. from index.html)
+        // with a 'stop' line inserted partway through, as a breakpoint.
+        cde.command('d 200 200\nstop\nby2d p0 p2\nby2d p1 p3\nc2d p0 p1');
+        let guard = 0;
+        while (cde.anim() && guard < 100) guard++;
+        assertEquals(cde.iToken, cde.tokenTodo.length); // nothing left queued
+        assertEquals(model.points.length, 4); // creases after 'stop' never ran
+
+        const facesBefore = model.faces.length;
+        cde.command('c2d p1 p2');
+        cde.anim();
+        assertEquals(model.faces.length > facesBefore, true);
     });
 
     // execute one instruction directly from tokenTodo

@@ -1,0 +1,21 @@
+// Plane
+  define 200 300
+  fit
+  c2d p0 p1
+  b2d s2 s6 b2d s5 s6
+  o -1 f0 f3
+  t 500 r s10 180 p3 r s8 -180 p2
+  b3d s8 s2 b3d s10 s2
+  o -1 f1 f3
+  t 500 r s18 -180 p7
+  o -1 f0 f2
+  t 500 r s12 -180 p6
+  o -1 f7 f1 f3 f6
+  t 500 r s6 -180 p0 p11 p10
+  b3d s6 s12
+  t 500 r s20 -90 p0 p11 p10
+  t 500 r s26 -90 p9 p8 p1
+  // Show
+  t 500 fit
+  t 500 tz 45
+  t 500 ty 45
