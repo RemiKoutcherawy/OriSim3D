@@ -63,6 +63,7 @@ export class Model {
         this.faces.push(new Face([p0, p1, p2, p3]));
         // State run
         this.state = State.run;
+        this.scale = 1;
         // Options
         this.labels = false;
         this.textures = false;
@@ -278,7 +279,7 @@ export class Model {
                 if (inter === undefined) return;
                 // Origami: lift 2d intersection onto the 3d crease
                 Point.align3dFrom2d(last, current, inter);
-                this.addIntersectionPoint(inter, left, right, last, current);
+                this.addIntersectionPoint(inter, left, right, last, current, face);
                 (currSide < 0 ? left : right).push(current);
             }
             last = current;
@@ -291,7 +292,7 @@ export class Model {
         }
     }
 
-    addIntersectionPoint(inter, left, right, last, current) {
+    addIntersectionPoint(inter, left, right, last, current, face) {
         // Add intersection to both sides
         inter = this.addPoint(inter.xf, inter.yf, inter.x, inter.y, inter.z);
         left.push(inter);
@@ -299,6 +300,21 @@ export class Model {
         // Set Segment [last,current] to [last,inter]
         const segment = this.getSegment(last, current);
         if (segment) {
+            // When splitting a single face, any other face sharing this edge must also
+            // gain the point, or its polygon goes out of sync with the segment we're
+            // about to cut in two (a "T-junction"). Do this before splitting the
+            // segment, while it still connects last directly to current.
+            for (const sibling of Model.incidentFaces(this, segment)) {
+                if (sibling === face || sibling.points.includes(inter)) continue;
+                const pts = sibling.points;
+                for (let i = 0; i < pts.length; i++) {
+                    const next = pts[(i + 1) % pts.length];
+                    if ((pts[i] === last && next === current) || (pts[i] === current && next === last)) {
+                        pts.splice(i + 1, 0, inter);
+                        break;
+                    }
+                }
+            }
             Model.splitSegment(segment, last, inter);
             this.addSegment(inter, current);
         }
@@ -362,6 +378,28 @@ export class Model {
             new Point(a.xf + dx, a.yf + dy),
             new Point(b.xf - dx, b.yf - dy),
         );
+    }
+
+    // Split a single face by the line through a,b, extended just far enough to clear that
+    // face (unlike splitAllFacesByLine2d's fixed 1000x, which mixes huge and tiny magnitudes
+    // and can lose intersections to floating-point noise when the line grazes a vertex).
+    splitFaceByLine2d(face, a, b) {
+        const dx = b.xf - a.xf, dy = b.yf - a.yf;
+        const len = Math.hypot(dx, dy);
+        if (len === 0) return;
+        const reach = face.points.reduce((m, p) => Math.max(m, Point.distance2d(a, p)), 0) + 1;
+        const k = reach / len;
+        this.splitFaceBySegment2d(face,
+            new Point(a.xf - dx * k, a.yf - dy * k),
+            new Point(a.xf + dx * k, a.yf + dy * k),
+        );
+    }
+
+    // Find the face where b is a vertex adjacent to both a and c (edges [b,a] and [b,c])
+    faceAtVertex(a, b, c) {
+        const facesA = this.searchFacesWithAB(b, a);
+        const facesC = this.searchFacesWithAB(b, c);
+        return facesA.find((f) => facesC.includes(f));
     }
 
     // Split faces across two points in 3d
@@ -458,16 +496,25 @@ export class Model {
         this.splitAllFacesByPlane3d(Plane.across(a, e));
     }
 
-    // Split faces by a line between three points: A, B, C.
+    // Split the face at vertex b (adjacent to a and c) by the bisector of angle a-b-c.
+    // Falls back to splitting every face crossed by the bisector line when b isn't an
+    // existing vertex shared by a single face (e.g. two segments whose lines cross
+    // without the crossing point being an actual model vertex).
     bisector2dPoints(a, b, c) {
-        // Two vectors from b to a and c
-        const v1n = Point.normalise({xf: b.xf - a.xf, yf: b.yf - a.yf});
-        const v2n = Point.normalise({xf: b.xf - c.xf, yf: b.yf - c.yf});
-        // Two points from b aligned on ba and bc
-        const p = {xf: b.xf + v1n.xf * 10, yf: b.yf + v1n.yf * 10};
-        const q = {xf: b.xf + v2n.xf * 10, yf: b.yf + v2n.yf * 10};
-        // Middle intersection
-        this.splitAllFacesByLine2d(b, {xf: (p.xf + q.xf) / 2, yf: (p.yf + q.yf) / 2});
+        // Two unit vectors from b towards a and c
+        const v1n = Point.normalise({xf: a.xf - b.xf, yf: a.yf - b.yf});
+        const v2n = Point.normalise({xf: c.xf - b.xf, yf: c.yf - b.yf});
+        // Bisector direction from b
+        const dir = {xf: v1n.xf + v2n.xf, yf: v1n.yf + v2n.yf};
+        const target = {xf: b.xf + dir.xf, yf: b.yf + dir.yf};
+
+        const vertex = this.getPoint(b.xf, b.yf);
+        const face = vertex && this.faceAtVertex(a, vertex, c);
+        if (face) {
+            this.splitFaceByLine2d(face, vertex, target);
+        } else {
+            this.splitAllFacesByLine2d(b, target);
+        }
     }
 
     // Rotate around axis Segment, by angle, the list of Points
@@ -506,7 +553,7 @@ export class Model {
             // Pm is the medium point
             const pm = new Vector3(0, 0, 0);
             for (const s of segments) {
-                const lg3d = Segment.length3d(s); // Should be divided by this.scale
+                const lg3d = Segment.length3d(s) / this.scale;
                 if (lg3d === 0) continue;
                 const lg2d = Segment.length2d(s); // Should not change
                 const d = Math.abs(lg2d - lg3d);
@@ -617,7 +664,7 @@ export class Model {
     // snap points near each other, and round coordinates
     snapPoints() {
         this.points.forEach((p, i) => {
-            if (Math.abs(p.z) <= 2) p.z = 0;
+            if (Math.abs(p.z) <= 6) p.z = 0;
             p.x = Math.round(p.x * 100) / 100;
             p.y = Math.round(p.y * 100) / 100;
             p.z = Math.round(p.z * 100) / 100;

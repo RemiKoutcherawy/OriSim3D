@@ -353,7 +353,7 @@ export class Helper {
             return;
         }
         if (this.upPoint) {
-            const cmd = this.model.getSegment(this.downPoint, this.upPoint) ? 'across' : 'by';
+            const cmd = this.model.getSegment(this.downPoint, this.upPoint) ? 'c' : 'by';
             this.sendCmd(cmd, this.downPoint, this.upPoint);
         } else if (this.upSegment) {
             this.sendCmd('p', this.upSegment, this.downPoint);
@@ -416,7 +416,7 @@ export class Helper {
             return;
         }
         if (this.upSegment) {
-            this.sendCmd('bisector', this.downSegment, this.upSegment);
+            this.sendCmd('b', this.downSegment, this.upSegment);
         } else if (this.upPoint) {
             this.sendCmd('parallel', this.downSegment, this.upPoint);
         }
@@ -427,8 +427,8 @@ export class Helper {
             this.fromFaceClick();
             return;
         }
-        // A drag starting on a face folds it directly — no separate "select the
-        // face first" step, matching how picking up a flap of real paper works.
+        // Folding is gated on the face already being selected (see foldAxis) —
+        // a drag on an unselected face can only score a crease or select it.
         this.fromFaceDrag();
     }
 
@@ -454,14 +454,11 @@ export class Helper {
     }
 
     /**
-     * A drag starting on a face is either scoring a new crease across the paper
-     * or folding the flap around a hinge, decided by a priority ladder:
-     *  1. an explicit pin, or a segment you're aiming directly at that borders
-     *     this face ("drag into an adjacent segment") — always folds there;
-     *  2. otherwise a real cut across existing paper — whether an unrelated
-     *     face or empty background beyond this face's own edge — scores it;
-     *  3. otherwise (just nudging the flap, not aiming anywhere specific and
-     *     not crossing anything) — fold around the nearest border edge.
+     * A drag starting on a face only folds once that face is already selected
+     * (see foldAxis) — picking up a flap to fold is a deliberate two-step
+     * gesture: select it first, then drag. Before it's selected, a drag either
+     * scores a crease across existing paper, or — if it crosses nothing —
+     * arms the face for folding, same as a click would.
      */
     fromFaceDrag() {
         if (this.upPoint) {
@@ -475,7 +472,8 @@ export class Helper {
                 return;
             }
         }
-        this.splitSegments();
+        if (this.splitSegments()) return;
+        if (!this.downFace.select) this.fromFaceClick();
     }
 
     /** Rotation angle (degrees) if hinging the dragged face on `axis` right now. */
@@ -492,13 +490,16 @@ export class Helper {
 
     /**
      * Axis to fold the dragged face around right now, or undefined if this
-     * drag should score a crease instead: a priorityAxis() always wins; the
-     * nearest border edge is only a fallback when nothing crosses either.
+     * drag should score a crease (or just select the face) instead.
+     * Folding only ever applies to an already-selected face — once armed,
+     * whatever the drag crosses is ignored, since the user has already
+     * committed to folding. A priorityAxis() always wins; the nearest
+     * border edge is the fallback.
      */
     foldAxis(nearSegment) {
+        if (!this.downFace?.select) return undefined;
         const priority = this.priorityAxis(nearSegment);
         if (priority) return priority;
-        if (this.computeCrossedSegments().length > 0) return undefined;
         return this.nearestBorderSegment(this.downFace, this.currentX, this.currentY);
     }
 
@@ -600,7 +601,7 @@ export class Helper {
         this.command.command(`${base}${suffix} ${args.join(' ')}`);
     }
 
-    rotatePointIds() {
+    rotatePointIds(axis) {
         const pts = new Set();
         this.model.faces.filter(f => f.select).forEach(f => {
             f.points.forEach(p => pts.add(p));
@@ -608,6 +609,11 @@ export class Helper {
         if (this.downFace) {
             this.downFace.points.forEach(p => pts.add(p));
         }
+        // Axis endpoints don't move when rotating around that axis; excluding them
+        // keeps the command's point list honest and avoids floating-point drift
+        // from rotating a point that should stay exactly put.
+        pts.delete(axis.p1);
+        pts.delete(axis.p2);
         return [...pts].map(p => this.id(p));
     }
     // Selected points not rotated are adjusted instead
@@ -625,7 +631,7 @@ export class Helper {
     }
 
     rotatePoints(axis, angle) {
-        const pts = this.rotatePointIds();
+        const pts = this.rotatePointIds(axis);
         const adjustPts = this.adjustPointIds(pts);
         const adjust = adjustPts.length ? ` a ${adjustPts.join(' ')}` : '';
         const faces = this.rotateFaceCommentIds();

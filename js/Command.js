@@ -13,10 +13,6 @@ export class Command {
     // Time interpolated at an instant 'p' preceding and at instant 'n' now
     tpi = 0;
     tni = 1;
-    // Fit target captured at tpi === 0, then applied incrementally like zoom
-
-
-
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
@@ -97,11 +93,6 @@ export class Command {
         this.model.state = State.pause;
         return advanced;
     }
-
-    isPaused() {
-        return this.model.state === State.pause;
-    }
-
     // Tokenize, split the input String in Array of String
     tokenize(input) {
         const cleaned = input
@@ -207,13 +198,25 @@ export class Command {
 
     runAnim() {
         const tn = Math.min((performance.now() - this.tStart) / this.duration, 1);
-        this.tni = this.interpolator(tn);
+        const targetTni = this.interpolator(tn);
         // Execute commands after t xxx up to end of line
         const iBeginAnim = this.iToken;
-        while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {
-            this.execute(this.iToken);
+        // Commands like 'a' (adjust) resolve a point's 3d position iteratively from
+        // its position in the *previous* step, so a big jump in a single call (a short
+        // duration, or a slow display giving few real frames) can make it settle on the
+        // wrong stable fold instead of the one continuous small motions converge to.
+        // Replay this frame's motion as small fixed-size substeps so the result only
+        // depends on the animated distance, not on how many real frames covered it.
+        const maxStep = 0.01;
+        const steps = Math.max(1, Math.ceil(Math.abs(targetTni - this.tpi) / maxStep));
+        for (let i = 1; i <= steps; i++) {
+            this.tni = this.tpi + (targetTni - this.tpi) * i / steps;
+            this.iToken = iBeginAnim;
+            while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {
+                this.execute(this.iToken);
+            }
+            this.tpi = this.tni;
         }
-        this.tpi = this.tni;
         if (tn >= 1) {
             this.tni = 1;
             this.tpi = 0;
@@ -306,10 +309,28 @@ export class Command {
     }
 }
 
+function reportError(cmd, message) {
+    cmd.commandArea?.addLine(`// ${message}`);
+}
+
 function take(cmd, prefix, n, label, apply) {
     const list = cmd.tokens(prefix);
     if (list.length !== n) {
-        console.log(label, list.length, cmd.tokenTodo.slice(cmd.iToken, cmd.iToken + n + 1).join(' '));
+        const got = cmd.tokenTodo.slice(cmd.iToken, cmd.iToken + n + 1).join(' ');
+        reportError(cmd, `${label} (got ${list.length}: ${got})`);
+        return;
+    }
+    apply(...list);
+}
+
+// Consume one token per given prefix (e.g. one segment then one point), reporting a
+// commandArea error if any of them is missing, wrong type, or out of order.
+function takeOne(cmd, prefixes, label, apply) {
+    const start = cmd.iToken;
+    const list = prefixes.map((prefix) => cmd.token(prefix));
+    if (list.some((o) => o === undefined)) {
+        const got = cmd.tokenTodo.slice(start, cmd.iToken).join(' ');
+        reportError(cmd, `${label} (got: ${got})`);
         return;
     }
     apply(...list);
@@ -392,6 +413,9 @@ function fit(cmd) {
     cmd.model.zoom(a, 0, 0);
     const k = s * (a * cmd.tpi - cmd.tni);
     cmd.model.movePoints(cmd.fitCx * k, cmd.fitCy * k, 0, cmd.model.points);
+    if (cmd.tni ===1) {
+        cmd.commandArea?.addLine(`// Fit: zoom ${Math.round(a * 100) / 100} 0 0 move ${Math.round(cmd.fitCx)} ${Math.round(cmd.fitCy)} 0`);
+    }
 }
 
 // Order faces front-to-back: the first face is set nearest the viewer, each
@@ -413,7 +437,14 @@ function on(names, command) {
 }
 
 function help(cmd) {
-    const groups = [COMMANDS];
+    // Group names that were registered together (on('by by3d', fn)) as aliases
+    // of the same command, so each line lists synonyms together.
+    const byFn = new Map();
+    for (const [name, fn] of Object.entries(COMMANDS)) {
+        if (!byFn.has(fn)) byFn.set(fn, []);
+        byFn.get(fn).push(name);
+    }
+    const groups = [...byFn.values()];
     cmd.commandArea?.addLine(`Commandes (${groups.length}) :\n${groups.map((g) => g.join('/')).join('\n')}`);
 }
 
@@ -424,10 +455,10 @@ on('by by3d', (cmd) => take(cmd, 'p', 2, 'by3d needs 2 points', (a, b) => cmd.mo
 on('by2d', (cmd) => take(cmd, 'p', 2, 'by2d needs 2 points', (a, b) => cmd.model.splitBy2d(a, b)));
 on('c3d across3d', (cmd) => take(cmd, 'p', 2, 'c3d needs 2 points', (a, b) => cmd.model.splitCross3d(a, b)));
 on('c2d across2d', (cmd) => take(cmd, 'p', 2, 'c2d needs 2 points', (a, b) => cmd.model.splitCross2d(a, b)));
-on('p2d perpendicular2d', (cmd) => cmd.model.splitPerpendicular2d(cmd.token('s'), cmd.token('p')));
-on('p3d perpendicular3d', (cmd) => cmd.model.splitPerpendicular3d(cmd.token('s'), cmd.token('p')));
-on('parallel2d', (cmd) => cmd.model.splitParallel2d(cmd.token('s'), cmd.token('p')));
-on('parallel3d', (cmd) => cmd.model.splitParallel3d(cmd.token('s'), cmd.token('p')));
+on('p2d perpendicular2d', (cmd) => takeOne(cmd, ['s', 'p'], 'p2d needs 1 segment and 1 point', (s, p) => cmd.model.splitPerpendicular2d(s, p)));
+on('p3d perpendicular3d', (cmd) => takeOne(cmd, ['s', 'p'], 'p3d needs 1 segment and 1 point', (s, p) => cmd.model.splitPerpendicular3d(s, p)));
+on('parallel2d', (cmd) => takeOne(cmd, ['s', 'p'], 'parallel2d needs 1 segment and 1 point', (s, p) => cmd.model.splitParallel2d(s, p)));
+on('parallel3d', (cmd) => takeOne(cmd, ['s', 'p'], 'parallel3d needs 1 segment and 1 point', (s, p) => cmd.model.splitParallel3d(s, p)));
 on('bisector2d b2d', (cmd) => take(cmd, 's', 2, 'bisector2d needs 2 segments', (a, b) => cmd.model.bisector2d(a, b)));
 on('bisector3d b3d', (cmd) => take(cmd, 's', 2, 'bisector3d needs 2 segments', (s1, s2) => cmd.model.bisector3d(s1.p1, s1.p2, s2.p1, s2.p2)));
 on('bisector2dPoints', (cmd) => take(cmd, 'p', 3, 'bisector2dPoints needs 3 points', (a, b, c) => cmd.model.bisector2dPoints(a, b, c)));

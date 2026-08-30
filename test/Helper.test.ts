@@ -93,7 +93,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 50;
     helper.currentY = 0;
     helper.up([p1], [], []);
-    assertEquals(cmds[0], "across3d p0 p1");
+    assertEquals(cmds[0], "c3d p0 p1");
 
     cmds.length = 0;
     helper.down([p0], [], [], 0, 0);
@@ -182,6 +182,7 @@ Deno.test("Helper Tests", async (t) => {
     const { model, helper } = setup();
     const f0 = model.faces[0];
     const s0 = model.segments[0]; // bottom edge yf=-200 → drawing y=200
+    f0.select = true; // folding requires the face to already be selected
     // Poison 3d projection so a bug that still reads xCanvas would give a wrong angle
     model.points.forEach((p) => {
       p.xCanvas = 999;
@@ -212,7 +213,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 40;
     helper.currentY = 40;
     helper.up([], [s1], []);
-    assertEquals(cmds[0], "bisector3d s0 s1");
+    assertEquals(cmds[0], "b3d s0 s1");
   });
 
   await t.step("click on stacked segments selects all and logs ids", () => {
@@ -427,22 +428,38 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(f0.select, false);
   });
 
-  await t.step("drag on an unselected face folds it directly (no select-first step)", () => {
+  await t.step("drag on an unselected face arms it instead of folding (select-first step)", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const f0 = model.faces[0];
-    const s0 = model.segments[0];
-    s0.select = false;
     assertEquals(f0.select, false);
 
-    // Drag toward the top edge s0, staying inside the face (no crossing)
+    // Drag toward the top edge s0, staying inside the face (no crossing).
+    // Folding is gated on selection, so this can't be a fold yet.
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    assertEquals(helper.label, undefined);
+    // Previews as filled: nothing will fold until the face is selected
+    assertEquals(helper.willFold(), false);
+
+    helper.up([], [], [f0]);
+    assertEquals(cmds.some((c) => c.startsWith("t 1000 r")), false);
+    assertEquals(f0.select, true);
+    assertEquals(cmds[cmds.length - 1], "// selectFaces f0(0)");
+  });
+
+  await t.step("a second drag on the now-selected face folds it", () => {
+    const { model, command, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true; // as left by the arming drag above
+
     helper.down([], [], [f0], 0, 0);
     helper.move([], [], [f0], 0, -150);
     const label = helper.label as number;
     assertEquals(label !== 0, true);
-    // Previews as hollow: this drag will actually fold
     assertEquals(helper.willFold(), true);
 
+    const cmds = captureCmds(command);
     helper.up([], [], [f0]);
     assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
     assertEquals(f0.select, false);
@@ -506,40 +523,42 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(f0.select, false);
   });
 
-  await t.step("a crossing drag scores even on an already-selected (foldable) face", () => {
+  await t.step("on an already-selected face, a crossing drag folds instead of scoring", () => {
     const { model, command, helper } = setup();
-    const cmds = captureCmds(command);
     const f0 = model.faces[0];
     f0.select = true;
 
-    // Nothing is pinned and nothing borders the cursor, so the crossing wins:
-    // no misleading rotation preview, and it scores instead of folding.
+    // Nothing is pinned and nothing borders the cursor, but the face is
+    // already armed: whatever this crosses is ignored, and it folds around
+    // the nearest border edge (s1, the right edge, closest to x=250).
     helper.down([], [], [f0], -100, 0);
     helper.move([], [], [f0], 250, 0);
-    assertEquals(helper.label, undefined);
-    assertEquals(helper.willFold(), false);
+    const label = helper.label as number;
+    assertEquals(label !== 0, true);
+    assertEquals(helper.willFold(), true);
 
-    cmds.length = 0;
+    const cmds = captureCmds(command);
     helper.up([], [], []);
-    assertEquals(cmds.some((c) => c.startsWith("split ")), true);
+    assertEquals(cmds.some((c) => c.startsWith("split ")), false);
+    assertEquals(cmds[0].startsWith(`t 1000 r s1 ${label}`), true);
   });
 
-  await t.step("dragging onto a bordering segment folds it, even though the drag also crosses it", () => {
+  await t.step("dragging onto a bordering segment folds along that segment specifically", () => {
     const { model, command, helper } = setup();
-    const cmds = captureCmds(command);
     const f0 = model.faces[0];
     const s1 = model.segments[1]; // right edge, xCanvas=200, y from -200..200
+    f0.select = true;
 
-    // Same crossing drag as above, but this time the release lands on s1
-    // itself (as a real drag landing near that edge would set upSegment) —
-    // aiming at the edge wins over scoring it.
+    // Aiming at a specific bordering edge (as a real drag landing near it
+    // would set upSegment/currentSegment) picks that edge over the generic
+    // nearest-border fallback.
     helper.down([], [], [f0], -100, 0);
     helper.currentX = 250;
     helper.currentY = 0;
     helper.currentSegment = s1;
     assertEquals(helper.willFold(), true);
 
-    cmds.length = 0;
+    const cmds = captureCmds(command);
     helper.up([], [s1], []);
     assertEquals(cmds.length, 1);
     assertEquals(cmds[0].startsWith(`t 1000 r s1`), true);
@@ -676,6 +695,7 @@ Deno.test("Helper Tests", async (t) => {
     const helper = new Helper(model, command, null);
     helper.view3d = { overlay };
     helper.downFace = model.faces[0];
+    helper.downFace.select = true; // folding requires the face to already be selected
     helper.firstX = 0;
     helper.firstY = 0;
     helper.currentX = 10;

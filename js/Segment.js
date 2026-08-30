@@ -88,17 +88,26 @@ export class Segment {
         const a1 = Segment.CCWFlat(a, b, d);
         const a2 = Segment.CCWFlat(a, b, c);
 
+        // A cross product that should be exactly 0 (point exactly on the other line) can come
+        // out as a tiny nonzero value from floating-point rounding — e.g. when the segment
+        // being tested ends exactly on an existing vertex. Treat near-zero as zero so that
+        // noise doesn't flip these sign checks and spuriously reject a real intersection.
+        const AREA_EPSILON = 1e-6;
+        const sign = (v) => Math.abs(v) <= AREA_EPSILON ? 0 : Math.sign(v);
+
         // Intersection
-        if (a1 * a2 <= 0) {
+        if (sign(a1) * sign(a2) <= 0) {
             const a3 = Segment.CCWFlat(c, d, a);
             const a4 = a3 + a2 - a1;
-            if (a3 * a4 <= 0) {
+            if (sign(a3) * sign(a4) <= 0) {
                 if (a3 - a4 === 0) {
                     return collinear(a, b, c, d);
                 }
                 const t = a3 / (a3 - a4);
                 const u = a1 / (a1 - a2);
-                if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+                // Same tolerance for t/u themselves, which are dimensionless ratios.
+                const RATIO_EPSILON = 1e-9;
+                if (t >= -RATIO_EPSILON && t <= 1 + RATIO_EPSILON && u >= -RATIO_EPSILON && u <= 1 + RATIO_EPSILON) {
                     return new Point(a.xf + t * (b.xf - a.xf), a.yf + t * (b.yf - a.yf));
                 }
                 return undefined;
