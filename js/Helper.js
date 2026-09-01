@@ -704,9 +704,9 @@ export class Helper {
         return flap;
     }
 
-    rotatePointIds(axis) {
+    rotatePointIds(axis, flap = this.foldFlap(axis)) {
         const pts = new Set();
-        for (const face of this.foldFlap(axis)) {
+        for (const face of flap) {
             face.points.forEach(p => pts.add(p));
         }
         // Points on the rotation axis don't move; excluding them keeps the command's
@@ -725,15 +725,12 @@ export class Helper {
             .map(p => this.id(p))
             .filter(id => !rotated.has(id));
     }
-    rotateFaceCommentIds(axis) {
-        return [...this.foldFlap(axis)].map(f => this.id(f));
-    }
-
     rotatePoints(axis, angle) {
-        const pts = this.rotatePointIds(axis);
+        const flap = this.foldFlap(axis);
+        const pts = this.rotatePointIds(axis, flap);
         const adjustPts = this.adjustPointIds(pts);
         const adjust = adjustPts.length ? ` a ${adjustPts.join(' ')}` : '';
-        const faces = this.rotateFaceCommentIds(axis);
+        const faces = [...flap].map(f => this.id(f));
         const faceComment = faces.length ? ` // ${faces.join(' ')}` : '';
         this.command.command(`t 1000 r ${this.id(axis)} ${angle} ${pts.join(' ')}${adjust}${faceComment}`);
     }
