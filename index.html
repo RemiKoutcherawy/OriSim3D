@@ -159,7 +159,10 @@
 
     // Animation loop
     function loop() {
-      if (command.anim()) {
+      // consumePreviewDirty: the helper turns the paper itself while a fold is
+      // being dragged, without going through a command
+      const previewed = helper.consumePreviewDirty();
+      if (command.anim() || previewed) {
         view3d.initBuffers();
         view3d.initModelView();
       }

@@ -90,6 +90,7 @@ export class Helper {
     }
 
     out() {
+        this.endPreview();
         this.downPoints = [];
         this.downSegments = [];
         this.downPoint = this.downSegment = this.downFace = undefined;
@@ -108,6 +109,51 @@ export class Helper {
     // device actually being used rather than stay at its constructor default.
     trackPointerType(event) {
         if (event?.pointerType) this.pointerType = event.pointerType;
+    }
+
+    /**
+     * Live fold preview: the paper actually turns while dragging instead of only
+     * being promised by an arrow. The rotation is applied to the model, redrawn,
+     * and undone on the next move, so the drag never touches the undo history —
+     * the animated command emitted on release is still the only recorded step.
+     */
+    previewFold(fold) {
+        this.resetPreview();
+        if (!fold) return;
+        this.previewBaseline ??= this.model.snapshotPositions();
+        const inFlap = new Set();
+        for (const face of this.foldFlap(fold.axis)) face.points.forEach(p => inFlap.add(p));
+        const moving = [...inFlap].filter(p =>
+            Vector3.pointLineDistance(p, fold.axis.p1, fold.axis.p2) >= Helper.AXIS_EPSILON);
+        this.model.rotate(fold.axis, fold.angle, moving);
+        this.markPreviewDirty();
+    }
+
+    /** Put the paper back where the drag found it, keeping the baseline. */
+    resetPreview() {
+        if (!this.previewBaseline) return;
+        this.model.restorePositions(this.previewBaseline);
+        this.markPreviewDirty();
+    }
+
+    /** End of gesture: back to the baseline and forget it. */
+    endPreview() {
+        this.resetPreview();
+        this.previewBaseline = undefined;
+    }
+
+    // Projected coordinates feed both picking and the overlay, so they have to be
+    // recomputed as soon as the preview moves a point, not on the next frame.
+    markPreviewDirty() {
+        this.previewDirty = true;
+        this.view3d?.updateCanvasCoords?.();
+    }
+
+    /** True once, so the render loop knows to rebuild its buffers. */
+    consumePreviewDirty() {
+        const dirty = this.previewDirty;
+        this.previewDirty = false;
+        return dirty;
     }
 
     clearSelection() {
@@ -131,16 +177,17 @@ export class Helper {
     static ANGLE_SNAP_DEG = 5;
     static ANGLE_DEAD_DEG = 5;
 
-    // Draw drag preview when down on a point, segment, or face: a filled arrow
-    // for creasing (by/across/bisector), a hollow arrow only when the drag will
-    // actually fold the face (willFold()) — see Arrow.svg.
+    // Draw drag preview when down on a point, segment, or face: a curved arrow
+    // along the path the paper will travel when folding, a straight filled arrow
+    // for creasing (by/across/bisector) — see Arrow.svg.
     draw() {
         if (!this.downPoint && !this.downSegment && !this.downFace) {
             return;
         }
         const context = (this.currentCanvas === '2d' ? this.view2d.canvas2d : this.view3d.overlay).getContext('2d');
-        if (this.downFace && this.willFold()) {
-            this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
+        const fold = this.downFace ? this.foldIntent() : undefined;
+        if (fold) {
+            this.drawFoldArrow(context, fold);
         } else {
             this.drawFilledArrow(
                 context, this.firstX, this.firstY, this.currentX, this.currentY,
@@ -158,6 +205,181 @@ export class Helper {
             context.font = '20px serif';
             context.fillText(this.label, this.currentX - 10, this.currentY - 8);
         }
+    }
+
+    /**
+     * The flap vertex the arrow is drawn from: the one that travels furthest,
+     * which is what a diagram draws its arrow on.
+     */
+    foldTip(axis, flap) {
+        let best, bestD = -1;
+        for (const face of flap) {
+            for (const p of face.points) {
+                const d = Vector3.pointLineDistance(p, axis.p1, axis.p2);
+                if (d > bestD) { bestD = d; best = p; }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * The path the tip sweeps while the flap rotates from flat to `angle`, in
+     * canvas pixels. In 3d this is the true projected trajectory, so the arrow
+     * curves exactly the way the paper swings. The flat crease pattern has no
+     * third dimension to swing through, so there the same rotation projects to a
+     * straight line and the arc is bowed by hand, the way diagrams draw it.
+     */
+    foldArc(axis, angle, tip, steps = 24) {
+        const path = [];
+        if (!tip) return path;
+        if (this.currentCanvas === '2d') {
+            // Tip now, and where it lands: rotating by `angle` about the crease
+            // mirrors it across the crease line at 180 degrees.
+            const a = this.canvasPoint(axis.p1), b = this.canvasPoint(axis.p2);
+            const t = this.canvasPoint(tip);
+            const dx = b.xf - a.xf, dy = b.yf - a.yf;
+            const len = Math.hypot(dx, dy) || 1;
+            const ux = dx / len, uy = dy / len;
+            // Signed distance of the tip to the crease, and its foot on it
+            const side = (t.xf - a.xf) * uy - (t.yf - a.yf) * ux;
+            const footX = t.xf - side * uy, footY = t.yf + side * ux;
+            const rad = angle * Math.PI / 180;
+            for (let i = 0; i <= steps; i++) {
+                const th = rad * i / steps;
+                // In plane the tip closes on the crease as cos, and the part of
+                // the swing that leaves the sheet is drawn as the bow.
+                const along = side * Math.cos(th);
+                const bow = side * Math.sin(th) * 0.55;
+                path.push({
+                    x: footX + along * uy + bow * ux,
+                    y: footY - along * ux + bow * uy,
+                });
+            }
+            return path;
+        }
+        // 3d: rotate a copy of the tip and project it, step by step
+        const canvasView = this.view3d?.canvasView;
+        if (!canvasView) return path;
+        const clone = {x: tip.x, y: tip.y, z: tip.z};
+        let previous = 0;
+        for (let i = 0; i <= steps; i++) {
+            const th = angle * i / steps;
+            this.model.rotate(axis, th - previous, [clone]);
+            previous = th;
+            const v = Vector3.transformMat4(clone, canvasView);
+            path.push({x: v.x, y: v.y});
+        }
+        return path;
+    }
+
+    /**
+     * Origami arrow: a curved shaft along the paper's own path, with a solid head
+     * when the fold comes towards the viewer (valley) and a hollow one when it
+     * goes away (mountain), plus a faint ghost of the full 180 degree fold so the
+     * destination is visible before getting there.
+     */
+    drawFoldArrow(context, fold) {
+        const tip = this.foldTip(fold.axis, this.foldFlap(fold.axis));
+        const path = tip ? this.foldArc(fold.axis, fold.angle, tip) : [];
+        if (path.length < 2) {
+            // Nothing projected yet (first frame, or headless): straight arrow
+            this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
+            return;
+        }
+        const valley = this.comesForward(fold, tip);
+        const side = valley ? 1 : -1;
+        // Where the fold is heading, so the destination is visible before reaching it
+        const full = Helper.bowArc(this.foldArc(fold.axis, Math.sign(fold.angle) * 180, tip), side);
+        this.strokeArc(context, full, {color: 'rgba(230,168,23,0.35)', width: 3, dashed: false});
+        const bowed = Helper.bowArc(path, side);
+        this.strokeArc(context, bowed, {color: Helper.FOLD_AMBER, width: 5, dashed: !valley});
+        this.drawArcHead(context, bowed, valley);
+    }
+
+    /**
+     * A fold seen head on projects to a straight line: the paper swings out of
+     * the screen and none of the curve survives. Diagrams draw the arc anyway, so
+     * top the projected sag up to a readable minimum. The correction vanishes at
+     * both ends, so the arrow still starts and lands exactly where the paper does,
+     * and it does nothing when the view already shows a real curve.
+     */
+    static bowArc(path, side, minSagRatio = 0.16) {
+        if (path.length < 3) return path;
+        const first = path[0], last = path[path.length - 1];
+        const chordX = last.x - first.x, chordY = last.y - first.y;
+        const chord = Math.hypot(chordX, chordY);
+        if (chord < 1e-6) return path;
+        const nx = -chordY / chord, ny = chordX / chord;
+        let sag = 0;
+        for (const p of path) {
+            sag = Math.max(sag, Math.abs((p.x - first.x) * nx + (p.y - first.y) * ny));
+        }
+        const extra = Math.max(0, chord * minSagRatio - sag);
+        if (extra === 0) return path;
+        return path.map((p, i) => {
+            const bow = Math.sin(Math.PI * i / (path.length - 1)) * extra * side;
+            return {x: p.x + nx * bow, y: p.y + ny * bow};
+        });
+    }
+
+    /**
+     * Does the paper swing towards the viewer? Diagrams draw that as a valley
+     * (solid shaft, solid head) and the other way as a mountain (dashed, hollow).
+     * Eye z grows towards the camera, the model view sitting at z = -700.
+     */
+    comesForward(fold, tip) {
+        if (this.currentCanvas === '2d') return fold.angle > 0;
+        const clone = {x: tip.x, y: tip.y, z: tip.z};
+        this.model.rotate(fold.axis, fold.angle / 2, [clone]);
+        const modelView = this.view3d?.modelView;
+        if (!modelView) return true;
+        return Vector3.transformMat4(clone, modelView).z > (tip.zEye ?? tip.z);
+    }
+
+    strokeArc(context, path, {color, width, dashed}) {
+        if (path.length < 2) return;
+        context.save();
+        context.strokeStyle = color;
+        context.lineWidth = width;
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        if (dashed) context.setLineDash([10, 6]);
+        context.beginPath();
+        context.moveTo(path[0].x, path[0].y);
+        for (const p of path.slice(1)) context.lineTo(p.x, p.y);
+        context.stroke();
+        context.restore();
+    }
+
+    /** Head at the end of the arc, aligned with the path's own last direction. */
+    drawArcHead(context, path, filled) {
+        if (path.length < 2) return;
+        const HEAD_LEN = 22, HEAD_HALF_W = 11;
+        const end = path[path.length - 1];
+        let previous = path[path.length - 2];
+        // Step back along the path until far enough for a stable direction
+        for (let i = path.length - 2; i >= 0; i--) {
+            previous = path[i];
+            if (Math.hypot(end.x - previous.x, end.y - previous.y) >= HEAD_LEN) break;
+        }
+        const dx = end.x - previous.x, dy = end.y - previous.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len, uy = dy / len;
+        const px = -uy, py = ux;
+        const bx = end.x - ux * HEAD_LEN, by = end.y - uy * HEAD_LEN;
+        context.save();
+        context.beginPath();
+        context.moveTo(end.x, end.y);
+        context.lineTo(bx + px * HEAD_HALF_W, by + py * HEAD_HALF_W);
+        context.lineTo(bx - px * HEAD_HALF_W, by - py * HEAD_HALF_W);
+        context.closePath();
+        context.fillStyle = filled ? Helper.FOLD_AMBER : '#fff';
+        context.strokeStyle = Helper.FOLD_AMBER;
+        context.lineWidth = 2;
+        context.lineJoin = 'round';
+        context.fill();
+        context.stroke();
+        context.restore();
     }
 
     // Thin straight shaft + small solid triangular head, both a fixed size —
@@ -334,6 +556,10 @@ export class Helper {
     }
 
     move(points, segments, faces, x, y) {
+        // Undo last frame's preview first: picking, the fold axis and the angle
+        // must all be read off the geometry the drag started from, or the preview
+        // feeds back into the decision that produced it.
+        this.resetPreview();
         this.model.hover2d3d(points, segments, faces);
         this.currentX = x;
         this.currentY = y;
@@ -353,10 +579,14 @@ export class Helper {
                 axis.hover = true;
                 this.label = this.angleFor(axis);
             }
+            this.previewFold(this.foldIntent());
         }
     }
 
     up(points, segments, faces) {
+        // The recorded command has to start from the unfolded state, so the
+        // preview is rolled back before anything is emitted.
+        this.endPreview();
         this.upPoints = points.length ? points : [];
         this.upPoint = this.upPoints[0];
         this.upSegments = !this.upPoint && segments.length ? segments : [];

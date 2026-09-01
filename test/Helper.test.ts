@@ -711,6 +711,125 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(Helper.snapAngle(-112), -112);
   });
 
+  await t.step("the fold arrow follows the paper's real trajectory", async () => {
+    const mat4 = await import("../js/lib/mat4.js");
+    const { model, command } = setup();
+    const view3d = {
+      canvasView: mat4.create(),
+      modelView: mat4.create(),
+      indexMap: new Map(model.points.map((p, i) => [p, i])),
+      faceDepth: () => 0,
+      updateCanvasCoords() {},
+    };
+    const helper = new Helper(model, command, view3d);
+    helper.currentCanvas = "3d";
+    const f0 = model.faces[0];
+    f0.select = true;
+    const axis = model.segments[0];
+
+    // The arrow starts at the flap vertex that travels furthest, as diagrams do
+    const tip = helper.foldTip(axis, helper.foldFlap(axis));
+    const distance = (p: { x: number; y: number; z: number }) =>
+      Math.hypot(p.x - axis.p1.x, p.y - axis.p1.y, p.z - axis.p1.z);
+    model.points.forEach((p) => assertEquals(distance(tip) >= distance(p), true));
+
+    // ...and it ends exactly where that vertex lands, not somewhere decorative
+    for (const angle of [90, 180, -90]) {
+      const path = helper.foldArc(axis, angle, tip);
+      const landing = { x: tip.x, y: tip.y, z: tip.z };
+      model.rotate(axis, angle, [landing]);
+      const end = path[path.length - 1];
+      assertEquals(Math.round(end.x), Math.round(landing.x));
+      assertEquals(Math.round(end.y), Math.round(landing.y));
+    }
+  });
+
+  await t.step("the 2d arrow bows the way a hand-drawn diagram does", () => {
+    const { model, command } = setup();
+    const helper = new Helper(model, command, null);
+    helper.currentCanvas = "2d";
+    const f0 = model.faces[0];
+    f0.select = true;
+    const axis = model.segments[0];
+    const tip = helper.foldTip(axis, helper.foldFlap(axis));
+    const path = helper.foldArc(axis, 180, tip);
+
+    // At 180 degrees the tip lands mirrored across the crease
+    const t0 = helper.canvasPoint(tip);
+    const end = path[path.length - 1];
+    assertEquals(Math.round(end.x), Math.round(t0.xf));
+    assertEquals(Math.round(end.y), Math.round(t0.yf + 2 * (200 - t0.yf)));
+
+    // and the path between is a bulge, not a straight line
+    const chord = Math.hypot(end.x - path[0].x, end.y - path[0].y);
+    const sag = Math.max(...path.map((p) => Math.abs(p.x - path[0].x)));
+    assertEquals(sag > chord * 0.1, true);
+  });
+
+  await t.step("bowArc makes a flat projection readable, and leaves a curve alone", () => {
+    const straight = Array.from({ length: 25 }, (_, i) => ({ x: 100, y: -200 + i * 20 }));
+    const bowed = Helper.bowArc(straight, 1);
+    const chord = 480;
+    const sag = Math.max(...bowed.map((p: { x: number }) => Math.abs(p.x - 100)));
+    assertEquals(sag > chord * 0.1, true);
+    // The correction vanishes at both ends: the arrow still starts and lands
+    // exactly where the paper does
+    assertEquals(Math.abs(bowed[0].x - 100) < 1e-9, true);
+    assertEquals(Math.abs(bowed[24].x - 100) < 1e-9, true);
+    assertEquals(bowed[0].y, straight[0].y);
+    assertEquals(bowed[24].y, straight[24].y);
+
+    // A projection that already curves enough is returned untouched
+    const curved = Array.from({ length: 25 }, (_, i) => {
+      const u = i / 24;
+      return { x: 100 + Math.sin(Math.PI * u) * 300, y: -200 + u * 480 };
+    });
+    assertEquals(Helper.bowArc(curved, 1), curved);
+  });
+
+  await t.step("the drag folds the paper live, and leaves no trace of it", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    f0.select = true;
+    const snapshot = () => model.points.map((p) => `${p.x},${p.y},${p.z}`).join("|");
+    const before = snapshot();
+    const undoBefore = command.done.length;
+
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    assertEquals(snapshot() !== before, true); // the paper really turned
+    assertEquals(helper.consumePreviewDirty(), true);
+    assertEquals(helper.consumePreviewDirty(), false); // consumed once
+
+    // Dragging back updates the preview rather than compounding it
+    helper.move([], [], [f0], 0, 0);
+    assertEquals(snapshot(), before);
+
+    helper.move([], [], [f0], 0, -150);
+    cmds.length = 0;
+    helper.up([], [], [f0]);
+    // Released: the model is back to its starting state and the animated command
+    // is the only recorded step, so undo still works one fold at a time
+    assertEquals(snapshot(), before);
+    assertEquals(command.done.length, undoBefore);
+    assertEquals(cmds.length, 1);
+    assertEquals(cmds[0].startsWith("t 1000 r s0 "), true);
+  });
+
+  await t.step("an abandoned drag puts the paper back", () => {
+    const { model, command, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true;
+    const snapshot = () => model.points.map((p) => `${p.x},${p.y},${p.z}`).join("|");
+    const before = snapshot();
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    assertEquals(snapshot() !== before, true);
+    helper.out(); // pointercancel
+    assertEquals(snapshot(), before);
+  });
+
   await t.step("a fold carries the whole flap, not just the grabbed face", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
