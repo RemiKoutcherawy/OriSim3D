@@ -845,6 +845,28 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0].startsWith("t 1000 r s0 "), true);
   });
 
+  await t.step("Escape abandons a fold in progress", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    f0.select = true;
+    const snapshot = () => model.points.map((p) => `${p.x},${p.y},${p.z}`).join("|");
+    const before = snapshot();
+
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    assertEquals(snapshot() !== before, true);
+
+    helper.keydown({ key: "Escape" });
+    assertEquals(snapshot(), before);
+
+    // The release that follows has nothing left to commit
+    cmds.length = 0;
+    helper.up([], [], [f0]);
+    assertEquals(cmds.length, 0);
+    assertEquals(snapshot(), before);
+  });
+
   await t.step("an abandoned drag puts the paper back", () => {
     const { model, command, helper } = setup();
     const f0 = model.faces[0];

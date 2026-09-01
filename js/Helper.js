@@ -82,6 +82,11 @@ export class Helper {
         if (event.key === 'z' && (event.ctrlKey || event.metaKey)) {
             this.command.command('undo');
         }
+        // Escape abandons the gesture in progress: the preview is rolled back and
+        // the release that follows finds nothing to commit.
+        if (event.key === 'Escape') {
+            this.out();
+        }
     }
 
     // Helper method to get formatted object string id (e.g. 'p0', 's1', 'f2')
