@@ -119,7 +119,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(pExtra.select, true);
 
     // Not a double-click: clear the timer before toggling off
-    helper.touchTime = 0;
+    helper.pointClickTime = 0;
     helper.lastClickPoints = [];
     helper.down(stack, [], [], 0, 0);
     helper.up(stack, [], []);
@@ -137,7 +137,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(p0.select, true);
 
     cmds.length = 0;
-    helper.touchTime = Date.now();
+    helper.pointClickTime = Date.now();
     helper.lastClickPoints = [p0];
     helper.down([p0], [], [], 0, 0);
     helper.up([p0], [], []);
@@ -597,6 +597,92 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.clickThreshold(), 12);
     helper.pointerType = "touch";
     assertEquals(helper.clickThreshold(), 24);
+  });
+
+  await t.step("pointerType follows the device instead of staying at its default", () => {
+    const { helper } = setup();
+    assertEquals(helper.clickThreshold(), 12);
+    // down2d/down3d call trackPointerType with the real pointer event
+    helper.trackPointerType({ pointerType: "touch" });
+    assertEquals(helper.pointerType, "touch");
+    assertEquals(helper.clickThreshold(), 24);
+    helper.trackPointerType({ pointerType: "pen" });
+    assertEquals(helper.clickThreshold(), 12);
+    // An event without pointerType must not clobber what we know
+    helper.trackPointerType({});
+    assertEquals(helper.pointerType, "pen");
+  });
+
+  await t.step("a point click no longer arms the background double-click", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const view3d = {
+      angleX: 30, angleY: 40, angleZ: 5,
+      translationX: 100, translationY: -50, scale: 2,
+      initModelView() {}, initPerspective() {},
+    };
+    helper.view3d = view3d;
+    helper.currentCanvas = "3d";
+
+    // Select a point: this stamps the point double-click timer...
+    helper.down([model.points[0]], [], [], 0, 0);
+    helper.up([model.points[0]], [], []);
+    assertEquals(model.points[0].select, true);
+
+    // ...which must not make a single background click reset the view.
+    cmds.length = 0;
+    helper.doubleClick();
+    assertEquals(view3d.angleX, 30);
+    assertEquals(view3d.scale, 2);
+    assertEquals(cmds.length, 0);
+
+    // A real double-click on the background still resets it.
+    helper.doubleClick();
+    assertEquals(view3d.angleX, 0);
+    assertEquals(view3d.translationX, 0);
+    assertEquals(view3d.scale, 1);
+    assertEquals(cmds[0], "fit");
+  });
+
+  await t.step("point picking is a disc, not a diamond", () => {
+    const { model, helper } = setup();
+    helper.view2d = { scale: 1 };
+    const [x, y] = [model.points[2].xf, model.points[2].yf]; // (200, 200)
+    // 9 px straight out and 9.9 px diagonally are both inside a 10 px radius
+    assertEquals(helper.search2d(x + 9, y).points.length, 1);
+    assertEquals(helper.search2d(x + 7, y + 7).points.length, 1);
+    // 11 px out is outside it, in either direction
+    assertEquals(helper.search2d(x + 11, y).points.length, 0);
+    assertEquals(helper.search2d(x + 8, y + 8).points.length, 0);
+  });
+
+  await t.step("orbiting is latched at pointerdown, not re-decided each move", () => {
+    const { model, command } = setup();
+    const view3d = {
+      angleX: 0, angleY: 0, angleZ: 0,
+      translationX: 0, translationY: 0, scale: 1,
+      overlay: null,
+      indexMap: new Map(model.points.map((p, i) => [p, i])),
+      faceDepth: () => 0,
+      initModelView() {}, initPerspective() {},
+      getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    };
+    const helper = new Helper(model, command, view3d);
+    // Press on empty space, far outside the sheet
+    helper.down3d({ xCanvas: 900, yCanvas: 900, pointerType: "mouse" });
+    assertEquals(helper.orbiting, true);
+
+    // Drag across the paper: the orbit must keep going
+    helper.move3d({ xCanvas: 0, yCanvas: 0, buttons: 1, target: { height: 600 } });
+    const turned = view3d.angleY;
+    assertEquals(turned !== 0, true);
+    helper.move3d({ xCanvas: 40, yCanvas: 0, buttons: 1, target: { height: 600 } });
+    assertEquals(view3d.angleY !== turned, true);
+
+    // Pressing on the paper does not start an orbit
+    helper.out();
+    helper.down3d({ xCanvas: 0, yCanvas: 0, pointerType: "mouse" });
+    assertEquals(helper.orbiting, false);
   });
 
   await t.step("search3d() points, segments, faces near x,y", () => {

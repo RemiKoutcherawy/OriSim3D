@@ -5,6 +5,11 @@ import * as mat4 from './lib/mat4.js';
 
 const CLICK_PX_MOUSE = 12;
 const CLICK_PX_TOUCH = 24;
+// Pick radii, in canvas pixels (2d divides them by the view scale)
+const PICK_POINT_PX = 10;
+const PICK_SEGMENT_PX = 6;
+// Two clicks closer than this count as a double click
+const DOUBLE_CLICK_MS = 400;
 
 export class Helper {
     constructor(model, command, view3d, view2d) {
@@ -12,7 +17,12 @@ export class Helper {
         this.command = command;
         this.view3d = view3d;
         this.view2d = view2d;
-        this.touchTime = 0;
+        // Two independent double-click timers: one for "double-click a point to
+        // adjust it", one for "double-click the background to reset the view".
+        // Sharing a single timer made a plain background click reset the view
+        // whenever it followed a point click closely enough.
+        this.pointClickTime = 0;
+        this.viewClickTime = 0;
         this.lastClickPoints = [];
         this.pointerType = 'mouse';
         // Mouse coordinates, first and current
@@ -21,7 +31,10 @@ export class Helper {
         // To test with Deno, view3d (and its overlay) may be null
         const overlay = view3d?.overlay;
         if (overlay) {
-            overlay.addEventListener('pointerdown', (event) => this.down3d(event));
+            overlay.addEventListener('pointerdown', (event) => {
+                try { overlay.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+                this.down3d(event);
+            });
             overlay.addEventListener('pointermove', (event) => this.move3d(event));
             overlay.addEventListener('pointerup', (event) => this.up3d(event));
             overlay.addEventListener('pointercancel', (event) => this.out(event));
@@ -48,10 +61,14 @@ export class Helper {
         return this.pointerType === 'touch' ? CLICK_PX_TOUCH : CLICK_PX_MOUSE;
     }
 
-    isClick() {
-        const dx = (this.currentX ?? 0) - (this.firstX ?? 0);
-        const dy = (this.currentY ?? 0) - (this.firstY ?? 0);
+    isClickAt(x, y) {
+        const dx = (x ?? 0) - (this.firstX ?? 0);
+        const dy = (y ?? 0) - (this.firstY ?? 0);
         return Math.hypot(dx, dy) < this.clickThreshold();
+    }
+
+    isClick() {
+        return this.isClickAt(this.currentX, this.currentY);
     }
 
     keydown(event) {
@@ -82,6 +99,13 @@ export class Helper {
         this.label = undefined;
         this.currentSegment = undefined;
         this.moving = false;
+        this.orbiting = false;
+    }
+
+    // pointerType decides the click/drag threshold, so it has to follow the
+    // device actually being used rather than stay at its constructor default.
+    trackPointerType(event) {
+        if (event?.pointerType) this.pointerType = event.pointerType;
     }
 
     clearSelection() {
@@ -227,7 +251,7 @@ export class Helper {
     }
 
     isDoubleClickPoints(points) {
-        return Date.now() - this.touchTime < 400
+        return Date.now() - this.pointClickTime < DOUBLE_CLICK_MS
             && this.sameStack(points, this.lastClickPoints);
     }
 
@@ -338,11 +362,11 @@ export class Helper {
             if (this.isDoubleClickPoints(this.downPoints)) {
                 const ids = this.downPoints.map(p => this.id(p)).join(' ');
                 this.command.command(`adjust ${ids}`);
-                this.touchTime = 0;
+                this.pointClickTime = 0;
                 this.lastClickPoints = [];
                 return;
             }
-            this.touchTime = Date.now();
+            this.pointClickTime = Date.now();
             this.lastClickPoints = [...this.downPoints];
             this.togglePointStack(this.downPoints);
             return;
@@ -655,8 +679,10 @@ export class Helper {
     // Points, then segments, then faces near xf, yf
     search2d(xf, yf) {
         const scale = this.view2d.scale || 1;
-        const points = this.model.points.filter(p => Math.abs(p.xf - xf) + Math.abs(p.yf - yf) < 10 / scale);
-        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 6 / scale);
+        // Euclidean, like the segment test below: Manhattan made the sensitive
+        // area of a point a diamond, so a point felt harder to grab diagonally.
+        const points = this.model.points.filter(p => Math.hypot(p.xf - xf, p.yf - yf) < PICK_POINT_PX / scale);
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < PICK_SEGMENT_PX / scale);
         const faces = this.model.faces.filter(f => Face.contains2d(f, xf, yf));
         return {points, segments, faces};
     }
@@ -664,6 +690,7 @@ export class Helper {
     // Down on flat 2d
     down2d(event) {
         this.currentCanvas = '2d';
+        this.trackPointerType(event);
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate (drawing space)
@@ -679,6 +706,10 @@ export class Helper {
     up2d(event) {
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
+        // Where the pointer was released, not where the last pointermove landed:
+        // a coalesced or dropped move otherwise makes a drag read as a click.
+        this.currentX = xf;
+        this.currentY = -yf;
         this.up(points, segments, faces);
     }
 
@@ -710,9 +741,9 @@ export class Helper {
 
     search3d(xCanvas, yCanvas, contextFace = undefined) {
         // Points near xCanvas, yCanvas
-        const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < 10);
+        const points = this.model.points.filter(p => Math.hypot(p.xCanvas - xCanvas, p.yCanvas - yCanvas) < PICK_POINT_PX);
         // Segments near xCanvas, yCanvas
-        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < PICK_SEGMENT_PX);
         // Faces under cursor: depth-sorted; when contextFace set, adjacent faces only
         const faces = this.pickFaces3d(xCanvas, yCanvas, contextFace);
         return {points, segments, faces};
@@ -720,9 +751,14 @@ export class Helper {
     // Down on 3d overlay
     down3d(event) {
         this.currentCanvas = '3d';
+        this.trackPointerType(event);
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
         this.down(points, segments, faces, xCanvas, yCanvas);
+        // Orbiting is decided once, here: re-deciding it on every move made an
+        // orbit stop as soon as the cursor passed over the paper and resume once
+        // it left again.
+        this.orbiting = points.length === 0 && segments.length === 0 && faces.length === 0;
     }
 
     // Move on 3d overlay
@@ -732,11 +768,9 @@ export class Helper {
         const contextFace = this.downFace || undefined;
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas, contextFace);
         // Handle 3d rotation
-        if (points.length === 0 && segments.length === 0 && faces.length === 0
-            && event.buttons === 1
-            && !this.downPoint && !this.downSegment && !this.downFace) {
+        if (this.orbiting && (event.buttons & 1) > 0) {
             // Rotation
-            const factor = (600 / event.target.height) ;
+            const factor = (600 / (event.target?.height || 600));
             const dx = factor * (xCanvas - this.currentX);
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
@@ -756,8 +790,13 @@ export class Helper {
     up3d(event) {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
+        const wasClick = this.isClickAt(xCanvas, yCanvas);
+        this.currentX = xCanvas;
+        this.currentY = yCanvas;
         this.up(points, segments, faces);
-        if (points.length === 0 && segments.length === 0 && faces.length === 0) {
+        // An orbit ends wherever it ends; only a click on nothing arms the
+        // double-click that resets the view.
+        if (wasClick && points.length === 0 && segments.length === 0 && faces.length === 0) {
             this.doubleClick();
         }
     }
@@ -773,12 +812,14 @@ export class Helper {
     }
 
     doubleClick() {
-        if (Date.now() - this.touchTime < 400) {
+        if (Date.now() - this.viewClickTime < DOUBLE_CLICK_MS) {
             this.view3d.angleX = this.view3d.angleY = this.view3d.angleZ = 0;
             this.view3d.translationX = this.view3d.translationY = 0;
             this.view3d.scale = 1;
             this.command.command('fit');
+            this.viewClickTime = 0;
+            return;
         }
-        this.touchTime = Date.now();
+        this.viewClickTime = Date.now();
     }
 }
