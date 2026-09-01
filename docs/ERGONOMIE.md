@@ -85,6 +85,19 @@ Trois conséquences, toutes mesurées :
    `Math.abs(angle) < 10 ? 0` fait qu'un petit geste ne plie pas *du tout* — il retombe
    alors sur `splitSegments()` et **trace des plis** à la place, sans prévenir.
 
+Le cas le plus parlant est le geste le plus courant de tout l'origami. Marquer le pli
+médian, armer la moitié basse, l'attraper à 100 px du pli et la glisser de 200 px
+jusqu'à sa position miroir — « plier en deux » :
+
+```
+émis :  split s6 0.5          angle annoncé : 0°
+```
+
+Zéro degré, et un pli tracé à la place. Le rapport prend une valeur absolue, si bien
+que la position miroir — celle où le pli est exactement terminé — donne un rapport de
+1, c'est-à-dire la même valeur qu'au point de départ, c'est-à-dire 0°. La loi renvoie
+0 précisément là où elle devrait renvoyer 180.
+
 Le modèle correct est la manipulation directe : le point saisi tourne sur un cercle
 autour de l'axe ; l'angle est celui qui rapproche le plus ce cercle du curseur. Vu de
 face, la projection écran de ce cercle donne `d(θ) ≈ d₀·cos θ`, donc
@@ -419,8 +432,28 @@ Les défauts démontrables ci-dessus, chacun accompagné d'un test :
 | 4.7 | pointage euclidien, cohérent entre points et segments |
 | 4.8 | `isClick()` utilise la position du relâchement |
 
+Le seuil de clic est en outre pris en compte par l'aperçu, qui l'ignorait : un glissé
+plus court que le seuil affichait une flèche de pli alors que `up()` le traitait comme
+un clic.
+
 Les points 2.3 à 2.9 et 4.1, 4.9 relèvent d'un changement de conception : ils sont
 décrits ici mais **non implémentés**.
+
+### Avant / après, sur la même séquence
+
+La séquence « plier en deux, puis replier le rabat gauche par-dessus », jouée
+uniquement par l'API de gestes de `Helper`, sans navigateur :
+
+| Étape | `master` | branche |
+| --- | --- | --- |
+| tracer le pli médian | `by2d p4 p5` | `by2d p4 p5` |
+| plier en deux | annonce 0°, émet `split s6 0.5` | annonce −180°, émet `t 1000 r s6 -180 p0 p1` |
+| moitiés superposées | non | oui |
+| tracer le pli vertical | jamais atteint | `by2d p6 p7` |
+| replier le rabat gauche (2 faces, 1 face armée) | jamais atteint | `t 1000 r s11 -180 p0 p5 p3 // f0 f1` |
+
+Les scripts livrés (`models/`, `templates/`) rejouent à l'identique : `Command.js` et
+`Model.js` ne sont pas touchés, seul le chemin souris change.
 
 ---
 
