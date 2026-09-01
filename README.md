@@ -45,6 +45,8 @@ Work in progress, any help is welcome.
 
 ### Helper interprets mouse moves to make commands
 - click selects point, segment, face, or marks them
+- click on a pile of superimposed faces arms the top layer; click again to go one layer deeper, Alt-click takes the whole pile
+- dragging an armed face folds it live, previewed by a curved arrow along the path the paper travels (solid/filled for a valley, dashed/hollow for a mountain)
 - click drag from a point to a point adds a crease, or if the crease exists, adds a perpendicular crease
 - click drag from a point to a segment adds a perpendicular crease; from a segment to a point adds a crease between them (line onto point)
 - click drag from a segment to a segment adds a bisector
