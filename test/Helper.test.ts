@@ -584,6 +584,104 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds.length, 0);
   });
 
+  await t.step("the fold angle is zero at the grab point, whatever it is", () => {
+    const { model, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true;
+    helper.currentCanvas = "2d";
+    // Grabbing anywhere, including right next to the hinge at drawing y = 200
+    for (const startY of [0, 100, 190, 199]) {
+      helper.down([], [], [f0], 0, startY);
+      helper.move([], [], [f0], 0, startY);
+      assertEquals(helper.label, 0);
+    }
+  });
+
+  await t.step("the fold angle measures the drag, not the cursor's position", () => {
+    const { model, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true;
+    helper.currentCanvas = "2d";
+    // Same 100 px drag toward the hinge, from two different grab points:
+    // the old distance-ratio law read 50 deg from one and 180 from the other.
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, 100);
+    const fromCentre = helper.label as number;
+    helper.down([], [], [f0], 0, 50);
+    helper.move([], [], [f0], 0, 150);
+    const fromCloser = helper.label as number;
+    assertEquals(fromCentre !== 0, true);
+    // Same lever arm class, so the same drag stays in the same ballpark
+    assertEquals(Math.abs(fromCloser) > Math.abs(fromCentre), true);
+    // and neither jumps straight to a flat fold
+    assertEquals(Math.abs(fromCentre) < 180, true);
+    assertEquals(Math.abs(fromCloser) < 180, true);
+  });
+
+  await t.step("a short drag near the hinge no longer folds the paper flat", () => {
+    const { model, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true;
+    helper.currentCanvas = "2d";
+    // 1 px from the hinge; the old law returned 180 deg for any drag at all
+    helper.down([], [], [f0], 0, 199);
+    helper.move([], [], [f0], 0, 199 + 13);
+    assertEquals(Math.abs(helper.label as number) < 90, true);
+    // A flat fold still needs a real drag: at least twice the minimum lever arm
+    helper.move([], [], [f0], 0, 199 + 2 * 30);
+    assertEquals(helper.label, 180);
+  });
+
+  await t.step("90 and 180 degrees are reachable in both directions", () => {
+    const { model, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true;
+    helper.currentCanvas = "2d";
+    // Pin the hinge so the nearest-border fallback cannot switch axis mid-drag
+    const s0 = model.segments[0]; // drawing y = 200
+    s0.select = true;
+    const lever = 200; // grabbed at the centre of the sheet
+
+    helper.down([], [], [f0], 0, 0);
+    // 90 deg lands the grab point on the crease
+    helper.move([], [], [f0], 0, lever);
+    assertEquals(helper.label, 90);
+    // 180 deg lands it at the mirror position
+    helper.move([], [], [f0], 0, 2 * lever);
+    assertEquals(helper.label, 180);
+    // and it saturates there rather than wrapping back towards zero
+    helper.move([], [], [f0], 0, 3 * lever);
+    assertEquals(helper.label, 180);
+    // Dragging away from the crease folds the other way, over the same travel
+    helper.move([], [], [f0], 0, -lever);
+    assertEquals(helper.label, -90);
+    helper.move([], [], [f0], 0, -2 * lever);
+    assertEquals(helper.label, -180);
+  });
+
+  await t.step("the hinge follows the border edge the drag is aiming at", () => {
+    const { model, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true;
+    helper.currentCanvas = "2d";
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, 150); // towards s0, at drawing y = 200
+    assertEquals(model.segments[0].hover, true);
+    helper.move([], [], [f0], 0, -150); // towards s2, at drawing y = -200
+    assertEquals(model.segments[2].hover, true);
+  });
+
+  await t.step("snapAngle rounds to the degree and settles on origami angles", () => {
+    assertEquals(Helper.snapAngle(0), 0);
+    assertEquals(Helper.snapAngle(3), 0); // dead zone
+    assertEquals(Helper.snapAngle(-3), 0);
+    assertEquals(Helper.snapAngle(88), 90); // snapped
+    assertEquals(Helper.snapAngle(-177), -180);
+    assertEquals(Helper.snapAngle(43.4), 45);
+    assertEquals(Helper.snapAngle(60.2), 60); // too far from 45 or 90 to snap
+    assertEquals(Helper.snapAngle(-112), -112);
+  });
+
   await t.step("a fold carries the whole flap, not just the grabbed face", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);

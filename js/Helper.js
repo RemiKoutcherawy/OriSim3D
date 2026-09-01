@@ -125,6 +125,11 @@ export class Helper {
     // points that really are meant to sit on the hinge.
     static AXIS_EPSILON = 1;
 
+    // Fold angle, in canvas pixels and degrees
+    static MIN_LEVER_PX = 30;
+    static ANGLE_SNAP_DEG = 5;
+    static ANGLE_DEAD_DEG = 5;
+
     // Draw drag preview when down on a point, segment, or face: a filled arrow
     // for creasing (by/across/bisector), a hollow arrow only when the drag will
     // actually fold the face (willFold()) — see Arrow.svg.
@@ -260,17 +265,6 @@ export class Helper {
             && this.sameStack(points, this.lastClickPoints);
     }
 
-    faceCentroidCanvas(face) {
-        const pts = face.points;
-        let x = 0, y = 0;
-        for (const p of pts) {
-            const c = this.canvasPoint(p);
-            x += c.xf;
-            y += c.yf;
-        }
-        return {x: x / pts.length, y: y / pts.length};
-    }
-
     faceBorderSegments(face) {
         const segs = [];
         const pts = face.points;
@@ -295,19 +289,47 @@ export class Helper {
         return best;
     }
 
-    // Signed rotation angle (degrees) from ref point to cursor, around segment.
-    // Uses canvasPoint() so 2d (xf,-yf) and 3d (xCanvas,yCanvas) stay consistent.
+    /**
+     * Signed rotation angle (degrees) for hinging on `s`, measured from the grab
+     * point (refX, refY) to the cursor. Uses canvasPoint() so 2d (xf,-yf) and 3d
+     * (xCanvas,yCanvas) stay consistent.
+     *
+     * The grabbed point sweeps a circle around the hinge, and seen roughly face
+     * on that circle projects to a signed distance d(angle) = d0 * cos(angle),
+     * so acos() reads the angle back. The paper follows the hand: 90 degrees
+     * when the cursor reaches the crease, 180 at the mirror position, and a
+     * given drag always means the same rotation wherever the face was grabbed.
+     *
+     * Dragging the other way, away from the crease, folds the other way. That
+     * half is a convention rather than a projection — a mountain and a valley of
+     * equal angle project identically — and is mirrored so both directions need
+     * the same travel.
+     */
     rotationLabel(s, refX, refY, x, y) {
         const p1 = this.canvasPoint(s.p1), p2 = this.canvasPoint(s.p2);
-        const p1Proj = [p1.xf, p1.yf], p2Proj = [p2.xf, p2.yf];
-        const distToFirst = (refX - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (refY - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-        const distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-        if (Math.abs(distToFirst) < 1e-6) return 0;
-        let ratio = Math.abs(distToCurrent / distToFirst);
-        ratio = Math.round(ratio * 100) / 100;
-        let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
-        angle = Math.round(angle / 10) * 10;
-        return Math.abs(angle) < 10 ? 0 : angle;
+        const dx = p2.xf - p1.xf, dy = p2.yf - p1.yf;
+        const len = Math.hypot(dx, dy);
+        if (len < 1e-9) return 0;
+        const side = (px, py) => ((px - p1.xf) * dy - (py - p1.yf) * dx) / len;
+        const d0 = side(refX, refY);
+        // Grabbing right next to the hinge would make a single pixel worth tens
+        // of degrees; below this the lever arm is treated as this long.
+        const lever = Math.sign(d0 || 1) * Math.max(Math.abs(d0), Helper.MIN_LEVER_PX);
+        // Measured from the grab point, so clamping the lever arm shortens the
+        // travel needed without pretending the paper starts already folded.
+        const ratio = 1 + (side(x, y) - d0) / lever;
+        const radians = ratio <= 1
+            ? Math.sign(lever) * Math.acos(Math.max(-1, ratio))
+            : -Math.sign(lever) * Math.acos(Math.max(-1, 2 - ratio));
+        return Helper.snapAngle(radians * 180 / Math.PI);
+    }
+
+    // To the degree, settling on the usual origami angles when close enough.
+    static snapAngle(degrees) {
+        const rounded = Math.round(degrees);
+        const nearest = Math.round(rounded / 45) * 45;
+        const snapped = Math.abs(rounded - nearest) <= Helper.ANGLE_SNAP_DEG ? nearest : rounded;
+        return Math.abs(snapped) < Helper.ANGLE_DEAD_DEG ? 0 : snapped;
     }
 
     move(points, segments, faces, x, y) {
@@ -505,10 +527,13 @@ export class Helper {
         if (!this.downFace.select) this.fromFaceClick();
     }
 
-    /** Rotation angle (degrees) if hinging the dragged face on `axis` right now. */
+    /**
+     * Rotation angle (degrees) if hinging the dragged face on `axis` right now.
+     * Measured from where the paper was grabbed, so the angle is the result of
+     * the drag rather than of the cursor's absolute position on the canvas.
+     */
     angleFor(axis) {
-        const c = this.faceCentroidCanvas(this.downFace);
-        return this.rotationLabel(axis, c.x, c.y, this.currentX, this.currentY);
+        return this.rotationLabel(axis, this.firstX, this.firstY, this.currentX, this.currentY);
     }
 
     /** Explicit pin, else a segment you're aiming directly at that borders this face. */
