@@ -794,6 +794,68 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(sag > chord * 0.1, true);
   });
 
+  await t.step("a mountain reads as dashed, and the ghost does not fill in its gaps", () => {
+    type Stroke = { pts: { x: number; y: number }[]; style: string; dash: boolean };
+    function recordingCanvas(strokes: Stroke[]) {
+      let cur: { x: number; y: number }[] = [];
+      let dash = false;
+      const stack: boolean[] = [];
+      const ctx = {
+        lineWidth: 0, lineCap: "", lineJoin: "", strokeStyle: "", fillStyle: "", font: "",
+        save() { stack.push(dash); },
+        restore() { dash = stack.pop() ?? false; },
+        setLineDash(d: number[]) { dash = d.length > 0; },
+        beginPath() { cur = []; },
+        closePath() {},
+        moveTo(x: number, y: number) { cur.push({ x, y }); },
+        lineTo(x: number, y: number) { cur.push({ x, y }); },
+        arc() {}, fillText() {}, fill() {},
+        stroke() {
+          if (cur.length > 1) strokes.push({ pts: [...cur], style: String(ctx.strokeStyle), dash });
+        },
+      };
+      return { getContext: () => ctx };
+    }
+
+    const draw = (towards: number) => {
+      const { model, command } = setup();
+      const strokes: Stroke[] = [];
+      const helper = new Helper(model, command, null);
+      // deno-lint-ignore no-explicit-any
+      (helper as any).view2d = { canvas2d: recordingCanvas(strokes) };
+      helper.currentCanvas = "2d";
+      const f0 = model.faces[0];
+      f0.select = true;
+      model.segments[0].select = true; // pin the hinge
+      helper.down([], [], [f0], 0, 0);
+      helper.move([], [], [f0], 0, towards);
+      strokes.length = 0;
+      helper.draw();
+      return { strokes, angle: helper.label as number };
+    };
+
+    const valley = draw(200);
+    const mountain = draw(-200);
+    assertEquals(valley.angle > 0, true);
+    assertEquals(mountain.angle < 0, true);
+
+    const shaft = (r: { strokes: Stroke[] }) => r.strokes.find((s) => s.style === Helper.FOLD_AMBER)!;
+    const ghost = (r: { strokes: Stroke[] }) => r.strokes.find((s) => s.style.startsWith("rgba"))!;
+
+    // Diagram convention: solid towards the viewer, dashed away from them
+    assertEquals(shaft(valley).dash, false);
+    assertEquals(shaft(mountain).dash, true);
+
+    // The ghost shows only what is left to travel. Drawn from zero it laid a solid
+    // pale line under the shaft and the dashes stopped reading as dashes.
+    for (const run of [valley, mountain]) {
+      const end = shaft(run).pts[shaft(run).pts.length - 1];
+      const ghostStart = ghost(run).pts[0];
+      assertEquals(Math.round(ghostStart.x), Math.round(end.x));
+      assertEquals(Math.round(ghostStart.y), Math.round(end.y));
+    }
+  });
+
   await t.step("bowArc makes a flat projection readable, and leaves a curve alone", () => {
     const straight = Array.from({ length: 25 }, (_, i) => ({ x: 100, y: -200 + i * 20 }));
     const bowed = Helper.bowArc(straight, 1);

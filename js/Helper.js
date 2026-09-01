@@ -238,9 +238,9 @@ export class Helper {
      * third dimension to swing through, so there the same rotation projects to a
      * straight line and the arc is bowed by hand, the way diagrams draw it.
      */
-    foldArc(axis, angle, tip, steps = 24) {
+    foldArc(axis, angle, tip, steps = 24, from = 0) {
         const path = [];
-        if (!tip) return path;
+        if (!tip || Math.abs(angle - from) < 1e-9) return path;
         if (this.currentCanvas === '2d') {
             // Tip now, and where it lands: rotating by `angle` about the crease
             // mirrors it across the crease line at 180 degrees.
@@ -252,9 +252,9 @@ export class Helper {
             // Signed distance of the tip to the crease, and its foot on it
             const side = (t.xf - a.xf) * uy - (t.yf - a.yf) * ux;
             const footX = t.xf - side * uy, footY = t.yf + side * ux;
-            const rad = angle * Math.PI / 180;
+            const radFrom = from * Math.PI / 180, radTo = angle * Math.PI / 180;
             for (let i = 0; i <= steps; i++) {
-                const th = rad * i / steps;
+                const th = radFrom + (radTo - radFrom) * i / steps;
                 // In plane the tip closes on the crease as cos, and the part of
                 // the swing that leaves the sheet is drawn as the bow.
                 const along = side * Math.cos(th);
@@ -272,7 +272,7 @@ export class Helper {
         const clone = {x: tip.x, y: tip.y, z: tip.z};
         let previous = 0;
         for (let i = 0; i <= steps; i++) {
-            const th = angle * i / steps;
+            const th = from + (angle - from) * i / steps;
             this.model.rotate(axis, th - previous, [clone]);
             previous = th;
             const v = Vector3.transformMat4(clone, canvasView);
@@ -297,9 +297,12 @@ export class Helper {
         }
         const valley = this.comesForward(fold, tip);
         const side = valley ? 1 : -1;
-        // Where the fold is heading, so the destination is visible before reaching it
-        const full = Helper.bowArc(this.foldArc(fold.axis, Math.sign(fold.angle) * 180, tip), side);
-        this.strokeArc(context, full, {color: 'rgba(230,168,23,0.35)', width: 3, dashed: false});
+        // Only the part still to go, so the destination is visible without laying a
+        // solid pale line under the arrow — that filled in the gaps of a dashed
+        // mountain shaft and made both directions look alike.
+        const remaining = Helper.bowArc(
+            this.foldArc(fold.axis, Math.sign(fold.angle) * 180, tip, 24, fold.angle), side);
+        this.strokeArc(context, remaining, {color: 'rgba(230,168,23,0.35)', width: 3, dashed: false});
         const bowed = Helper.bowArc(path, side);
         this.strokeArc(context, bowed, {color: Helper.FOLD_AMBER, width: 5, dashed: !valley});
         this.drawArcHead(context, bowed, valley);

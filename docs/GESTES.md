@@ -79,9 +79,19 @@ faisait jusqu'ici.
 
 ### Ce qu'il reste à faire ici
 
-- La molette serait plus directe que le clic répété pour feuilleter une pile, et
-  laisserait le clic tranquille.
+- **La molette serait plus directe que le clic répété.** Un essai à la souris l'a
+  montré : le cycle repart de la couche du dessus dès que le clic suivant tombe un
+  pixel à côté, parce que la pile désignée n'est alors plus tout à fait la même. Sur
+  une pile survolée en continu, la molette n'a pas ce défaut, et elle laisse le clic
+  tranquille.
 - Le survol devrait déjà montrer la couche visée, avant le clic.
+- **Les sélections s'accumulent d'une pile à l'autre.** Cliquer une nouvelle pile ne
+  désélectionne pas les faces armées ailleurs, si bien que le journal affiche
+  `// selectFaces f1(0) f3(0) (couche 1/4)` — une couche annoncée, deux faces armées.
+  Ce n'est pas qu'un défaut d'affichage : le rabat part de *toutes* les faces
+  sélectionnées, donc une sélection oubliée change ce qui est plié. C'est la même
+  famille de piège que `priorityAxis()`, qui prend n'importe quel segment sélectionné
+  du modèle (`ERGONOMIE.md` §4.9).
 
 ---
 
