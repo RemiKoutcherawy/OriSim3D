@@ -169,6 +169,45 @@ des faces coplanaires en z-fighting.
 L'information nécessaire est pourtant connue au moment du pli : le rabat qui bouge
 passe au-dessus (vallée) ou en dessous (montagne) du papier resté en place.
 
+### 2.8 bis Le résultat dépendait du nombre d'images *(corrigé)*
+
+Réduire `t 1000` à `t 100` dans `templates/square-base.txt` changeait le résultat
+final. Ce n'était pas la durée qui comptait mais **le nombre d'images** : la même
+ligne à 1000 ms rendait un résultat différent à 60 Hz et à 4 images par seconde.
+
+`runAnim()` subdivisait chaque image en pas d'au plus 0,01 d'interpolation. C'était
+un plancher, pas une grille : une longue animation recevait une image par pas et une
+courte plusieurs, si bien qu'`adjust` — qui résout la position de chaque point depuis
+celle du pas précédent, donc dont le *chemin* décide du pli stable atteint — tournait
+de 200 à 500 fois selon l'affichage.
+
+L'animation avance maintenant sur une grille fixe de 100 pas de temps. Quantifier le
+temps plutôt que la valeur interpolée fixe aussi le sommet d'un interpolateur qui
+dépasse (`iao`, `io`, `ib`), jusque-là échantillonné là où une image tombait.
+
+Le symptôme le plus parlant : `petal-fold` finissait à `yMin -215,48` à l'écran et à
+`-215,75` en relecture instantanée. **L'export de diagrammes SVG, qui passe par
+`replaySteps`, ne montrait donc pas ce que l'utilisateur avait vu.** Les 15 scripts
+livrés rendent désormais une géométrie identique au bit près à 60 Hz, à 4 ms, à 250 ms
+par image, en lecture instantanée, et à un dixième de la durée écrite.
+
+L'autre moitié du problème était l'annulation, et les deux étaient liées par le nombre
+d'images — d'où l'impression d'un compromis. Une image enregistrait un instantané *par
+commande*, donc la pile et le temps de rembobinage suivaient l'affichage :
+
+| | pile pour un pli animé | images pour l'annuler |
+| --- | --- | --- |
+| avant, 60 Hz | 181 | 180 |
+| avant, 250 Hz | 751 | 750 |
+| avant, 4 images/s | 13 | 12 |
+| après, 60 Hz | 21 | 20 |
+| après, 250 Hz | 21 | 20 |
+
+Les instantanés de rembobinage ont maintenant leur propre grille, plus grossière, et
+il n'y en a plus qu'un par pas au lieu d'un par commande — un instantané contient déjà
+tous les points, une ligne à trois rotations en stockait donc trois fois les mêmes.
+Le compromis n'existait pas : il suffisait de découpler les deux grilles.
+
 ### 2.8 Annuler : granularité et perte de sélection
 
 - Un geste souris peut émettre plusieurs commandes (`split`, `split`, puis `t … r …`),
