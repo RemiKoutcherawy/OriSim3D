@@ -26,6 +26,10 @@ export class Helper {
         this.viewClickTime = 0;
         this.lastClickPoints = [];
         this.pointerType = 'mouse';
+        // Which layer of a pile of superimposed faces the next click takes.
+        // Survives between gestures: that is what makes clicking again go deeper.
+        this.layerIndex = 0;
+        this.lastPile = [];
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
 
@@ -103,6 +107,7 @@ export class Helper {
         this.currentSegment = undefined;
         this.moving = false;
         this.orbiting = false;
+        this.pileAll = false;
     }
 
     // pointerType decides the click/drag threshold, so it has to follow the
@@ -721,17 +726,35 @@ export class Helper {
         this.fromFaceDrag();
     }
 
+    /**
+     * Clicking a pile of superimposed faces arms the top one, the layer the user
+     * is actually looking at — "the front flap" of a diagram. Clicking the same
+     * pile again goes one layer deeper, and past the last one clears it, so the
+     * whole stack is reachable without a modifier. Shift takes the pile as a
+     * whole, which is what selecting used to do for every click.
+     */
     fromFaceClick() {
-        const samePile = this.downFace && this.upFaces.includes(this.downFace);
-        if (samePile) {
-            this.toggleFaceStack(this.upFaces.length ? this.upFaces : this.downFaces);
-        } else if (this.upFace) {
-            // Different face: select Up front only; keep points/segments
-            this.upFace.select = true;
+        const pile = this.upFaces.length ? this.upFaces : this.downFaces;
+        if (!pile.length) return;
+        if (this.pileAll) {
+            this.toggleFaceStack(pile);
+        } else {
+            this.layerIndex = this.sameStack(pile, this.lastPile) ? this.layerIndex + 1 : 0;
+            this.lastPile = [...pile];
+            pile.forEach(f => { f.select = false; });
+            // One past the deepest layer means "none of them", so a pile can be
+            // cycled through and let go without hunting for empty space.
+            if (this.layerIndex < pile.length) {
+                pile[this.layerIndex].select = true;
+            } else {
+                this.layerIndex = -1;
+            }
         }
         const ids = this.model.faces.filter(f => f.select).map(f => `${this.id(f)}(${f.offset})`);
+        const depth = this.pileAll || pile.length < 2 || this.layerIndex < 0
+            ? '' : ` (couche ${this.layerIndex + 1}/${pile.length})`;
         if (ids.length) {
-            this.command.command(`// selectFaces ${ids.join(' ')}`);
+            this.command.command(`// selectFaces ${ids.join(' ')}${depth}`);
         }
     }
 
@@ -1001,6 +1024,7 @@ export class Helper {
     down2d(event) {
         this.currentCanvas = '2d';
         this.trackPointerType(event);
+        this.pileAll = !!event.altKey;
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate (drawing space)
@@ -1062,6 +1086,7 @@ export class Helper {
     down3d(event) {
         this.currentCanvas = '3d';
         this.trackPointerType(event);
+        this.pileAll = !!event.altKey;
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         // Shift, or the middle button, always orbits. Without it there is no way
         // to look at the model from another angle once it fills the view: the

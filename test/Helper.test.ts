@@ -233,37 +233,65 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], `// selectSegments ${helper.id(s0)}(${Math.round(Segment.length2d(s0))},${Math.round(Segment.length3d(s0))}) ${helper.id(sExtra)}(${Math.round(Segment.length2d(sExtra))},${Math.round(Segment.length3d(sExtra))})`);
   });
 
-  await t.step("click on stacked faces selects all of them, toggles off, and logs ids", () => {
+  await t.step("clicking a pile takes the top layer, clicking again goes deeper", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
-    // Two overlapping faces in one pile (depth order)
+    // Two overlapping faces in one pile, nearest the camera first
     model.splitBy2d(model.points[0], model.points[2]);
     const f0 = model.faces[0];
     const f1 = model.faces[1];
     const stack = [f0, f1];
+    const click = () => {
+      helper.down([], [], stack, 0, 0);
+      helper.up([], [], stack);
+    };
 
-    helper.down([], [], stack, 0, 0);
-    helper.up([], [], stack);
+    // The layer the user is looking at, not the whole pile
+    click();
     assertEquals(f0.select, true);
-    assertEquals(f1.select, true);
-    assertEquals(cmds[0], `// selectFaces ${helper.id(f0)}(${f0.offset}) ${helper.id(f1)}(${f1.offset})`);
+    assertEquals(f1.select, false);
+    assertEquals(cmds[0], `// selectFaces ${helper.id(f0)}(${f0.offset}) (couche 1/2)`);
 
+    // Clicking the same pile again reaches the layer underneath
     cmds.length = 0;
-    helper.down([], [], stack, 0, 0);
-    helper.up([], [], stack);
+    click();
+    assertEquals(f0.select, false);
+    assertEquals(f1.select, true);
+    assertEquals(cmds[0], `// selectFaces ${helper.id(f1)}(${f1.offset}) (couche 2/2)`);
+
+    // Once past the deepest layer the pile is released
+    cmds.length = 0;
+    click();
     assertEquals(f0.select, false);
     assertEquals(f1.select, false);
     assertEquals(cmds.length, 0);
 
-    // Points/segments untouched by the face-stack toggle
+    // ...and the cycle starts again from the top
+    click();
+    assertEquals(f0.select, true);
+  });
+
+  await t.step("Alt takes the whole pile, as selecting used to do", () => {
+    const { model, helper } = setup();
+    model.splitBy2d(model.points[0], model.points[2]);
+    const [f0, f1] = model.faces;
+    const stack = [f0, f1];
     model.points[0].select = true;
     model.segments[0].select = true;
-    helper.toggleFaceStack(stack);
+
+    helper.pileAll = true; // set from event.altKey by down2d/down3d
+    helper.down([], [], stack, 0, 0);
+    helper.up([], [], stack);
     assertEquals(f0.select, true);
     assertEquals(f1.select, true);
-    helper.toggleFaceStack(stack);
+
+    helper.pileAll = true;
+    helper.down([], [], stack, 0, 0);
+    helper.up([], [], stack);
     assertEquals(f0.select, false);
     assertEquals(f1.select, false);
+
+    // Points and segments are untouched either way
     assertEquals(model.points[0].select, true);
     assertEquals(model.segments[0].select, true);
   });

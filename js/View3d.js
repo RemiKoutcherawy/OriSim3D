@@ -456,11 +456,27 @@ export class View3d {
         }
     }
 
-    // Mean eye-space z of face vertices; lower = closer to camera.
+    /**
+     * Distance of the face from the camera: lower is closer, so an ascending
+     * sort puts the face the user sees on top first. Eye z itself grows towards
+     * the camera — the model view sits at z = -700 and initPerspective() clips
+     * between -50 and -1200 — hence the negation.
+     *
+     * initBuffers() displaces every vertex by `offset` along the face normal to
+     * separate coplanar layers, so picking has to apply the same displacement:
+     * otherwise the face drawn on top is not the one the cursor picks.
+     */
     faceDepth(face) {
         let z = 0;
         for (const p of face.points) z += p.zEye ?? p.z;
-        return z / face.points.length;
+        z /= face.points.length;
+        const offset = face.offset || 0;
+        const m = this.modelView;
+        if (offset && m) {
+            const n = this.normal(face.points);
+            z += offset * (m[2] * n[0] + m[6] * n[1] + m[10] * n[2]);
+        }
+        return -z;
     }
 
     // Render

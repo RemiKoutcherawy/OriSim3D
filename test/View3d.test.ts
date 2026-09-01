@@ -181,7 +181,35 @@ Deno.test("View3d", async (t) => {
   await t.step("faceDepth() averages eye-space z, falling back to z when zEye is unset", () => {
     const view3d = Object.create(View3d.prototype);
     const face = { points: [{ z: 1 }, { zEye: 5, z: 99 }, { z: 3 }] };
-    assertEquals(view3d.faceDepth(face), 3);
+    // Distance from the camera, so the sign is flipped: eye z grows towards it
+    assertEquals(view3d.faceDepth(face), -3);
+  });
+
+  await t.step("faceDepth() puts the face nearest the camera first", () => {
+    const view3d = Object.create(View3d.prototype);
+    // Everything visible sits between eye z -50 and -1200; -650 is nearer than -750
+    const near = { points: [{ zEye: -650 }] };
+    const far = { points: [{ zEye: -750 }] };
+    assertEquals(view3d.faceDepth(near) < view3d.faceDepth(far), true);
+    assertEquals([far, near].sort((a, b) => view3d.faceDepth(a) - view3d.faceDepth(b))[0], near);
+  });
+
+  await t.step("faceDepth() accounts for the offset that separates coplanar layers", async () => {
+    const mat4 = await import("../js/lib/mat4.js");
+    const view3d = Object.create(View3d.prototype);
+    view3d.modelView = mat4.create();
+    // Two coplanar faces facing the camera, one lifted towards it by `offset`
+    const flat = { points: [{ x: 0, y: 0, z: 0, zEye: -700 }], offset: 0 };
+    const lifted = {
+      points: [
+        { x: 0, y: 0, z: 0, zEye: -700 },
+        { x: 10, y: 0, z: 0, zEye: -700 },
+        { x: 0, y: 10, z: 0, zEye: -700 },
+      ],
+      offset: 5,
+    };
+    // Without the offset both would tie and the pile order would be arbitrary
+    assertEquals(view3d.faceDepth(lifted) < view3d.faceDepth(flat), true);
   });
 
   await t.step("syncCanvasSize() sets identical buffer sizes on canvas3d and overlay", () => {
