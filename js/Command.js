@@ -3,6 +3,18 @@ import {Interpolator} from './Interpolator.js';
 import {Model, State} from './Model.js';
 import {ReadWrite} from './ReadWrite.js';
 
+// An animated line advances along a fixed grid of interpolated time. Commands
+// like 'a' (adjust) resolve a point's 3d position iteratively from where the
+// previous step left it, so the *path* decides which stable fold they settle on,
+// not just the endpoint. Pinning the grid makes a line land on the same result
+// whatever its duration and whatever the display gave in frames.
+const ANIM_STEPS = 100;
+
+// Rewind snapshots follow their own, coarser grid. Recording one per frame tied
+// the undo stack — and the time it takes to rewind — to the display: the same
+// 1000 ms line recorded 180 snapshots at 60 Hz and 750 at 250 Hz.
+const UNDO_STEP = 0.05;
+
 export class Command {
     model; // Current model
     // Tokenized commands
@@ -13,6 +25,10 @@ export class Command {
     // Time interpolated at an instant 'p' preceding and at instant 'n' now
     tpi = 0;
     tni = 1;
+    // Interpolated time at which the last rewind snapshot was taken
+    undoAt = 0;
+    // How far along the fixed animation grid the current line has got
+    animStep = 0;
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
@@ -183,6 +199,8 @@ export class Command {
             this.duration = Number.parseFloat(this.next());
             this.tStart = performance.now();
             this.tpi = 0;
+            this.undoAt = 0;
+            this.animStep = 0;
             this.model.state = State.anim;
             return true;
         }
@@ -209,27 +227,46 @@ export class Command {
 
     runAnim() {
         const tn = Math.min((performance.now() - this.tStart) / this.duration, 1);
-        const targetTni = this.interpolator(tn);
         // Execute commands after t xxx up to end of line
         const iBeginAnim = this.iToken;
-        // Commands like 'a' (adjust) resolve a point's 3d position iteratively from
-        // its position in the *previous* step, so a big jump in a single call (a short
-        // duration, or a slow display giving few real frames) can make it settle on the
-        // wrong stable fold instead of the one continuous small motions converge to.
-        // Replay this frame's motion as small fixed-size substeps so the result only
-        // depends on the animated distance, not on how many real frames covered it.
-        const maxStep = 0.01;
-        const steps = Math.max(1, Math.ceil(Math.abs(targetTni - this.tpi) / maxStep));
-        for (let i = 1; i <= steps; i++) {
-            this.tni = this.tpi + (targetTni - this.tpi) * i / steps;
+        // Walk a fixed grid of animation time. Quantising the time rather than the
+        // interpolated value means the commands see exactly the same sequence of
+        // values every run — including the peak of an overshooting interpolator,
+        // which otherwise lands wherever a frame happened to sample it.
+        const lastStep = tn >= 1 ? ANIM_STEPS : Math.floor(tn * ANIM_STEPS);
+        let recordedThisFrame = false;
+        while (this.animStep < lastStep) {
+            this.animStep++;
+            this.tni = this.interpolator(this.animStep / ANIM_STEPS);
             this.iToken = iBeginAnim;
-            const recordUndo = i === steps;
+            // At most one rewind snapshot per frame, as before, and on top of that
+            // only once per UNDO_STEP of progress, so a fast display cannot flood
+            // the stack and a slow one still records something.
+            const record = !recordedThisFrame
+                && Math.abs(this.tni - this.undoAt) >= UNDO_STEP - 1e-12;
             while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {
-                this.execute(this.iToken, recordUndo);
+                // One snapshot for the step, not one per command: a snapshot holds
+                // every point already, so a line with three rotations was storing
+                // the same positions three times and rewinding three times slower.
+                this.execute(this.iToken, false);
+            }
+            if (record) {
+                this.pushUndo();
+                recordedThisFrame = true;
+                this.undoAt = this.tni;
             }
             this.tpi = this.tni;
         }
         if (tn >= 1) {
+            // The grid may already have reached 1 on an earlier frame, leaving the
+            // loop above with nothing to do; walk the line once at dt = 0 so iToken
+            // still lands past it and the line is not replayed forever.
+            if (this.iToken === iBeginAnim) {
+                this.tni = this.tpi;
+                while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {
+                    this.execute(this.iToken, false);
+                }
+            }
             this.tni = 1;
             this.tpi = 0;
             if (this.model.snap) {

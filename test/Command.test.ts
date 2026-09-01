@@ -311,18 +311,86 @@ Deno.test('Command', async (t) => {
 
         // Start animation line
         cmd.command('t 50 rotate S0 90 P2 P3');
-        cmd.anim(); // First call runs runNext: pushes full snapshot, sets state to anim
-        assertEquals(cmd.done.length, 2);
-        assertEquals(typeof cmd.done[1], 'string', 'Pre-animation snapshot is full JSON string');
+        const clock = installClock(0);
+        try {
+            cmd.anim(); // First call runs runNext: pushes full snapshot, sets state to anim
+            assertEquals(cmd.done.length, 2);
+            assertEquals(typeof cmd.done[1], 'string', 'Pre-animation snapshot is full JSON string');
 
-        // Run one anim frame
-        cmd.anim(); // runs runAnim: executes rotate, pushes lightweight anim snapshot
-        assertEquals(cmd.done.length >= 3, true);
-        const animSnapshot = cmd.done[cmd.done.length - 1];
-        assertEquals(typeof animSnapshot, 'object', 'Anim frame snapshot is an object, not JSON string');
-        assertEquals(animSnapshot.state, State.anim);
-        assertEquals(animSnapshot.coords instanceof Float64Array, true);
-        assertEquals(animSnapshot.coords.length, m.points.length * 3);
+            // Rewind snapshots are taken on their own grid, so the frame has to
+            // cover enough of the line to earn one
+            clock.now = 25;
+            cmd.anim(); // runs runAnim: executes rotate, pushes lightweight anim snapshot
+            assertEquals(cmd.done.length >= 3, true);
+            const animSnapshot = cmd.done[cmd.done.length - 1];
+            assertEquals(typeof animSnapshot, 'object', 'Anim frame snapshot is an object, not JSON string');
+            assertEquals(animSnapshot.state, State.anim);
+            assertEquals(animSnapshot.coords instanceof Float64Array, true);
+            assertEquals(animSnapshot.coords.length, m.points.length * 3);
+        } finally {
+            clock.restore();
+        }
+    });
+
+    await t.step('an animated line gives the same result whatever its duration', () => {
+        // 'a' resolves each point from where the previous step left it, so the
+        // path decides the result. Before the grid was pinned, the number of
+        // solver passes followed the frame count: 200 to 500 for the same line.
+        const play = (duration: number, frameMs: number) => {
+            const m = new Model().init(200, 200);
+            const cmd = new Command(m);
+            cmd.command('by2d p0 p2 by2d p1 p3');
+            while (cmd.anim()) { /* creases */ }
+            const clock = installClock(0);
+            try {
+                cmd.command(`t ${duration} r s6 -90 p1 r s7 -90 p3 a p2`);
+                let guard = 0;
+                while (cmd.anim() && guard++ < 100000) {
+                    if (m.state === State.anim) clock.now += frameMs;
+                }
+            } finally {
+                clock.restore();
+            }
+            return {
+                digest: m.points.map((p) => `${p.x.toFixed(6)},${p.y.toFixed(6)},${p.z.toFixed(6)}`).join('|'),
+                snapshots: cmd.done.length,
+            };
+        };
+
+        const slow = play(1000, 16.7);
+        for (const [duration, frameMs] of [[100, 16.7], [10, 16.7], [1000, 4], [1000, 250]]) {
+            const run = play(duration, frameMs);
+            assertEquals(run.digest, slow.digest, `t ${duration} at ${frameMs}ms per frame`);
+        }
+
+        // ...and a fast display no longer floods the undo stack
+        assertEquals(play(1000, 4).snapshots <= slow.snapshots, true);
+        assertEquals(slow.snapshots < 40, true, `${slow.snapshots} snapshots for one animated line`);
+    });
+
+    await t.step('an overshooting interpolator lands on the same peak every run', () => {
+        // The grid is walked in animation time, not in interpolated value, so the
+        // interpolator is sampled at fixed points. Sampling its overshoot wherever
+        // a frame happened to fall used to leave the model slightly different.
+        const play = (frameMs: number) => {
+            const m = new Model().init(200, 200);
+            const cmd = new Command(m);
+            const clock = installClock(0);
+            try {
+                cmd.command('iao\nt 400 r s0 90 p2 p3');
+                let guard = 0;
+                while (cmd.anim() && guard++ < 100000) {
+                    if (m.state === State.anim) clock.now += frameMs;
+                }
+            } finally {
+                clock.restore();
+            }
+            return m.points.map((p) => `${p.x.toFixed(6)},${p.y.toFixed(6)},${p.z.toFixed(6)}`).join('|');
+        };
+        const reference = play(16.7);
+        for (const frameMs of [4, 100, 250, 1000]) {
+            assertEquals(play(frameMs), reference, `${frameMs}ms per frame`);
+        }
     });
 
     await t.step('one real animation frame pushes exactly one undo snapshot, however many substeps it took', () => {
