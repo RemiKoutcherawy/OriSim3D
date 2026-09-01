@@ -182,7 +182,27 @@ passe au-dessus (vallée) ou en dessous (montagne) du papier resté en place.
   `CommandArea.keydown` avec `stopPropagation`), et comme `CommandArea.addLine()`
   appelle `focus()` à chaque commande, c'est presque toujours le second qui gagne.
 
-### 2.9 La même geste ne fait pas la même chose dans les deux vues
+### 2.9 On ne peut pas tourner la vue 3D
+
+`move3d()` n'orbite que si le curseur ne survole rien. Or dès que le modèle occupe
+l'écran, le curseur survole toujours quelque chose : il n'existe alors **aucun moyen**
+de regarder le pliage sous un autre angle à la souris.
+
+Pire, le glissé n'est pas simplement ignoré, il est consommé :
+
+- démarré sur une face non sélectionnée, il **trace des plis** partout où il croise du
+  papier (`splitSegments()`) ;
+- démarré le long d'une arête, il émettait `b3d s0 s0`, la bissectrice d'un segment
+  avec lui-même ;
+- démarré sur un point et relâché dessus, il émettait `by3d p0 p0`.
+
+Les deux derniers ne modifient pas la géométrie — `Model` les absorbe — mais ils
+occupent une ligne du script enregistré et un cran d'annulation chacun. Le premier,
+lui, modifie réellement le modèle. Un essai en conditions réelles a classé « impossible
+de tourner la vue sans risquer une modification » comme le deuxième problème le plus
+gênant, juste derrière le choix de la charnière.
+
+### 2.10 La même geste ne fait pas la même chose dans les deux vues
 
 `sendCmd()` suffixe la commande par `2d` ou `3d` selon le canevas survolé. Le même
 glissé produit `by2d` ou `by3d`, qui sont deux géométries différentes. L'utilisateur
@@ -316,6 +336,23 @@ toujours `undefined` pendant l'aperçu.
 C'est d'autant plus gênant que viser un repère est le geste naturel : on relâche
 *volontairement* sur un point.
 
+### 4.3 bis Ce qu'un essai en conditions réelles a confirmé
+
+Le tout a été repris à la souris dans un navigateur, sur la version d'origine. Les
+quatre reproches les plus gênants, dans l'ordre où ils sont apparus :
+
+1. impossible de plier autour d'un pli qu'on vient de tracer — trois tentatives, trois
+   échecs, l'angle valant −10° ou −70° au lieu de 180 ;
+2. impossible de tourner la vue sans risquer une modification du modèle ;
+3. le pliage en deux temps (armer, puis plier) est invisible : au premier glissé, rien
+   ne semble se produire ;
+4. aucun contrôle de l'angle, aucun affichage numérique pendant le glissé.
+
+Le premier reproche s'explique en réalité par §2.2, pas par le choix de la charnière :
+`nearestBorderSegment()` retenait bien le bon pli, mais la loi d'angle renvoyait une
+valeur minuscule, si bien que le pli semblait avoir eu lieu ailleurs. Une fois l'angle
+corrigé, la séquence passe (voir §6).
+
 ### 4.4 L'orbite 3D s'interrompt quand on survole le papier
 
 Dans `move3d()`, la décision « orbiter » est reprise à chaque événement à partir de ce
@@ -330,7 +367,7 @@ if (points.length === 0 && segments.length === 0 && faces.length === 0
 Une orbite commencée dans le vide s'arrête donc dès que le curseur passe au-dessus du
 modèle, puis reprend en sortant. La décision doit être **verrouillée au `pointerdown`**.
 Symétriquement, il n'existe aucun moyen d'orbiter quand le curseur démarre sur le
-papier — un modificateur (barre d'espace ou bouton du milieu) réglerait le cas.
+papier — un modificateur règle le cas (cf. §2.9).
 
 ### 4.5 Pas de capture du pointeur sur l'overlay 3D
 
@@ -431,13 +468,18 @@ Les défauts démontrables ci-dessus, chacun accompagné d'un test :
 | 4.6 | deux minuteurs distincts pour les deux double-clics |
 | 4.7 | pointage euclidien, cohérent entre points et segments |
 | 4.8 | `isClick()` utilise la position du relâchement |
+| 2.9 | **Maj**-glisser (ou le bouton du milieu) oriente toujours la vue, même curseur sur le papier |
+| 2.9 | un geste qui se termine là où il a commencé n'émet plus rien (`b3d s0 s0`, `by3d p0 p0`) |
 
 Le seuil de clic est en outre pris en compte par l'aperçu, qui l'ignorait : un glissé
 plus court que le seuil affichait une flèche de pli alors que `up()` le traitait comme
 un clic.
 
-Les points 2.3 à 2.9 et 4.1, 4.9 relèvent d'un changement de conception : ils sont
-décrits ici mais **non implémentés**.
+Les points 2.3 à 2.8, 2.10 et 4.1, 4.9 relèvent d'un changement de conception : ils
+sont décrits ici mais **non implémentés**. En particulier, un glissé démarré sur une
+face non sélectionnée trace toujours des plis : c'est un comportement documenté, mais
+c'est aussi un défaut destructeur par défaut, à revoir en même temps que le
+vocabulaire de gestes (§3).
 
 ### Avant / après, sur la même séquence
 

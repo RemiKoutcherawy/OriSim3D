@@ -870,6 +870,50 @@ Deno.test("Helper Tests", async (t) => {
     helper.out();
     helper.down3d({ xCanvas: 0, yCanvas: 0, pointerType: "mouse" });
     assertEquals(helper.orbiting, false);
+
+    // ...unless Shift or the middle button is used, the only way to turn the
+    // view once the model fills it
+    helper.out();
+    helper.down3d({ xCanvas: 0, yCanvas: 0, pointerType: "mouse", shiftKey: true });
+    assertEquals(helper.orbiting, true);
+    assertEquals(helper.downFace, undefined);
+    helper.out();
+    helper.down3d({ xCanvas: 0, yCanvas: 0, pointerType: "mouse", button: 1 });
+    assertEquals(helper.orbiting, true);
+    assertEquals(helper.downFace, undefined);
+    const before = view3d.angleY;
+    helper.move3d({ xCanvas: 60, yCanvas: 0, buttons: 4, target: { height: 600 } });
+    assertEquals(view3d.angleY !== before, true);
+  });
+
+  await t.step("a gesture that ends where it started emits nothing", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const p0 = model.points[0];
+    const s0 = model.segments[0];
+
+    // Dragging along one crease used to emit `b3d s0 s0`, the bisector of a
+    // segment with itself: harmless to the geometry, but it filled the recorded
+    // script and the undo stack with lines that do nothing.
+    helper.down([], [s0], [], -150, -200);
+    helper.currentX = 150;
+    helper.currentY = -200;
+    helper.up([], [s0], []);
+    assertEquals(cmds.length, 0);
+
+    // Same for a drag from a point back onto itself
+    helper.down([p0], [], [], -200, -200);
+    helper.currentX = -100;
+    helper.currentY = -100;
+    helper.up([p0], [], []);
+    assertEquals(cmds.length, 0);
+
+    // A genuine crease between two distinct points still goes through
+    helper.down([p0], [], [], -200, -200);
+    helper.currentX = 200;
+    helper.currentY = 200;
+    helper.up([model.points[2]], [], []);
+    assertEquals(cmds.length, 1);
   });
 
   await t.step("search3d() points, segments, faces near x,y", () => {

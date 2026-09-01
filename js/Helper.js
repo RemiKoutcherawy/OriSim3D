@@ -33,6 +33,7 @@ export class Helper {
         const overlay = view3d?.overlay;
         if (overlay) {
             overlay.addEventListener('pointerdown', (event) => {
+                if (event.button === 1) event.preventDefault(); // no autoscroll
                 try { overlay.setPointerCapture(event.pointerId); } catch { /* ignore */ }
                 this.down3d(event);
             });
@@ -404,6 +405,10 @@ export class Helper {
             return;
         }
         if (this.upPoint) {
+            // A drag that ends back on its own start point has no crease to
+            // describe; it used to emit `by3d p0 p0`, which does nothing but
+            // still costs a line of recorded script and an undo step.
+            if (this.upPoint === this.downPoint) return;
             const cmd = this.model.getSegment(this.downPoint, this.upPoint) ? 'c' : 'by';
             this.sendCmd(cmd, this.downPoint, this.upPoint);
         } else if (this.upSegment) {
@@ -467,6 +472,9 @@ export class Helper {
             return;
         }
         if (this.upSegment) {
+            // Dragging along a single crease used to emit `b3d s0 s0`: the
+            // bisector of a segment with itself, which cannot mean anything.
+            if (this.upSegment === this.downSegment) return;
             this.sendCmd('b', this.downSegment, this.upSegment);
         } else if (this.upPoint) {
             this.sendCmd('parallel', this.downSegment, this.upPoint);
@@ -825,12 +833,19 @@ export class Helper {
         this.currentCanvas = '3d';
         this.trackPointerType(event);
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
-        const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
+        // Shift, or the middle button, always orbits. Without it there is no way
+        // to look at the model from another angle once it fills the view: the
+        // drag is spent on whatever is under the cursor instead.
+        const forceOrbit = !!(event.shiftKey || event.button === 1);
+        const {points, segments, faces} = forceOrbit
+            ? {points: [], segments: [], faces: []}
+            : this.search3d(xCanvas, yCanvas);
         this.down(points, segments, faces, xCanvas, yCanvas);
         // Orbiting is decided once, here: re-deciding it on every move made an
         // orbit stop as soon as the cursor passed over the paper and resume once
         // it left again.
-        this.orbiting = points.length === 0 && segments.length === 0 && faces.length === 0;
+        this.orbiting = forceOrbit
+            || (points.length === 0 && segments.length === 0 && faces.length === 0);
     }
 
     // Move on 3d overlay
@@ -839,8 +854,8 @@ export class Helper {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const contextFace = this.downFace || undefined;
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas, contextFace);
-        // Handle 3d rotation
-        if (this.orbiting && (event.buttons & 1) > 0) {
+        // Handle 3d rotation, on the left or the middle button
+        if (this.orbiting && (event.buttons & 5) > 0) {
             // Rotation
             const factor = (600 / (event.target?.height || 600));
             const dx = factor * (xCanvas - this.currentX);

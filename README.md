@@ -50,6 +50,7 @@ Work in progress, any help is welcome.
 - click drag from a segment to a segment adds a bisector
 - click drag a point rotates around a selected segment
 - click drag an already-selected point in 3d moves it (`t … m dx dy dz pN` then `adjust` on other selected points); the drag line is orange
+- in 3d, drag empty background to orbit; Shift-drag (or middle button) orbits even with the cursor over the paper
 - undo via ⌘/Ctrl+Z
 
 ### Console de commandes (menu Édition → Console)
