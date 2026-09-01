@@ -845,6 +845,29 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0].startsWith("t 1000 r s0 "), true);
   });
 
+  await t.step("no live preview on top of a running animation", async () => {
+    const { State } = await import("../js/Model.js");
+    const { model, command, helper } = setup();
+    const f0 = model.faces[0];
+    f0.select = true;
+    const snapshot = () => model.points.map((p) => `${p.x},${p.y},${p.z}`).join("|");
+    const before = snapshot();
+
+    // A scripted animation advances by deltas from where it left off, so the
+    // preview must keep its hands off while one is running
+    model.state = State.anim;
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    assertEquals(snapshot(), before);
+
+    // ...and resumes previewing once it is over
+    model.state = State.run;
+    helper.move([], [], [f0], 0, -150);
+    assertEquals(snapshot() !== before, true);
+    helper.out();
+    assertEquals(snapshot(), before);
+  });
+
   await t.step("Escape abandons a fold in progress", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);

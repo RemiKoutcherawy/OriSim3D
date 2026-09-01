@@ -1,6 +1,6 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
-import {Model} from './Model.js';
+import {Model, State} from './Model.js';
 import {Vector3} from './Vector3.js';
 import * as mat4 from './lib/mat4.js';
 
@@ -129,7 +129,9 @@ export class Helper {
      */
     previewFold(fold) {
         this.resetPreview();
-        if (!fold) return;
+        // An animated command advances by deltas from the positions it left last
+        // frame, so restoring a baseline underneath it would corrupt the run.
+        if (!fold || this.model.state === State.anim) return;
         this.previewBaseline ??= this.model.snapshotPositions();
         const moving = this.movingPoints(fold.axis, this.foldFlap(fold.axis));
         this.model.rotate(fold.axis, fold.angle, moving);
