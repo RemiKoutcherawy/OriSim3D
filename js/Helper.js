@@ -1,5 +1,6 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
+import {Model} from './Model.js';
 import {Vector3} from './Vector3.js';
 import * as mat4 from './lib/mat4.js';
 
@@ -119,6 +120,10 @@ export class Helper {
     }
 
     static FOLD_AMBER = '#e6a817';
+
+    // Model units. Creases span hundreds of units, so this only ever catches
+    // points that really are meant to sit on the hinge.
+    static AXIS_EPSILON = 1;
 
     // Draw drag preview when down on a point, segment, or face: a filled arrow
     // for creasing (by/across/bisector), a hollow arrow only when the drag will
@@ -625,19 +630,56 @@ export class Helper {
         this.command.command(`${base}${suffix} ${args.join(' ')}`);
     }
 
+    /** Every segment lying on the crease line: the whole hinge, not just `axis`. */
+    hingeSegments(axis) {
+        const hinge = new Set(this.model.segments.filter(s => s.select));
+        hinge.add(axis);
+        for (const s of this.model.segments) {
+            if (Helper.onAxisLine(s, axis)) hinge.add(s);
+        }
+        return hinge;
+    }
+
+    static onAxisLine(s, axis) {
+        return Vector3.pointLineDistance(s.p1, axis.p1, axis.p2) < Helper.AXIS_EPSILON
+            && Vector3.pointLineDistance(s.p2, axis.p1, axis.p2) < Helper.AXIS_EPSILON;
+    }
+
+    /**
+     * The flap this fold moves: every face connected to the grabbed (or selected)
+     * ones without crossing the hinge. This is what a diagram means by "fold this
+     * layer" — paper on the same side of the crease travels together. Without it
+     * only the grabbed face rotated and the sheet tore along its other creases.
+     */
+    foldFlap(axis) {
+        const hinge = this.hingeSegments(axis);
+        const flap = new Set(this.model.faces.filter(f => f.select));
+        if (this.downFace) flap.add(this.downFace);
+        const queue = [...flap];
+        while (queue.length) {
+            for (const s of this.faceBorderSegments(queue.pop())) {
+                if (hinge.has(s)) continue;
+                for (const neighbour of Model.incidentFaces(this.model, s)) {
+                    if (flap.has(neighbour)) continue;
+                    flap.add(neighbour);
+                    queue.push(neighbour);
+                }
+            }
+        }
+        return flap;
+    }
+
     rotatePointIds(axis) {
         const pts = new Set();
-        this.model.faces.filter(f => f.select).forEach(f => {
-            f.points.forEach(p => pts.add(p));
-        });
-        if (this.downFace) {
-            this.downFace.points.forEach(p => pts.add(p));
+        for (const face of this.foldFlap(axis)) {
+            face.points.forEach(p => pts.add(p));
         }
-        // Axis endpoints don't move when rotating around that axis; excluding them
-        // keeps the command's point list honest and avoids floating-point drift
-        // from rotating a point that should stay exactly put.
-        pts.delete(axis.p1);
-        pts.delete(axis.p2);
+        // Points on the rotation axis don't move; excluding them keeps the command's
+        // point list honest and avoids floating-point drift from rotating a point
+        // that should stay exactly put.
+        for (const p of [...pts]) {
+            if (Vector3.pointLineDistance(p, axis.p1, axis.p2) < Helper.AXIS_EPSILON) pts.delete(p);
+        }
         return [...pts].map(p => this.id(p));
     }
     // Selected points not rotated are adjusted instead
@@ -648,17 +690,15 @@ export class Helper {
             .map(p => this.id(p))
             .filter(id => !rotated.has(id));
     }
-    rotateFaceCommentIds() {
-        const faces = new Set(this.model.faces.filter(f => f.select));
-        if (this.downFace) faces.add(this.downFace);
-        return [...faces].map(f => this.id(f));
+    rotateFaceCommentIds(axis) {
+        return [...this.foldFlap(axis)].map(f => this.id(f));
     }
 
     rotatePoints(axis, angle) {
         const pts = this.rotatePointIds(axis);
         const adjustPts = this.adjustPointIds(pts);
         const adjust = adjustPts.length ? ` a ${adjustPts.join(' ')}` : '';
-        const faces = this.rotateFaceCommentIds();
+        const faces = this.rotateFaceCommentIds(axis);
         const faceComment = faces.length ? ` // ${faces.join(' ')}` : '';
         this.command.command(`t 1000 r ${this.id(axis)} ${angle} ${pts.join(' ')}${adjust}${faceComment}`);
     }

@@ -9,6 +9,8 @@ import { Face } from "../js/Face.js";
 
 import { assertEquals } from "@std/assert";
 
+type Pt = { xf: number; yf: number };
+
 class MockView3d {
   indexMap = new Map();
   scale = 10;
@@ -580,6 +582,64 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.willFold(), false);
     helper.up([p2], [], []);
     assertEquals(cmds.length, 0);
+  });
+
+  await t.step("a fold carries the whole flap, not just the grabbed face", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const P = (xf: number, yf: number) => new Point(xf, yf) as never;
+    // Hinge at x = 0; the left half is creased again at y = 0, so the flap
+    // left of the hinge is two faces sharing an edge that is not the hinge.
+    model.splitAllFacesBySegment2d(P(0, -200), P(0, 200));
+    model.splitAllFacesBySegment2d(P(-200, 0), P(0, 0));
+    const flap = model.faces.filter((f) => f.points.some((p: Pt) => p.xf < -1));
+    assertEquals(flap.length, 2);
+    const axis = model.segments.find(
+      (s) => Math.abs(s.p1.xf) < 1e-9 && Math.abs(s.p2.xf) < 1e-9,
+    )!;
+
+    // The user grabbed ONE face of the flap, as the UI invites them to
+    helper.downFace = flap[0];
+    helper.rotatePoints(axis, 180);
+
+    const rotated: string[] = cmds[0].match(/p\d+/g) ?? [];
+    const shouldMove = model.points.filter((p) => p.xf < -1).map((p) => helper.id(p));
+    assertEquals(shouldMove.length, 3);
+    // Every point of the flap moves: leaving one behind tore the sheet
+    shouldMove.forEach((id) => assertEquals(rotated.includes(id), true));
+    // ...and nothing on the far side of the hinge comes along
+    model.points.filter((p) => p.xf > 1).forEach((p) =>
+      assertEquals(rotated.includes(helper.id(p)), false)
+    );
+    // Points sitting on the hinge itself stay put
+    model.points.filter((p) => Math.abs(p.xf) < 1e-9).forEach((p) =>
+      assertEquals(rotated.includes(helper.id(p)), false)
+    );
+    // Both faces of the flap are reported in the trailing comment
+    flap.forEach((f) => assertEquals(cmds[0].includes(helper.id(f)), true));
+  });
+
+  await t.step("the flap stops at every segment lying on the hinge line", () => {
+    const { model, helper } = setup();
+    const P = (xf: number, yf: number) => new Point(xf, yf) as never;
+    // Hinge at x = 0, then a crease at y = 0 that also splits the hinge in two,
+    // so the crease line is made of two collinear segments.
+    model.splitAllFacesBySegment2d(P(0, -200), P(0, 200));
+    model.splitAllFacesBySegment2d(P(-200, 0), P(200, 0));
+    const onHinge = model.segments.filter(
+      (s) => Math.abs(s.p1.xf) < 1e-9 && Math.abs(s.p2.xf) < 1e-9,
+    );
+    assertEquals(onHinge.length, 2);
+
+    const grabbed = model.faces.find((f) => f.points.every((p: Pt) => p.xf <= 1e-9))!;
+    helper.downFace = grabbed;
+    const flap = helper.foldFlap(onHinge[0]);
+    // Only the two left faces travel; the fold must not leak through the other
+    // collinear piece of the same crease.
+    assertEquals(flap.size, 2);
+    [...flap].forEach((f) =>
+      assertEquals(f.points.every((p: Pt) => p.xf <= 1e-9), true)
+    );
   });
 
   await t.step("segment selected in mark remains when entering fold", () => {
