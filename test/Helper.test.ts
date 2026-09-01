@@ -893,6 +893,52 @@ Deno.test("Helper Tests", async (t) => {
     flap.forEach((f) => assertEquals(cmds[0].includes(helper.id(f)), true));
   });
 
+  await t.step("a crease that does not separate the paper is not a flap", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    // The creases of a rabbit ear (templates/rabbit-ear-fold.txt): the last one
+    // is interior, the sheet wraps around it, so it isolates nothing.
+    for (const line of ["by2d p0 p2", "by2d p1 p3", "b2d s6 s1", "b2d s7 s2", "p2d s1 p5"]) {
+      command.command(line);
+      while (command.anim()) { /* drain */ }
+    }
+    const axis = model.segments[9];
+    const grabbed = model.faces.find((f) => f.points.includes(model.points[6]))!;
+    helper.downFace = grabbed;
+    assertEquals(helper.isCompoundFold(axis), true);
+
+    // Propagating through it would swing every face of the model
+    assertEquals(helper.floodFrom(axis).size, model.faces.length);
+
+    // So the fold falls back to what the gesture actually points at, and the
+    // reconciliation is left to adjust, the way the template writes it by hand
+    assertEquals([...helper.foldFlap(axis)], [grabbed]);
+
+    cmds.length = 0;
+    helper.rotatePoints(axis, 180);
+    assertEquals(cmds[0].startsWith("t 1000 r s9 180 "), true);
+    assertEquals(cmds[0].includes(" a "), true);
+  });
+
+  await t.step("a crease that does separate the paper still gives a flap, with no adjust", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    command.command("by2d p0 p2");
+    while (command.anim()) { /* drain */ }
+    const axis = model.segments.find((s) =>
+      (s.p1 === model.points[0] && s.p2 === model.points[2]) ||
+      (s.p2 === model.points[0] && s.p1 === model.points[2])
+    )!;
+    helper.downFace = model.faces[0];
+    assertEquals(helper.isCompoundFold(axis), false);
+
+    cmds.length = 0;
+    helper.rotatePoints(axis, 180);
+    // Everything linking the flap to the rest of the sheet lies on the crease,
+    // so there is no slack for the solver to drag along
+    assertEquals(cmds[0].includes(" a "), false);
+  });
+
   await t.step("the flap stops at every segment lying on the hinge line", () => {
     const { model, helper } = setup();
     const P = (xf: number, yf: number) => new Point(xf, yf) as never;

@@ -126,10 +126,7 @@ export class Helper {
         this.resetPreview();
         if (!fold) return;
         this.previewBaseline ??= this.model.snapshotPositions();
-        const inFlap = new Set();
-        for (const face of this.foldFlap(fold.axis)) face.points.forEach(p => inFlap.add(p));
-        const moving = [...inFlap].filter(p =>
-            Vector3.pointLineDistance(p, fold.axis.p1, fold.axis.p2) >= Helper.AXIS_EPSILON);
+        const moving = this.movingPoints(fold.axis, this.foldFlap(fold.axis));
         this.model.rotate(fold.axis, fold.angle, moving);
         this.markPreviewDirty();
     }
@@ -941,55 +938,127 @@ export class Helper {
             && Vector3.pointLineDistance(s.p2, axis.p1, axis.p2) < Helper.AXIS_EPSILON;
     }
 
+    /** The faces the gesture points at, before any propagation. */
+    foldSeeds() {
+        const seeds = new Set(this.model.faces.filter(f => f.select));
+        if (this.downFace) seeds.add(this.downFace);
+        return seeds;
+    }
+
     /**
      * The flap this fold moves: every face connected to the grabbed (or selected)
      * ones without crossing the hinge. This is what a diagram means by "fold this
      * layer" — paper on the same side of the crease travels together. Without it
      * only the grabbed face rotated and the sheet tore along its other creases.
+     *
+     * A crease only defines a flap when it actually separates the paper. An
+     * interior crease that the sheet wraps around — the situation every compound
+     * fold is built on — separates nothing, and propagating through it would
+     * swing the whole model. isolatesFlap() catches that and the seeds are used
+     * as they are, leaving the reconciliation to `adjust`, exactly as the
+     * templates do by hand.
      */
     foldFlap(axis) {
+        const flap = this.floodFrom(axis);
+        return Helper.isolatesFlap(this.model, this.hingeSegments(axis), flap)
+            ? flap
+            : this.foldSeeds();
+    }
+
+    /**
+     * Does the hinge have paper on one side only? If both faces along any part of
+     * the crease ended up in the same set, the fold went round it and the crease
+     * is not a boundary: the fold is compound, not a simple flap.
+     */
+    static isolatesFlap(model, hinge, flap) {
+        for (const s of hinge) {
+            const sides = Model.incidentFaces(model, s);
+            if (sides.length === 2 && flap.has(sides[0]) && flap.has(sides[1])) return false;
+        }
+        return true;
+    }
+
+    /** A fold whose crease does not separate the paper needs more than one rotation. */
+    isCompoundFold(axis) {
+        return !Helper.isolatesFlap(this.model, this.hingeSegments(axis), this.floodFrom(axis));
+    }
+
+    /** Faces reachable from the seeds without crossing the hinge. */
+    floodFrom(axis) {
         const hinge = this.hingeSegments(axis);
-        const flap = new Set(this.model.faces.filter(f => f.select));
-        if (this.downFace) flap.add(this.downFace);
-        const queue = [...flap];
+        const seen = new Set(this.foldSeeds());
+        const queue = [...seen];
         while (queue.length) {
             for (const s of this.faceBorderSegments(queue.pop())) {
                 if (hinge.has(s)) continue;
                 for (const neighbour of Model.incidentFaces(this.model, s)) {
-                    if (flap.has(neighbour)) continue;
-                    flap.add(neighbour);
+                    if (seen.has(neighbour)) continue;
+                    seen.add(neighbour);
                     queue.push(neighbour);
                 }
             }
         }
-        return flap;
+        return seen;
+    }
+
+    /** Every vertex of the flap, whether it moves or not. */
+    flapPoints(flap) {
+        const pts = new Set();
+        for (const face of flap) face.points.forEach(p => pts.add(p));
+        return [...pts];
+    }
+
+    /**
+     * Flap vertices that actually travel. Points on the rotation axis stay put,
+     * and excluding them keeps the command's point list honest as well as
+     * avoiding floating-point drift from rotating a point that should not move.
+     */
+    movingPoints(axis, flap) {
+        return this.flapPoints(flap).filter(p =>
+            Vector3.pointLineDistance(p, axis.p1, axis.p2) >= Helper.AXIS_EPSILON);
     }
 
     rotatePointIds(axis, flap = this.foldFlap(axis)) {
-        const pts = new Set();
-        for (const face of flap) {
-            face.points.forEach(p => pts.add(p));
-        }
-        // Points on the rotation axis don't move; excluding them keeps the command's
-        // point list honest and avoids floating-point drift from rotating a point
-        // that should stay exactly put.
-        for (const p of [...pts]) {
-            if (Vector3.pointLineDistance(p, axis.p1, axis.p2) < Helper.AXIS_EPSILON) pts.delete(p);
-        }
-        return [...pts].map(p => this.id(p));
+        return this.movingPoints(axis, flap).map(p => this.id(p));
     }
-    // Selected points not rotated are adjusted instead
-    adjustPointIds(rotatedIds) {
+
+    /**
+     * Points the paper is still attached to somewhere other than the hinge, so
+     * the solver has to drag them along. For a plain fold this is empty: every
+     * link between the flap and the rest of the sheet lies on the crease. It only
+     * fills up for a compound fold — rabbit ear, squash, petal — which is exactly
+     * the `a` list the templates have to spell out by hand today:
+     *     t 1000 r s9 180 p6 a p2
+     */
+    slackPoints(axis, flap, moving) {
+        const inFlap = new Set(this.flapPoints(flap));
+        const slack = new Set();
+        for (const p of moving) {
+            for (const s of this.model.searchSegmentsOnePoint(p)) {
+                const other = s.p1 === p ? s.p2 : s.p1;
+                if (inFlap.has(other)) continue;
+                if (Vector3.pointLineDistance(other, axis.p1, axis.p2) < Helper.AXIS_EPSILON) continue;
+                slack.add(other);
+            }
+        }
+        return [...slack];
+    }
+
+    // Points the solver reconciles instead of rotating: those the user selected,
+    // plus the slack the fold drags along. Never one that is already rotating.
+    adjustPointIds(rotatedIds, slack = []) {
         const rotated = new Set(rotatedIds);
-        return this.model.points
-            .filter(p => p.select)
-            .map(p => this.id(p))
-            .filter(id => !rotated.has(id));
+        const ids = new Set([
+            ...this.model.points.filter(p => p.select),
+            ...slack,
+        ].map(p => this.id(p)));
+        return [...ids].filter(id => !rotated.has(id));
     }
     rotatePoints(axis, angle) {
         const flap = this.foldFlap(axis);
-        const pts = this.rotatePointIds(axis, flap);
-        const adjustPts = this.adjustPointIds(pts);
+        const moving = this.movingPoints(axis, flap);
+        const pts = moving.map(p => this.id(p));
+        const adjustPts = this.adjustPointIds(pts, this.slackPoints(axis, flap, moving));
         const adjust = adjustPts.length ? ` a ${adjustPts.join(' ')}` : '';
         const faces = [...flap].map(f => this.id(f));
         const faceComment = faces.length ? ` // ${faces.join(' ')}` : '';
