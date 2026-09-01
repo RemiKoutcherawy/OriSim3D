@@ -512,16 +512,10 @@ export class Helper {
      * arms the face for folding, same as a click would.
      */
     fromFaceDrag() {
-        if (this.upPoint) {
+        const fold = this.foldIntent();
+        if (fold) {
+            this.foldAlong(fold.axis, fold.angle);
             return;
-        }
-        const axis = this.foldAxis(this.upSegment);
-        if (axis) {
-            const angle = this.angleFor(axis);
-            if (angle) {
-                this.foldAlong(axis, angle);
-                return;
-            }
         }
         if (this.splitSegments()) return;
         if (!this.downFace.select) this.fromFaceClick();
@@ -557,11 +551,27 @@ export class Helper {
         return this.nearestBorderSegment(this.downFace, this.currentX, this.currentY);
     }
 
+    /**
+     * The fold releasing now would commit, or undefined if this drag will do
+     * something else. Single source of truth: the preview arrow and the released
+     * gesture read the same decision, so the arrow cannot promise a fold that
+     * does not happen. It used to: draw() asked about currentSegment while up()
+     * asked about upSegment, and a release on a landmark point cancelled the
+     * fold outright — while the amber arrow still showed an angle.
+     */
+    foldIntent() {
+        // Still within the click threshold: up() will treat this as a click, so
+        // the arrow must not advertise a fold yet.
+        if (this.isClick()) return undefined;
+        const axis = this.foldAxis(this.currentSegment);
+        if (!axis) return undefined;
+        const angle = this.angleFor(axis);
+        return angle ? {axis, angle} : undefined;
+    }
+
     /** Would releasing now actually rotate the dragged face? */
     willFold() {
-        if (this.upPoint) return false;
-        const axis = this.foldAxis(this.currentSegment);
-        return !!(axis && this.angleFor(axis));
+        return !!this.foldIntent();
     }
 
     foldAlong(axis, angle) {

@@ -566,7 +566,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0].startsWith(`t 1000 r s1`), true);
   });
 
-  await t.step("fold F→F up on point does nothing, and previews as filled (not fold)", () => {
+  await t.step("releasing on a point delivers the fold the preview promised", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const f0 = model.faces[0];
@@ -576,12 +576,41 @@ Deno.test("Helper Tests", async (t) => {
     s0.select = true;
 
     helper.down([], [], [f0], 0, 0);
-    helper.currentX = 40;
-    helper.currentY = 40;
-    helper.upPoint = p2; // as move()/up() would set it while hovering p2
-    assertEquals(helper.willFold(), false);
+    helper.move([], [], [f0], 0, -150);
+    const label = helper.label as number;
+    assertEquals(label !== 0, true);
+    assertEquals(helper.willFold(), true);
+
+    // Finishing a fold on a landmark point is the natural aim. It used to emit
+    // nothing at all while the amber arrow was still promising an angle.
+    cmds.length = 0;
     helper.up([p2], [], []);
-    assertEquals(cmds.length, 0);
+    assertEquals(cmds.length, 1);
+    assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
+  });
+
+  await t.step("the preview and the released gesture always agree", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const f0 = model.faces[0];
+    const s0 = model.segments[0];
+    const p0 = model.points[0];
+
+    // Sweep a drag across the face and check, at every stop, that willFold()
+    // matches whether releasing there actually emits a rotation. Releasing on a
+    // point is the case that used to diverge; a drag shorter than the click
+    // threshold is the other one.
+    for (const y of [-190, -150, -60, -13, -11, 0, 11, 13, 60, 150, 190]) {
+      f0.select = true;
+      s0.select = true;
+      helper.down([], [], [f0], 0, 0);
+      helper.move([], [], [f0], 0, y);
+      const promised = helper.willFold();
+      cmds.length = 0;
+      helper.up([p0], [], []);
+      const folded = cmds.some((c) => c.startsWith("t 1000 r "));
+      assertEquals(folded, promised, `drag to y=${y}`);
+    }
   });
 
   await t.step("the fold angle is zero at the grab point, whatever it is", () => {
