@@ -23,6 +23,7 @@ Deno.test("View2d", async (t) => {
         restore: () => calls.push({ method: "restore", args: [] }),
         setTransform: (...args: unknown[]) => calls.push({ method: "setTransform", args }),
         fillRect: (...args: unknown[]) => calls.push({ method: "fillRect", args }),
+        setLineDash: (...args: unknown[]) => calls.push({ method: "setLineDash", args }),
     };
 
     const mockCanvas = {
