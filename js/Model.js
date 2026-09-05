@@ -685,6 +685,122 @@ export class Model {
         this.rotate(s, angle, this.points);
     }
 
+    // =============================================
+    // Reverse Inside Fold: Inverse une pliure en faisant tourner un côté autour d'un point central.
+    // Exemple: Le bec de la grue (inversion de la pliure du cou).
+    // =============================================
+    reverseInside(segment, center, angle = 180) {
+        if (!segment || !center) return;
+
+        // 1. Identifier le point mobile (celui qui n'est PAS le centre)
+        const mobilePoint = (segment.p1 === center) ? segment.p2 : (segment.p2 === center) ? segment.p1 : null;
+        if (!mobilePoint) return;
+
+        // 2. Trouver tous les points connectés à mobilePoint (qui vont bouger avec lui)
+        const pointsToRotate = this.getConnectedPoints(mobilePoint, center);
+        if (pointsToRotate.length === 0) return;
+
+        // 3. Calculer l'axe de rotation : perpendiculaire au segment et dans le plan de la feuille
+        const axis = this.getReverseInsideAxis(segment, center);
+        if (!axis) return;
+
+        // 4. Créer un segment temporaire pour l'axe (pour utiliser rotate())
+        const axisSegment = new Segment(axis.p1, axis.p2);
+
+        // 5. Faire tourner les points autour de l'axe
+        this.rotate(axisSegment, angle, pointsToRotate);
+
+        // 6. Inverser l'assignment de la pliure (valley ↔ mountain)
+        segment.assignment = segment.assignment === 'V' ? 'M' : segment.assignment === 'M' ? 'V' : 'U';
+
+        // 7. Ajuster les points pour conserver les longueurs 2D/3D
+        this.adjustList(pointsToRotate);
+    }
+
+    // =============================================
+    // Trouve tous les points connectés à startPoint, sauf excludePoint.
+    // =============================================
+    getConnectedPoints(startPoint, excludePoint) {
+        const visited = new Set();
+        const toVisit = [startPoint];
+        const result = [];
+
+        while (toVisit.length > 0) {
+            const current = toVisit.pop();
+            if (visited.has(current) || current === excludePoint) continue;
+            visited.add(current);
+            result.push(current);
+
+            // Ajouter tous les points connectés via des segments
+            for (const seg of this.searchSegmentsOnePoint(current)) {
+                const other = seg.p1 === current ? seg.p2 : seg.p1;
+                if (other !== excludePoint && !visited.has(other)) {
+                    toVisit.push(other);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // =============================================
+    // Calcule l'axe de rotation pour un Reverse Inside Fold.
+    // L'axe doit être perpendiculaire au segment et dans le plan de la feuille.
+    // =============================================
+    getReverseInsideAxis(segment, center) {
+        // 1. Trouver les faces adjacentes au segment
+        const faces = this.searchFacesWithAB(segment.p1, segment.p2);
+        if (faces.length === 0) return null;
+
+        // 2. Calculer la normale moyenne des faces
+        let nx = 0, ny = 0, nz = 0;
+        for (const face of faces) {
+            const normal = Model.normal(face);
+            nx += normal[0];
+            ny += normal[1];
+            nz += normal[2];
+        }
+        // Normaliser
+        let len = Math.hypot(nx, ny, nz);
+        if (len === 0) return null;
+        nx /= len;
+        ny /= len;
+        nz /= len;
+
+        // 3. Calculer la direction du segment (AB)
+        const dx = segment.p2.x - segment.p1.x;
+        const dy = segment.p2.y - segment.p1.y;
+        const dz = segment.p2.z - segment.p1.z;
+        len = Math.hypot(dx, dy, dz);
+        if (len === 0) return null;
+
+        // 4. L'axe est perpendiculaire à la fois à la normale de la feuille ET au segment
+        //    (produit vectoriel : normale × segment)
+        const ax = ny * dz - nz * dy;
+        const ay = nz * dx - nx * dz;
+        const az = nx * dy - ny * dx;
+
+        // Normaliser l'axe
+        const axisLen = Math.hypot(ax, ay, az);
+        if (axisLen === 0) return null;
+
+        // 5. Créer deux points pour définir l'axe (centré sur 'center')
+        const axisLength = len * 0.5; // Longueur arbitraire pour l'axe
+        const axisP1 = new Point(
+            center.xf, center.yf, center.x, center.y, center.z
+        );
+        const axisP2 = new Point(
+            center.xf + ax * axisLength / axisLen,
+            center.yf + ay * axisLength / axisLen,
+            center.x + ax * axisLength / axisLen,
+            center.y + ay * axisLength / axisLen,
+            center.z + az * axisLength / axisLen
+        );
+
+        return { p1: axisP1, p2: axisP2 };
+    }
+
+
     // Zoom model. Scales 3D distances by `scale`, so the 2d/3d comparison in
     // adjust()/checkSegments() (which divides length3d by this.scale) must be
     // kept in sync, the same way scaleModel() does.
