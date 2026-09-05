@@ -74,11 +74,13 @@ export class View2d {
             const [xc, yc] = [(xf1 + xf2) / 2, (yf1 + yf2) / 2];
 
             context2d.lineWidth = s.hover ? 6 : 3;
+            context2d.setLineDash(s.assignment === 'V' ? [8, 6] : s.assignment === 'M' ? [12, 4, 2, 4] : []);
             context2d.beginPath();
             context2d.moveTo(xf1, yf1);
             context2d.lineTo(xf2, yf2);
             context2d.strokeStyle = s.select ? 'red' : s.hover ? 'blue' : 'skyblue';
             context2d.stroke();
+            context2d.setLineDash([]);
             // Add an arrow on p2
             const arrowLength = 20;
             const arrowAngle = Math.PI / 7;

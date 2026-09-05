@@ -44,12 +44,45 @@ Work in progress, any help is welcome.
 - mountain / valley: mark crease types (FOLD M/V) on segments: valley s4
 
 ### Helper interprets mouse moves to make commands
-- click selects point, segment, face, or marks them
-- click drag from a point to a point adds a crease, or if the crease exists, adds a perpendicular crease
-- click drag from a point to a segment adds a perpendicular crease; from a segment to a point adds a crease between them (line onto point)
-- click drag from a segment to a segment adds a bisector
-- click drag a point rotates around a selected segment
-- click drag an already-selected point in 3d moves it (`t … m dx dy dz pN` then `adjust` on other selected points); the drag line is orange
+
+Goal: capture an origami diagram (PDF/GIF instructions — fold, fold along the
+diagonal, unfold...) with the mouse in as few, as predictable gestures as
+possible. Two gesture families, kept deliberately separate:
+
+**Creasing** — draws a new line on the pattern, doesn't fold anything:
+- drag point → point, point → segment, or segment → segment scores a crease
+- the plain drag runs a line directly through what you dragged (point → point:
+  the line through both points; point → segment: perpendicular to the segment)
+- holding Ctrl/Cmd instead makes the two dragged things coincide once folded
+  (point → point: the crease that brings one point onto the other; point →
+  segment: the crease that brings the segment's line onto the point)
+- segment → segment always creases their bisector (only one sensible meaning)
+- drag direction sets mountain/valley: dragging toward the bottom of the
+  screen creases a valley, toward the top a mountain (shown live in the drag
+  arrow's color, and as dashed/dash-dot lines in the 2d crease pattern)
+- dragging across a face with no axis armed (see below) and no dragged point/
+  segment splits whatever existing creases it crosses, to create landmark
+  points to crease between
+
+**Folding** — actually rotates paper, never guessed:
+- clicking a crease arms it as the sole fold axis (never auto-detected); a
+  second click on it disarms it
+- once an axis is armed, dragging on a face that borders it folds that face
+  (plus any other already-selected faces, for compound multi-layer folds)
+  around the axis — one drag, no need to select the face first
+- the axis stays armed after folding, so folding the other side along the
+  same crease (very common in diagrams) is just a second plain drag
+- dragging on a face with no axis armed never folds — it only scores/selects
+
+**Selection**:
+- click toggles a point/segment/face (the whole coincident stack, for a
+  folded pile of overlapping layers)
+- Ctrl/Cmd+click targets only the exact one under the cursor — needed to pick
+  one specific layer out of a stack (petal/squash/reverse folds)
+- selected faces accumulate to co-rotate on the next fold-drag; selected
+  points feed `adjust` (double-click) or drag-to-move in 3d
+- click drag an already-selected point in 3d moves it (`t … m dx dy dz pN`
+  then `adjust` on other selected points); the drag line is orange
 - undo via ⌘/Ctrl+Z
 
 ### Console de commandes (menu Édition → Console)

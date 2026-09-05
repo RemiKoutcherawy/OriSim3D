@@ -1,5 +1,5 @@
 // NOSONAR - SonarQube's S2187 test-detection doesn't recognize Deno's Deno.test()/t.step()
-// API as test cases; this file contains 38 t.step() sub-tests (127 assertions) for Helper.js.
+// API as test cases; this file contains 39 t.step() sub-tests for Helper.js.
 import { Model } from "../js/Model.js";
 import { Command } from "../js/Command.js";
 import { Helper } from "../js/Helper.js";
@@ -79,7 +79,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.downFaces[0], model.faces[0]);
   });
 
-  await t.step("mark P→P toggle, across, by", () => {
+  await t.step("mark P→P: plain drag is by, precise (ctrl/cmd) drag is across; direction tags M/V", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const [p0, p1, p2] = model.points;
@@ -91,16 +91,20 @@ Deno.test("Helper Tests", async (t) => {
     cmds.length = 0;
     helper.down([p0], [], [], 0, 0);
     helper.currentX = 50;
-    helper.currentY = 0;
+    helper.currentY = 50; // downward drag -> valley
     helper.up([p1], [], []);
-    assertEquals(cmds[0], "c3d p0 p1");
+    assertEquals(cmds[0], "by3d p0 p1");
+    assertEquals(model.getSegment(p0, p1)?.assignment, "V");
 
     cmds.length = 0;
+    const before = model.segments.length;
     helper.down([p0], [], [], 0, 0);
     helper.currentX = 50;
-    helper.currentY = 50;
-    helper.up([p2], [], []);
-    assertEquals(cmds[0], "by3d p0 p2");
+    helper.currentY = -50; // upward drag -> mountain
+    helper.up([p2], [], [], true); // precise: across (brings p0 onto p2)
+    assertEquals(cmds[0], "c3d p0 p2");
+    const added = model.segments.slice(before);
+    assertEquals(added.some((s) => s.assignment === "M"), true);
   });
 
   await t.step("click on stacked points selects all of them", () => {
@@ -144,7 +148,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], "adjust p0");
   });
 
-  await t.step("mark P→S sends p3d; S→P sends parallel3d", () => {
+  await t.step("point<->segment: plain drag is perpendicular regardless of order; precise is parallel", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const p0 = model.points[0];
@@ -160,11 +164,18 @@ Deno.test("Helper Tests", async (t) => {
     helper.down([], [s0], [], 0, 0);
     helper.currentX = 40;
     helper.currentY = 0;
-    helper.up([p0], [], []);
+    helper.up([p0], [], []); // same two things, opposite drag order -> same command
+    assertEquals(cmds[0], "p3d s0 p0");
+
+    cmds.length = 0;
+    helper.down([p0], [], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.up([], [s0], [], true); // precise: parallel (brings the segment's line onto p0)
     assertEquals(cmds[0], "parallel3d s0 p0");
   });
 
-  await t.step("mark S→P on 2d canvas sends parallel2d", () => {
+  await t.step("point<->segment on 2d canvas sends p2d / parallel2d", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const p0 = model.points[0];
@@ -175,6 +186,13 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([p0], [], []);
+    assertEquals(cmds[0], "p2d s0 p0");
+
+    cmds.length = 0;
+    helper.down([], [s0], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.up([p0], [], [], true);
     assertEquals(cmds[0], "parallel2d s0 p0");
   });
 
@@ -182,7 +200,7 @@ Deno.test("Helper Tests", async (t) => {
     const { model, helper } = setup();
     const f0 = model.faces[0];
     const s0 = model.segments[0]; // bottom edge yf=-200 → drawing y=200
-    f0.select = true; // folding requires the face to already be selected
+    s0.select = true; // armed as fold axis (explicit prior click), borders f0
     // Poison 3d projection so a bug that still reads xCanvas would give a wrong angle
     model.points.forEach((p) => {
       p.xCanvas = 999;
@@ -195,7 +213,6 @@ Deno.test("Helper Tests", async (t) => {
     const label = helper.label as number;
     assertEquals(typeof label, "number");
     assertEquals(label !== 0 && label !== undefined, true);
-    assertEquals(s0.hover, true);
   });
 
   await t.step("mark S→S toggle and bisector", () => {
@@ -216,7 +233,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], "b3d s0 s1");
   });
 
-  await t.step("click on stacked segments selects all and logs ids", () => {
+  await t.step("click on a stacked segment arms only the topmost one as axis", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const s0 = model.segments[0];
@@ -226,9 +243,10 @@ Deno.test("Helper Tests", async (t) => {
 
     helper.down([], stack, [], 0, 0);
     helper.up([], stack, []);
+    // An axis is a single line: only the topmost of the stack gets armed
     assertEquals(s0.select, true);
-    assertEquals(sExtra.select, true);
-    assertEquals(cmds[0], `// selectSegments ${helper.id(s0)}(${Math.round(Segment.length2d(s0))},${Math.round(Segment.length3d(s0))}) ${helper.id(sExtra)}(${Math.round(Segment.length2d(sExtra))},${Math.round(Segment.length3d(sExtra))})`);
+    assertEquals(sExtra.select, false);
+    assertEquals(cmds[0], `// selectSegments ${helper.id(s0)}(${Math.round(Segment.length2d(s0))},${Math.round(Segment.length3d(s0))})`);
   });
 
   await t.step("click on stacked faces selects all of them, toggles off, and logs ids", () => {
@@ -448,10 +466,12 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[cmds.length - 1], "// selectFaces f0(0)");
   });
 
-  await t.step("a second drag on the now-selected face folds it", () => {
+  await t.step("with the axis armed, a drag on the face folds it directly (no face pre-select needed)", () => {
     const { model, command, helper } = setup();
+    const s0 = model.segments[0];
+    s0.select = true; // armed axis (explicit prior click), borders f0
     const f0 = model.faces[0];
-    f0.select = true; // as left by the arming drag above
+    assertEquals(f0.select, false);
 
     helper.down([], [], [f0], 0, 0);
     helper.move([], [], [f0], 0, -150);
@@ -463,27 +483,29 @@ Deno.test("Helper Tests", async (t) => {
     helper.up([], [], [f0]);
     assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
     assertEquals(f0.select, false);
+    // Axis stays armed: folding the other side along the same crease is a
+    // second plain drag, no need to re-click it.
+    assertEquals(s0.select, true);
   });
 
-  await t.step("fold mode move highlights only the hover axis segment", () => {
+  await t.step("fold-drag move sets the angle label without force-highlighting the axis via hover", () => {
     const { model, helper } = setup();
     const f0 = model.faces[0];
-    f0.select = true;
-    model.segments.forEach(s => { s.hover = true; }); // noise
+    const s0 = model.segments[0];
+    s0.select = true; // armed axis — already shown via its .select styling
 
     helper.down([], [], [f0], 0, 0);
     helper.move([], [], [f0], 0, -150);
-    const hovered = model.segments.filter(s => s.hover);
-    assertEquals(hovered.length, 1);
-    assertEquals(hovered[0], model.segments[0]);
+    assertEquals(typeof helper.label, "number");
+    assertEquals(helper.label !== 0, true);
+    assertEquals(s0.hover, false);
   });
 
-  await t.step("fold F→F with axis rotates then clears all", () => {
+  await t.step("fold F→F: axis stays armed after folding, points and faces clear", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const f0 = model.faces[0];
     const s0 = model.segments[0];
-    f0.select = true;
     s0.select = true;
     model.points[2].select = true;
 
@@ -500,37 +522,31 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
     assertEquals(cmds[0].includes("// f0"), true);
     assertEquals(f0.select, false);
-    assertEquals(s0.select, false);
+    assertEquals(s0.select, true);
     assertEquals(model.points[2].select, false);
   });
 
-  await t.step("fold F→F without axis: angle uses hover border segment", () => {
+  await t.step("without an armed axis, a face drag never folds — even near a border", () => {
     const { model, command, helper } = setup();
-    const cmds = captureCmds(command);
     const f0 = model.faces[0];
-    f0.select = true;
+    f0.select = true; // face selection alone is no longer enough
 
     helper.down([], [], [f0], 0, 0);
-    // Move near top edge s0 (y=-200) to hover it, with enough angle
     helper.move([], [], [f0], 0, -150);
-    assertEquals(model.segments[0].hover, true);
-    const label = helper.label as number;
-    assertEquals(label !== 0, true);
+    assertEquals(helper.label, undefined);
+    assertEquals(helper.willFold(), false);
 
-    cmds.length = 0;
+    const cmds = captureCmds(command);
     helper.up([], [], [f0]);
-    assertEquals(cmds[0].startsWith(`t 1000 r s0 ${label}`), true);
-    assertEquals(f0.select, false);
+    assertEquals(cmds.some((c) => c.startsWith("t 1000 r")), false);
   });
 
-  await t.step("on an already-selected face, a crossing drag folds instead of scoring", () => {
+  await t.step("with an axis armed, folding takes priority over scoring a crossed crease", () => {
     const { model, command, helper } = setup();
     const f0 = model.faces[0];
-    f0.select = true;
+    const s1 = model.segments[1]; // right edge, borders f0
+    s1.select = true;
 
-    // Nothing is pinned and nothing borders the cursor, but the face is
-    // already armed: whatever this crosses is ignored, and it folds around
-    // the nearest border edge (s1, the right edge, closest to x=250).
     helper.down([], [], [f0], -100, 0);
     helper.move([], [], [f0], 250, 0);
     const label = helper.label as number;
@@ -543,43 +559,37 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0].startsWith(`t 1000 r s1 ${label}`), true);
   });
 
-  await t.step("dragging onto a bordering segment folds along that segment specifically", () => {
+  await t.step("an armed axis that doesn't border the dragged face doesn't fold it", () => {
     const { model, command, helper } = setup();
     const f0 = model.faces[0];
-    const s1 = model.segments[1]; // right edge, xCanvas=200, y from -200..200
-    f0.select = true;
+    const stray = new Segment(model.points[0], model.points[2]); // diagonal, not a border edge
+    model.segments.push(stray);
+    stray.select = true; // armed, but doesn't border f0
 
-    // Aiming at a specific bordering edge (as a real drag landing near it
-    // would set upSegment/currentSegment) picks that edge over the generic
-    // nearest-border fallback.
-    helper.down([], [], [f0], -100, 0);
-    helper.currentX = 250;
-    helper.currentY = 0;
-    helper.currentSegment = s1;
-    assertEquals(helper.willFold(), true);
+    helper.down([], [], [f0], 0, 0);
+    helper.move([], [], [f0], 0, -150);
+    assertEquals(helper.willFold(), false);
 
     const cmds = captureCmds(command);
-    helper.up([], [s1], []);
-    assertEquals(cmds.length, 1);
-    assertEquals(cmds[0].startsWith(`t 1000 r s1`), true);
+    helper.up([], [], [f0]);
+    assertEquals(cmds.some((c) => c.startsWith("t 1000 r")), false);
   });
 
-  await t.step("fold F→F up on point does nothing, and previews as filled (not fold)", () => {
+  await t.step("fold drag still folds even when the release lands on a point", () => {
     const { model, command, helper } = setup();
-    const cmds = captureCmds(command);
     const f0 = model.faces[0];
     const s0 = model.segments[0];
     const p2 = model.points[2];
-    f0.select = true;
-    s0.select = true;
+    s0.select = true; // armed axis bordering f0
 
     helper.down([], [], [f0], 0, 0);
-    helper.currentX = 40;
-    helper.currentY = 40;
-    helper.upPoint = p2; // as move()/up() would set it while hovering p2
-    assertEquals(helper.willFold(), false);
-    helper.up([p2], [], []);
-    assertEquals(cmds.length, 0);
+    helper.currentX = 0;
+    helper.currentY = -150; // enough angle
+    assertEquals(helper.willFold(), true);
+
+    const cmds = captureCmds(command);
+    helper.up([p2], [], []); // release happens to land on a point
+    assertEquals(cmds[0].startsWith("t 1000 r s0"), true);
   });
 
   await t.step("segment selected in mark remains when entering fold", () => {
@@ -695,7 +705,7 @@ Deno.test("Helper Tests", async (t) => {
     const helper = new Helper(model, command, null);
     helper.view3d = { overlay };
     helper.downFace = model.faces[0];
-    helper.downFace.select = true; // folding requires the face to already be selected
+    model.segments[0].select = true; // armed axis, borders the face
     helper.firstX = 0;
     helper.firstY = 0;
     helper.currentX = 10;
