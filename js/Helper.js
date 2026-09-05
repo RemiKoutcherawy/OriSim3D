@@ -1,11 +1,25 @@
 import {Segment} from './Segment.js';
 import {Face} from './Face.js';
 import {Vector3} from './Vector3.js';
+import {State} from './Model.js';
 import * as mat4 from './lib/mat4.js';
 
 const CLICK_PX_MOUSE = 12;
 const CLICK_PX_TOUCH = 24;
 
+// Gesture vocabulary (see README):
+// - Click a point/segment/face toggles its selection (whole coincident stack);
+//   holding Ctrl/Cmd targets only the exact one under the cursor.
+// - Clicking a segment arms it as the fold axis (only one armed at a time).
+// - Dragging point<->point, point<->segment or segment<->segment scores a new
+//   crease. The plain drag runs a line directly through what was dragged; holding
+//   Ctrl/Cmd instead makes the two dragged things coincide once folded.
+//   Drag direction (screen up/down) sets the crease to mountain/valley.
+// - Once an axis is armed, dragging a face that borders it folds that face (and
+//   any other already-selected faces) around the axis — the axis stays armed
+//   afterwards, so folding the other side along the same crease is a second plain drag.
+// - Dragging on a face with no axis armed, crossing existing creases, splits
+//   them at the crossing points (to create landmark points to crease between).
 export class Helper {
     constructor(model, command, view3d, view2d) {
         this.model = model;
@@ -15,6 +29,7 @@ export class Helper {
         this.touchTime = 0;
         this.lastClickPoints = [];
         this.pointerType = 'mouse';
+        this.precise = false;
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
 
@@ -52,6 +67,12 @@ export class Helper {
         const dx = (this.currentX ?? 0) - (this.firstX ?? 0);
         const dy = (this.currentY ?? 0) - (this.firstY ?? 0);
         return Math.hypot(dx, dy) < this.clickThreshold();
+    }
+
+    // Ctrl/Cmd held: targets a single stacked item, or the coincidence-construction
+    // variant of a crease, instead of the default whole-stack / through-line behaviour.
+    isPrecise(event) {
+        return !!(event && (event.ctrlKey || event.metaKey));
     }
 
     keydown(event) {
@@ -95,10 +116,12 @@ export class Helper {
     }
 
     static FOLD_AMBER = '#e6a817';
+    static VALLEY_COLOR = 'green';
+    static MOUNTAIN_COLOR = 'firebrick';
 
-    // Draw drag preview when down on a point, segment, or face: a filled arrow
-    // for creasing (by/across/bisector), a hollow arrow only when the drag will
-    // actually fold the face (willFold()) — see Arrow.svg.
+    // Draw drag preview when down on a point, segment, or face: a filled arrow for
+    // creasing (colored by the mountain/valley the drag would set), a hollow arrow
+    // only when the drag will actually fold the face (willFold()) — see Arrow.svg.
     draw() {
         if (!this.downPoint && !this.downSegment && !this.downFace) {
             return;
@@ -107,10 +130,9 @@ export class Helper {
         if (this.downFace && this.willFold()) {
             this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
         } else {
-            this.drawFilledArrow(
-                context, this.firstX, this.firstY, this.currentX, this.currentY,
-                this.moving ? 'orange' : 'green',
-            );
+            const color = this.moving ? 'orange'
+                : this.assignmentFor() === 'M' ? Helper.MOUNTAIN_COLOR : Helper.VALLEY_COLOR;
+            this.drawFilledArrow(context, this.firstX, this.firstY, this.currentX, this.currentY, color);
         }
         if (this.label) {
             const radius = 18;
@@ -126,7 +148,7 @@ export class Helper {
     }
 
     // Thin straight shaft + small solid triangular head, both a fixed size —
-    // only the shaft stretches with the drag. Crease preview (by3d/across3d/bisector3d);
+    // only the shaft stretches with the drag. Crease preview (by/across/bisector);
     // orange when dragging a selected point to move it in 3d.
     drawFilledArrow(context, x1, y1, x2, y2, color = 'green') {
         const HEAD_LEN = 24, HEAD_HALF_W = 10;
@@ -202,17 +224,19 @@ export class Helper {
         points.forEach(p => { p.select = !allOn; });
     }
 
-    /**
-     * Toggle a stack of superimposed segments as the fold axis.
-     * Selecting the stack clears any other selected segments.
-     */
-    toggleSegmentStack(segments) {
-        if (!segments.length) return;
-        const allOn = segments.every(s => s.select);
+    /** Select all stacked faces, or deselect all if every one is already selected. */
+    toggleFaceStack(faces) {
+        if (!faces.length) return;
+        const allOn = faces.every(f => f.select);
+        faces.forEach(f => { f.select = !allOn; });
+    }
+
+    /** Arm/disarm a segment as the sole fold axis — never a stack, only one axis at a time. */
+    armAxis(segment) {
+        const wasArmed = segment.select;
         this.model.segments.forEach(s => { s.select = false; });
-        if (!allOn) {
-            segments.forEach(s => { s.select = true; });
-        }
+        segment.select = !wasArmed;
+        this.logSelectedSegments();
     }
 
     logSelectedSegments() {
@@ -252,20 +276,6 @@ export class Helper {
         return segs;
     }
 
-    nearestBorderSegment(face, x, y) {
-        let best, bestD = Infinity;
-        for (const s of this.faceBorderSegments(face)) {
-            const p1 = this.canvasPoint(s.p1);
-            const p2 = this.canvasPoint(s.p2);
-            const d = Segment.distance2d(p1.xf, p1.yf, p2.xf, p2.yf, x, y);
-            if (d < bestD) {
-                bestD = d;
-                best = s;
-            }
-        }
-        return best;
-    }
-
     // Signed rotation angle (degrees) from ref point to cursor, around segment.
     // Uses canvasPoint() so 2d (xf,-yf) and 3d (xCanvas,yCanvas) stay consistent.
     rotationLabel(s, refX, refY, x, y) {
@@ -294,17 +304,15 @@ export class Helper {
             this.downSegments.forEach(s => { s.hover = true; });
         } else if (this.downFace) {
             this.downFace.hover = true;
-            // Only the fold-axis candidate should highlight — clear other segment hovers
-            this.model.segments.forEach(s => { s.hover = false; });
-            const axis = this.foldAxis(this.currentSegment);
-            if (axis) {
-                axis.hover = true;
+            const axis = this.selectedAxis();
+            if (axis && this.faceBorderSegments(this.downFace).includes(axis)) {
                 this.label = this.angleFor(axis);
             }
         }
     }
 
-    up(points, segments, faces) {
+    up(points, segments, faces, precise = false) {
+        this.precise = precise;
         this.upPoints = points.length ? points : [];
         this.upPoint = this.upPoints[0];
         this.upSegments = !this.upPoint && segments.length ? segments : [];
@@ -344,19 +352,22 @@ export class Helper {
             }
             this.touchTime = Date.now();
             this.lastClickPoints = [...this.downPoints];
-            this.togglePointStack(this.downPoints);
+            if (this.precise) {
+                this.downPoint.select = !this.downPoint.select;
+            } else {
+                this.togglePointStack(this.downPoints);
+            }
             return;
         }
 
         if (this.model.faces.some(f => f.select)) {
-            // Creases blocked in fold
+            // Creases blocked while composing a fold
             return;
         }
         if (this.upPoint) {
-            const cmd = this.model.getSegment(this.downPoint, this.upPoint) ? 'c' : 'by';
-            this.sendCmd(cmd, this.downPoint, this.upPoint);
+            this.creaseTwoPoints(this.downPoint, this.upPoint);
         } else if (this.upSegment) {
-            this.sendCmd('p', this.upSegment, this.downPoint);
+            this.creasePointSegment(this.downPoint, this.upSegment);
         }
     }
 
@@ -407,8 +418,7 @@ export class Helper {
             && this.sameStack(this.downSegments, this.upSegments);
 
         if (sameStack) {
-            this.toggleSegmentStack(this.downSegments);
-            this.logSelectedSegments();
+            this.armAxis(this.downSegment);
             return;
         }
 
@@ -416,9 +426,9 @@ export class Helper {
             return;
         }
         if (this.upSegment) {
-            this.sendCmd('b', this.downSegment, this.upSegment);
+            this.creaseTwoSegments(this.downSegment, this.upSegment);
         } else if (this.upPoint) {
-            this.sendCmd('parallel', this.downSegment, this.upPoint);
+            this.creasePointSegment(this.upPoint, this.downSegment);
         }
     }
 
@@ -427,18 +437,20 @@ export class Helper {
             this.fromFaceClick();
             return;
         }
-        // Folding is gated on the face already being selected (see foldAxis) —
-        // a drag on an unselected face can only score a crease or select it.
         this.fromFaceDrag();
     }
 
     fromFaceClick() {
-        const samePile = this.downFace && this.upFaces.includes(this.downFace);
-        if (samePile) {
-            this.toggleFaceStack(this.upFaces.length ? this.upFaces : this.downFaces);
-        } else if (this.upFace) {
-            // Different face: select Up front only; keep points/segments
-            this.upFace.select = true;
+        if (this.precise) {
+            this.downFace.select = !this.downFace.select;
+        } else {
+            const samePile = this.downFace && this.upFaces.includes(this.downFace);
+            if (samePile) {
+                this.toggleFaceStack(this.upFaces.length ? this.upFaces : this.downFaces);
+            } else if (this.upFace) {
+                // Different face: select Up front only; keep points/segments
+                this.upFace.select = true;
+            }
         }
         const ids = this.model.faces.filter(f => f.select).map(f => `${this.id(f)}(${f.offset})`);
         if (ids.length) {
@@ -446,26 +458,16 @@ export class Helper {
         }
     }
 
-    /** Select all stacked faces, or deselect all if every one is already selected. */
-    toggleFaceStack(faces) {
-        if (!faces.length) return;
-        const allOn = faces.every(f => f.select);
-        faces.forEach(f => { f.select = !allOn; });
-    }
-
     /**
-     * A drag starting on a face only folds once that face is already selected
-     * (see foldAxis) — picking up a flap to fold is a deliberate two-step
-     * gesture: select it first, then drag. Before it's selected, a drag either
-     * scores a crease across existing paper, or — if it crosses nothing —
-     * arms the face for folding, same as a click would.
+     * A drag on a face folds it only when a crease is already armed as the fold
+     * axis (via a prior click on it — never guessed) and that crease borders this
+     * face. Otherwise, the drag can only score a crease across existing paper
+     * (splitting whatever it crosses into new landmark points), or — if it
+     * crosses nothing — arm/select the face like a click would.
      */
     fromFaceDrag() {
-        if (this.upPoint) {
-            return;
-        }
-        const axis = this.foldAxis(this.upSegment);
-        if (axis) {
+        const axis = this.selectedAxis();
+        if (axis && this.faceBorderSegments(this.downFace).includes(axis)) {
             const angle = this.angleFor(axis);
             if (angle) {
                 this.foldAlong(axis, angle);
@@ -482,39 +484,20 @@ export class Helper {
         return this.rotationLabel(axis, c.x, c.y, this.currentX, this.currentY);
     }
 
-    /** Explicit pin, else a segment you're aiming directly at that borders this face. */
-    priorityAxis(nearSegment) {
-        return this.selectedAxis()
-            || (nearSegment && this.faceBorderSegments(this.downFace).includes(nearSegment) ? nearSegment : undefined);
-    }
-
-    /**
-     * Axis to fold the dragged face around right now, or undefined if this
-     * drag should score a crease (or just select the face) instead.
-     * Folding only ever applies to an already-selected face — once armed,
-     * whatever the drag crosses is ignored, since the user has already
-     * committed to folding. A priorityAxis() always wins; the nearest
-     * border edge is the fallback.
-     */
-    foldAxis(nearSegment) {
-        if (!this.downFace?.select) return undefined;
-        const priority = this.priorityAxis(nearSegment);
-        if (priority) return priority;
-        return this.nearestBorderSegment(this.downFace, this.currentX, this.currentY);
-    }
-
     /** Would releasing now actually rotate the dragged face? */
     willFold() {
-        if (this.upPoint) return false;
-        const axis = this.foldAxis(this.currentSegment);
-        return !!(axis && this.angleFor(axis));
+        const axis = this.selectedAxis();
+        if (!axis || !this.faceBorderSegments(this.downFace).includes(axis)) return false;
+        return !!this.angleFor(axis);
     }
 
+    // Folds the dragged face plus any other already-selected faces around axis, by
+    // angle. The axis stays armed afterwards, so folding the other side along the
+    // same crease (a very common diagram pattern) is just a second plain drag.
     foldAlong(axis, angle) {
-        this.model.segments.forEach(sg => { sg.select = false; });
-        axis.select = true;
         this.rotatePoints(axis, angle);
-        this.clearSelection();
+        this.model.points.forEach(p => { p.select = false; });
+        this.model.faces.forEach(f => { f.select = false; });
     }
 
     /**
@@ -601,6 +584,63 @@ export class Helper {
         this.command.command(`${base}${suffix} ${args.join(' ')}`);
     }
 
+    // Screen-space drag direction sets mountain/valley: dragging toward the
+    // bottom of the screen creases a valley, toward the top a mountain.
+    assignmentFor() {
+        return (this.currentY - this.firstY) < 0 ? 'M' : 'V';
+    }
+
+    // command.command() only enqueues — the model applies it on the next
+    // animation frame. A crease command is never animated ('t ...'), so it is
+    // always fully applied by exactly one command.anim() call; running that
+    // now (only when nothing else is already mid-animation) lets the mark
+    // gesture tag the resulting segment(s) immediately instead of a frame late.
+    runQueuedNow() {
+        if (this.model.state === State.run) {
+            this.command.anim();
+        }
+    }
+
+    /** Tag every segment created since `before` (a Set snapshot) with assignment. */
+    tagNewSegments(before, assignment) {
+        this.model.segments.forEach(s => {
+            if (!before.has(s)) s.assignment = assignment;
+        });
+    }
+
+    // Plain: straight crease through both points. Ctrl/Cmd: the crease that
+    // brings one point onto the other once folded.
+    creaseTwoPoints(a, b) {
+        const before = new Set(this.model.segments);
+        const assignment = this.assignmentFor();
+        this.sendCmd(this.precise ? 'c' : 'by', a, b);
+        this.runQueuedNow();
+        this.tagNewSegments(before, assignment);
+        // 'by' between two already-connected points reuses the existing edge
+        // instead of creating a new one — tag it too.
+        const direct = this.model.getSegment(a, b);
+        if (direct) direct.assignment = assignment;
+    }
+
+    // Plain: crease through the point, perpendicular to the segment. Ctrl/Cmd:
+    // the crease that brings the segment's line onto the point once folded.
+    creasePointSegment(point, segment) {
+        const before = new Set(this.model.segments);
+        const assignment = this.assignmentFor();
+        this.sendCmd(this.precise ? 'parallel' : 'p', segment, point);
+        this.runQueuedNow();
+        this.tagNewSegments(before, assignment);
+    }
+
+    // The only sensible crease between two segments: their bisector.
+    creaseTwoSegments(a, b) {
+        const before = new Set(this.model.segments);
+        const assignment = this.assignmentFor();
+        this.sendCmd('b', a, b);
+        this.runQueuedNow();
+        this.tagNewSegments(before, assignment);
+    }
+
     rotatePointIds(axis) {
         const pts = new Set();
         this.model.faces.filter(f => f.select).forEach(f => {
@@ -679,7 +719,7 @@ export class Helper {
     up2d(event) {
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
-        this.up(points, segments, faces);
+        this.up(points, segments, faces, this.isPrecise(event));
     }
 
     // Canvas 3d
@@ -756,7 +796,7 @@ export class Helper {
     up3d(event) {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
-        this.up(points, segments, faces);
+        this.up(points, segments, faces, this.isPrecise(event));
         if (points.length === 0 && segments.length === 0 && faces.length === 0) {
             this.doubleClick();
         }
