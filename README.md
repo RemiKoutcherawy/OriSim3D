@@ -14,7 +14,7 @@
 
 Créez des pliages, regardez le papier se plier en 3D.
 
-**[Demo](https://remikoutcherawy.github.io/OriSim3D/)**
+**[Demo](https://remikoutcherawy.github.io/demo.html)**
 
 ## Fonctionnalités
 
