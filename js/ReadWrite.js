@@ -28,7 +28,7 @@ export class ReadWrite {
         return new Promise((resolve) => {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = '.txt,.fold,.json,text/plain';
+            input.accept = '.txt,text/plain';
             input.onchange = (e) => {
                 resolve(/** @type {HTMLInputElement} */ (e.target).files?.[0] || null);
             };

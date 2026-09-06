@@ -79,7 +79,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.downFaces[0], model.faces[0]);
   });
 
-  await t.step("mark P→P: plain drag is by, precise (ctrl/cmd) drag is across; direction tags M/V", () => {
+  await t.step("mark P→P: plain drag is by, precise (ctrl/cmd) drag is across; left unassigned regardless of drag direction", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const [p0, p1, p2] = model.points;
@@ -91,20 +91,20 @@ Deno.test("Helper Tests", async (t) => {
     cmds.length = 0;
     helper.down([p0], [], [], 0, 0);
     helper.currentX = 50;
-    helper.currentY = 50; // downward drag -> valley
+    helper.currentY = 50; // downward drag
     helper.up([p1], [], []);
     assertEquals(cmds[0], "by3d p0 p1");
-    assertEquals(model.getSegment(p0, p1)?.assignment, "V");
+    assertEquals(model.getSegment(p0, p1)?.assignment, "U");
 
     cmds.length = 0;
     const before = model.segments.length;
     helper.down([p0], [], [], 0, 0);
     helper.currentX = 50;
-    helper.currentY = -50; // upward drag -> mountain
+    helper.currentY = -50; // upward drag
     helper.up([p2], [], [], true); // precise: across (brings p0 onto p2)
     assertEquals(cmds[0], "c3d p0 p2");
     const added = model.segments.slice(before);
-    assertEquals(added.some((s) => s.assignment === "M"), true);
+    assertEquals(added.every((s) => s.assignment === "U"), true);
   });
 
   await t.step("click on stacked points selects all of them", () => {

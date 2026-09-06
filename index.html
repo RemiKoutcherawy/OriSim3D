@@ -55,7 +55,7 @@
     #nav button[data-flag][data-checked="true"]::before,#nav button[data-ui][data-checked="true"]::before{opacity:1}
   </style>
 </head>
-<body>
+<body class="view2d-open command-area-open"> <!-- -->
 <div>
   <canvas id="canvas2d"></canvas>
   <canvas id="canvas3d"></canvas>
@@ -80,7 +80,7 @@
 <nav id="nav">
   <details name="nav-menu">
     <summary>Plis de base<span class="chev">›</span></summary>
-    <button type="button" data-load="all-folds">Tous les plis de base</button>
+    <button type="button" data-load="demo">Tous les plis de base</button>
     <button type="button" data-load="squash-fold">Squash fold</button>
     <button type="button" data-load="rabbit-ear-fold">Rabbit-ear fold</button>
     <button type="button" data-load="reverse-fold">Reverse fold</button>
@@ -93,7 +93,6 @@
     <summary>Exemples<span class="chev">›</span></summary>
     <button type="button" data-load="cocotte">Cocotte</button>
     <button type="button" data-load="plane">Plane</button>
-    <button type="button" data-load="boat">Bateau</button>
     <button type="button" data-load="test">Test</button>
   </details>
 
@@ -254,8 +253,10 @@
       syncToggles();
     }
 
+
     // Chargement du template "test" au lancement
     load('test');
+
   }
 
 </script>
@@ -272,19 +273,80 @@
 
 <!-- Inline models -->
 <template id="test">
+  d 200 200
+  by2d p0 p2
+</template>
+<template id="demo">
+  // Squash fold — open a pocket and flatten it
+  d 200 200
+  c2d p1 p2
+  o -1 f0
+  c2d p0 p1
+  t 500 r s6 -180 p3 p8 p2
+  c3d p0 p1
+  by3d p6 p1
+  o -10 f1
+  t 500 fit
+  t 1000 r s9 -180 p2 a p5
+  pause
+  // Inside and outside reverse folds
+  d 200 200
+  by2d p1 p3
+  o -1 f1
+  t 200 r s4 -180 p2
+  split s4 0.5 sp p4
+  p3d s0 p4
+  b3d s7 s5
+  t 500 z 0.99 move 59 43 0
+  t 500 r s7 -180 p8 a p1
+  t 500 r s7 180 p8 a p1
+  t 500 fit
+  pause
+  // Rabbit-ear fold — fold a corner point up between two creases
+  d 200 200
+  by2d p0 p2 by2d p1 p3
+  b2d s6 s1 b2d s7 s2
+  p2d s1 p5
+  t 1000 r s9 180 p6 a p2
+  pause
+  // Square base
+  d 200 200
+  by2d p0 p2 by2d p1 p3
+  c2d p0 p1 c2d p1 p2
+  t 500 r s11 -180 p1 r s15 -180 p3 a p5 p2 p7
+  t 500 r s6 -90 p7 r s7 -90 p5 a p2
+  t 500 fit
+  b3d s4 s11
+  t 500 r s4 -180 p11 a p7
+  pause
   // Triangle base
   d 200 200
   by2d p0 p2 by2d p1 p3
   c2d p0 p1 c2d p1 p2
   t 1000 r s5 -180 p8 r s6 180 p7 a p2 p3 p5
-  t 1000 fit
   t 1000 r s11 90 p2 r s11 -90 p3 a p5
-  check
+  t 1000 fit
+  pause
+  // Petal fold — fold both sides of a flap to the center, then flatten
+  d 200 200
+  by2d p0 p2 by2d p1 p3
+  c2d p0 p1 c2d p1 p2
+  t 200 r s11 -180 p1 r s15 -180 p3 a p5 p2 p7
+  t 200 r s6 -90 p7 r s7 -90 p5 a p2
+  t 200 fit
+  tz 45 z 0.71
+  b3d s2 s4 b3d s0 s4 by3d p9 p11
+  t 200 zoom 0.75 0 0 move 0 -75 0
+  // Petal fold
+  t 2000 r s31 -178 p2 a p5 p7
+  pause
+  d 200 200
 </template>
 
 <template id="plane">
-  // Paper airplane
+  // Paper airplane by Vibe Mistral
   define 200 200
+  textures
   // Center crease
   across2d p0 p1
   // Wing creases while the sheet is still flat
@@ -292,31 +354,25 @@
   across2d p4 p0
   // Fold top corners to the center
   bisector2d s2 s6
-  bisector2d s5 s6
-  offset -1 f0
-  t 200 r s16 -180 p2 p7
-  offset -1 f7
-  t 200 r s20 180 p3 p9
+  bisector2d s11 s6
+  offset -1 f0 f4 f5 f1 f3
+  t 1000 r s16 180 p2 p7
+  t 1000 r s20 -180 p3 p9
   // Crease the folded flaps along the future wing line
   split s15 0.5
   split s3 0.5
   by3d p10 p14
   by3d p12 p15
   // Fold in half along the center
-  offset 2 f1 f3 f6 f7 f9
-  t 200 r s6 180 p0 p8 p13 p12 p3 p9 p15
-  // Fold both wings down
-  offset -3 f5 f0
-  t 200 r s9 180 p1 p11
-  offset 3 f1 f9
-  t 200 r s17 180 p0 p13
+  offset -2 f1 f3 f6 f7 f9
+  t 1000 r s6 170 p0 p8 p13 p12 p3 p9 p15
+  t 200 ty -45
   // Open the wings to fly
-  t 300 r s9 -90 p1 p11
-  t 300 r s17 -90 p0 p13
+  t 300 r s9 80 p1 p11
+  t 300 r s17 80 p0 p13
   // Stand the fuselage up, wings toward the camera
-  t 200 ty -90
-  t 200 tx 35
-  t 200 fit
+  t 500 tz 90
+  t 500 fit
   // Show
   iao
   t 1000 z 0.5 0 0
