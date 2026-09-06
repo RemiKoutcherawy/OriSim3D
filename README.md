@@ -14,6 +14,8 @@
 
 Créez des pliages, regardez le papier se plier en 3D.
 
+**En développement !**
+
 **[Demo](https://remikoutcherawy.github.io/demo.html)**
 
 ## Fonctionnalités

@@ -45,6 +45,8 @@ export class Command {
             this.tokenTodo = [];
             this.iToken = 0;
             this.instructions = [];
+            // A fresh model replaces whatever script was running before.
+            this.model.state = State.run;
         } else if (tokens[0] === 'u' || tokens[0] === 'undo') {
             // Drop the snapshot of the live model; runUndo restores the previous one.
             if (this.done.length > 0) {
