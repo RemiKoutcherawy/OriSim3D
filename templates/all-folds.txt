@@ -1,5 +1,6 @@
 // Squash fold — open a pocket and flatten it
 d 200 200
+t 100 tx -30
 c2d p1 p2
 o -1 f0
 c2d p0 p1
@@ -10,8 +11,9 @@ o -10 f1
 t 500 fit
 t 1000 r s9 -180 p2 a p5
 pause
-// Inside and outside reverse folds on a protruding flap
+// Inside and outside reverse folds
 d 200 200
+t 100 tx -30
 by2d p1 p3
 o -1 f1
 t 200 r s4 -180 p2
@@ -25,6 +27,7 @@ t 500 fit
 pause
 // Rabbit-ear fold — fold a corner point up between two creases
 d 200 200
+t 100 tx -30
 by2d p0 p2 by2d p1 p3
 b2d s6 s1 b2d s7 s2
 p2d s1 p5
@@ -55,6 +58,7 @@ t 500 r s4 -180 p11 a p7
 pause
 // Triangle base
 d 200 200
+t 100 tx -30
 by2d p0 p2 by2d p1 p3
 c2d p0 p1 c2d p1 p2
 t 1000 r s5 -180 p8 r s6 180 p7 a p2 p3 p5

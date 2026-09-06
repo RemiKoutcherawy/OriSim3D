@@ -18,6 +18,12 @@ Créez des pliages, regardez le papier se plier en 3D.
 
 **[Demo](https://remikoutcherawy.github.io/demo.html)**
 
+**[Android]([https://play.google.com/store/apps/details?id=com.remikoutcherawy.orisim3d](https://play.google.com/store/apps/details?id=rk.or.android&hl=fr))** Work in progress
+
+**[iOS](https://apps.apple.com/fr/app/orisim3d/id690082883)** Work in progress
+
+Avec l'aide de [Junie](https://junie.jetbrains.com) [Claude](https://claude.ai) [Jules](https://jules.google.com) [Cursor](https://cursor.com/agents) [Mistral](https://chat.mistral.ai/code) qui m'ont beaucoup aidé.
+
 ## Fonctionnalités
 
 * Créer des plis par cliquer-glisser entre points ou plis
