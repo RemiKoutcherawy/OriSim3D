@@ -117,10 +117,10 @@ export class Helper {
 
     static FOLD_AMBER = '#e6a817';
     static VALLEY_COLOR = 'green';
-    static MOUNTAIN_COLOR = 'firebrick';
 
-    // Draw drag preview when down on a point, segment, or face: a filled arrow for
-    // creasing (colored by the mountain/valley the drag would set), a hollow arrow
+    // Draw drag preview when down on a point, segment, or face: a filled arrow
+    // for creasing (green — a crease has no mountain/valley until it's
+    // actually folded) or moving a selected point (orange), a hollow arrow
     // only when the drag will actually fold the face (willFold()) — see Arrow.svg.
     draw() {
         if (!this.downPoint && !this.downSegment && !this.downFace) {
@@ -130,10 +130,7 @@ export class Helper {
         if (this.downFace && this.willFold()) {
             this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
         } else {
-            let color = 'orange';
-            if (!this.moving) {
-                color = this.assignmentFor() === 'M' ? Helper.MOUNTAIN_COLOR : Helper.VALLEY_COLOR;
-            }
+            const color = this.moving ? 'orange' : Helper.VALLEY_COLOR;
             this.drawFilledArrow(context, this.firstX, this.firstY, this.currentX, this.currentY, color);
         }
         if (this.label) {
@@ -596,61 +593,44 @@ export class Helper {
         this.command.command(`${base}${suffix} ${args.join(' ')}`);
     }
 
-    // Screen-space drag direction sets mountain/valley: dragging toward the
-    // bottom of the screen creases a valley, toward the top a mountain.
-    assignmentFor() {
-        return (this.currentY - this.firstY) < 0 ? 'M' : 'V';
-    }
-
     // command.command() only enqueues — the model applies it on the next
     // animation frame. A crease command is never animated ('t ...'), so it is
     // always fully applied by exactly one command.anim() call; running that
-    // now (only when nothing else is already mid-animation) lets the mark
-    // gesture tag the resulting segment(s) immediately instead of a frame late.
+    // now (only when nothing else is already mid-animation) shows the result
+    // immediately instead of a frame late. Also rebuilds the WebGL buffers
+    // right away when something was actually applied: this bypasses the
+    // render loop's own command.anim() check (the one that normally gates
+    // initBuffers()/initModelView()), so without this the loop's next call
+    // finds nothing left to apply and never uploads the change to canvas3d,
+    // even though the model (and canvas2d, drawn straight from it) already
+    // reflects it.
     runQueuedNow() {
-        if (this.model.state === State.run) {
-            this.command.anim();
+        if (this.model.state === State.run && this.command.anim()) {
+            this.view3d?.initBuffers();
+            this.view3d?.initModelView();
         }
     }
 
-    /** Tag every segment created since `before` (a Set snapshot) with assignment. */
-    tagNewSegments(before, assignment) {
-        this.model.segments.forEach(s => {
-            if (!before.has(s)) s.assignment = assignment;
-        });
-    }
-
     // Plain: straight crease through both points. Ctrl/Cmd: the crease that
-    // brings one point onto the other once folded.
+    // brings one point onto the other once folded. Just marks the crease —
+    // mountain/valley is only meaningful once actually folded, so the new
+    // segment is left unassigned ('U') regardless of drag direction.
     creaseTwoPoints(a, b) {
-        const before = new Set(this.model.segments);
-        const assignment = this.assignmentFor();
         this.sendCmd(this.precise ? 'c' : 'by', a, b);
         this.runQueuedNow();
-        this.tagNewSegments(before, assignment);
-        // 'by' between two already-connected points reuses the existing edge
-        // instead of creating a new one — tag it too.
-        const direct = this.model.getSegment(a, b);
-        if (direct) direct.assignment = assignment;
     }
 
     // Plain: crease through the point, perpendicular to the segment. Ctrl/Cmd:
     // the crease that brings the segment's line onto the point once folded.
     creasePointSegment(point, segment) {
-        const before = new Set(this.model.segments);
-        const assignment = this.assignmentFor();
         this.sendCmd(this.precise ? 'parallel' : 'p', segment, point);
         this.runQueuedNow();
-        this.tagNewSegments(before, assignment);
     }
 
     // The only sensible crease between two segments: their bisector.
     creaseTwoSegments(a, b) {
-        const before = new Set(this.model.segments);
-        const assignment = this.assignmentFor();
         this.sendCmd('b', a, b);
         this.runQueuedNow();
-        this.tagNewSegments(before, assignment);
     }
 
     rotatePointIds(axis) {
