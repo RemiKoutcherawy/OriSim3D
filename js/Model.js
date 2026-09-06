@@ -153,7 +153,7 @@ export class Model {
         created.offset = face.offset;
     }
 
-    // Reverse order to safely add new faces in the same pass
+    // Reverse order to add new faces in the same pass
     forEachFaceReverse(fn) {
         for (let i = this.faces.length - 1; i >= 0; i--) fn(this.faces[i]);
     }
@@ -214,7 +214,7 @@ export class Model {
         }
 
         // Modify initial face and add new face if not degenerated
-        // Discard degenerated polygons artifacts (true 3d area, not xy projection)
+        // Discard degenerated polygons artifacts
         if (polygonArea3d(left) && polygonArea3d(right)) {
             this.commitSplit(face, left, right);
         }
@@ -232,7 +232,8 @@ export class Model {
         // Add a new segment
         this.addSegment(inter, current);
 
-        // Eventually, if last intersection was on plane, add a segment from the last intersection to inter
+        // Eventually, if last intersection was on plane,
+        // add a segment from the last intersection to inter
         if (lastInter && inter !== lastInter) {
             this.addSegment(lastInter, inter);
             return undefined;
@@ -397,7 +398,7 @@ export class Model {
 
     // Find the face where b is a vertex adjacent to both a and c (edges [b,a] and [b,c])
     faceAtVertex(a, b, c) {
-        const facesA = this.searchFacesWithAB(b, a);
+        const facesA = this.searchFacesWithAB(a, b);
         const facesC = this.searchFacesWithAB(b, c);
         return facesA.find((f) => facesC.includes(f));
     }
@@ -683,6 +684,181 @@ export class Model {
         const axes = {x: {p1: {x:0, y:0, z:0}, p2: {x:1, y:0, z:0}}, y: {p1: {x:0, y:0, z:0}, p2: {x:0, y:1, z:0}}, z: {p1: {x:0, y:0, z:0}, p2: {x:0, y:0, z:1}}};
         const s = typeof axe === 'string' ? (axes[axe.toLowerCase().replace('angle', '')] || axes.x) : axe;
         this.rotate(s, angle, this.points);
+    }
+
+    // =============================================
+    // Reverse Inside Fold: pousse la pointe d'un pli entre les deux pans de
+    // papier qui se rejoignent au point central (ex: le cou d'une grue). tn
+    // est la progression absolue du pli (0 = départ, 1 = pli inversé) ;
+    // reverseFold() peut être rappelée à chaque frame d'une animation, comme
+    // zoom() ou fit(), avec un tn croissant.
+    // La géométrie du mouvement (point mobile, portillons, angle de balayage)
+    // est figée UNE SEULE FOIS par pli, dès le premier appel, et mémorisée
+    // sur le segment (recalculée si tn revient en arrière : un nouveau pli
+    // recommence). Elle ne peut PAS être recalculée depuis la position
+    // courante à chaque frame : la cible du point mobile et l'orientation de
+    // chaque portillon se définissent par rapport à sa position de DÉPART,
+    // pas une position déjà en mouvement. Seule l'application du mouvement
+    // est répétée à chaque appel, par petits incréments additifs autour d'un
+    // axe fixe (leur somme vaut exactement sweepAngle * tn, sans dérive).
+    // =============================================
+    reverseFold(segment, center, tn) {
+        const fail = (msg) => console.log(`${msg} for segment ${this.indexOf(segment)} and center ${this.indexOf(center)}`);
+        if (!segment || !center) return fail('Invalid segment or center');
+
+        let mobilePoint = null;
+        if (segment.p1 === center) mobilePoint = segment.p2;
+        else if (segment.p2 === center) mobilePoint = segment.p1;
+        if (!mobilePoint) return fail('Invalid mobile point');
+
+        let cache = segment._reverseFold;
+        if (!cache || cache.center !== center || tn < cache.lastTn) {
+            // Points qui bougent avec mobilePoint, sans déborder sur les
+            // autres pans accrochés à 'center' (ses autres voisins).
+            const excluded = new Set([center]);
+            for (const seg of this.searchSegmentsOnePoint(center)) {
+                const other = seg.p1 === center ? seg.p2 : seg.p1;
+                if (other !== mobilePoint) excluded.add(other);
+            }
+            const pointsToRotate = [];
+            const toVisit = [mobilePoint];
+            while (toVisit.length > 0) {
+                const current = toVisit.pop();
+                if (excluded.has(current)) continue;
+                excluded.add(current);
+                pointsToRotate.push(current);
+                for (const seg of this.searchSegmentsOnePoint(current)) {
+                    const other = seg.p1 === current ? seg.p2 : seg.p1;
+                    if (!excluded.has(other)) toVisit.push(other);
+                }
+            }
+            if (pointsToRotate.length === 0) return fail('No points to rotate');
+
+            // Une pliure intérieure a exactement 2 faces adjacentes ; le
+            // "portillon" de chacune est son autre voisin de 'center'. Chaque
+            // portillon garde sa PROPRE normale de face (jamais une normale
+            // partagée) : les 2 faces, empilées à plat par le pli précédent,
+            // ont un sens de parcours opposé, donc des normales opposées —
+            // ce qui écarte chaque portillon vers l'extérieur de SON pan,
+            // jamais vers l'autre.
+            const faces = this.searchFacesWithAB(segment.p1, segment.p2);
+            if (faces.length !== 2) return fail('Expected 2 faces adjacent to segment');
+            const gateOf = (face) => {
+                const pts = face.points;
+                const i = pts.indexOf(center);
+                const prev = pts[(i - 1 + pts.length) % pts.length];
+                return prev === mobilePoint ? pts[(i + 1) % pts.length] : prev;
+            };
+            const gate0 = gateOf(faces[0]), gate1 = gateOf(faces[1]);
+
+            // Normale locale de la feuille (les 2 faces sont coplanaires
+            // juste avant ce pli, donc l'une ou l'autre convient).
+            const normal = Model.normal(faces[0]);
+
+            // mobilePoint doit atterrir sur son symétrique par rapport à la
+            // droite (center, milieu des portillons).
+            const gx = (gate0.x + gate1.x) / 2, gy = (gate0.y + gate1.y) / 2, gz = (gate0.z + gate1.z) / 2;
+            let ax = gx - center.x, ay = gy - center.y, az = gz - center.z;
+            const axisLen = Math.hypot(ax, ay, az);
+            if (axisLen < 1e-9) return fail('Invalid axis');
+            ax /= axisLen; ay /= axisLen; az /= axisLen;
+
+            const v1x = mobilePoint.x - center.x, v1y = mobilePoint.y - center.y, v1z = mobilePoint.z - center.z;
+            const along = v1x * ax + v1y * ay + v1z * az;
+            const targetX = center.x + 2 * along * ax - v1x;
+            const targetY = center.y + 2 * along * ay - v1y;
+            const targetZ = center.z + 2 * along * az - v1z;
+
+            // Angle signé (autour de la normale locale) entre la position de
+            // départ de mobilePoint et sa cible.
+            const v2x = targetX - center.x, v2y = targetY - center.y, v2z = targetZ - center.z;
+            const dot = v1x * v2x + v1y * v2y + v1z * v2z;
+            const crossX = v1y * v2z - v1z * v2y, crossY = v1z * v2x - v1x * v2z, crossZ = v1x * v2y - v1y * v2x;
+            const sinPart = crossX * normal[0] + crossY * normal[1] + crossZ * normal[2];
+            const sweepAngle = Math.atan2(sinPart, dot) * 180 / Math.PI;
+
+            const axisSegment = new Segment(
+                new Point(center.xf, center.yf, center.x, center.y, center.z),
+                new Point(center.x + normal[0], center.y + normal[1], center.x + normal[0], center.y + normal[1], center.z + normal[2])
+            );
+
+            // Chaque portillon reste à distance fixe R de 'center' ET à
+            // distance fixe edgeLength de mobilePoint (un vrai bord de
+            // papier) : ces deux contraintes imposent l'angle d'écartement
+            // phi (cos phi = K/(R·mobileRadius), K = (R²+mobileRadius²-edgeLength²)/2).
+            // Ce calcul dégénère (portillon effondré à 90°) quand mobilePoint
+            // démarre perpendiculaire au portillon (plis symétriques) ;
+            // comme cette ouverture n'est qu'un dégagement visuel — pas une
+            // contrainte réelle du papier — on plafonne l'écart à une
+            // fraction modeste de R (maxGateOpenFraction).
+            const mobileRadius = Math.hypot(v1x, v1y, v1z);
+            const maxGateOpenFraction = 0.3;
+            // Tout ce qui suit est mesuré sur la géométrie de DÉPART (avant
+            // que mobilePoint ne bouge) : le recalculer plus tard depuis un
+            // mobilePoint en mouvement ferait varier normale et longueur
+            // d'arête à chaque frame.
+            const gateData = (p, face) => {
+                // Normale opposée à celle, sortante, de la face : les 2 pans
+                // empilés à plat ont un sens de parcours opposé, donc le
+                // recto de l'un fait face au verso de l'autre.
+                const faceNormal = Model.normal(face);
+                const gateNormal = [-faceNormal[0], -faceNormal[1], -faceNormal[2]];
+                const hx = p.x - center.x, hy = p.y - center.y, hz = p.z - center.z;
+                const R = Math.hypot(hx, hy, hz);
+                const alongN = hx * gateNormal[0] + hy * gateNormal[1] + hz * gateNormal[2];
+                let ix = hx - alongN * gateNormal[0], iy = hy - alongN * gateNormal[1], iz = hz - alongN * gateNormal[2];
+                const iLen = Math.hypot(ix, iy, iz) || 1;
+                ix /= iLen; iy /= iLen; iz /= iLen;
+                const edgeLength = Math.hypot(p.x - mobilePoint.x, p.y - mobilePoint.y, p.z - mobilePoint.z);
+                const k = (R * R + mobileRadius * mobileRadius - edgeLength * edgeLength) / 2;
+                const peakCosPhi = Math.max(-1, Math.min(1, k / (R * mobileRadius)));
+                const exactPeakZOff = R * Math.sqrt(Math.max(1 - peakCosPhi * peakCosPhi, 0));
+                const peakZOff = Math.min(exactPeakZOff, R * maxGateOpenFraction);
+                return {point: p, R, ix, iy, iz, gateNormal, peakZOff};
+            };
+
+            cache = {
+                center, pointsToRotate, axisSegment, sweepAngle, appliedAngle: 0, lastTn: 0,
+                gates: [gateData(gate0, faces[0]), gateData(gate1, faces[1])],
+            };
+            segment._reverseFold = cache;
+        }
+
+        // rotate() compose les rotations de façon additive autour d'un même
+        // axe fixe : ne tourner que de l'angle manquant depuis le dernier
+        // appel donne, au total, exactement sweepAngle * tn, sans dérive.
+        const targetAngle = cache.sweepAngle * tn;
+        this.rotate(cache.axisSegment, targetAngle - cache.appliedAngle, cache.pointsToRotate);
+        cache.appliedAngle = targetAngle;
+        cache.lastTn = tn;
+
+        // Chaque portillon s'écarte dans son plan de départ selon une bosse
+        // sinusoïdale : 0 en tn=0 et tn=1, maximale (peakZOff) en tn=0.5.
+        const h = Math.sin(Math.PI * tn);
+        cache.gates.forEach(({point: p, R, ix, iy, iz, gateNormal, peakZOff}) => {
+            const zOff = peakZOff * h;
+            const inPlaneLen = Math.sqrt(Math.max(R * R - zOff * zOff, 0));
+            p.x = center.x + ix * inPlaneLen + gateNormal[0] * zOff;
+            p.y = center.y + iy * inPlaneLen + gateNormal[1] * zOff;
+            p.z = center.z + iz * inPlaneLen + gateNormal[2] * zOff;
+        });
+
+        // Sélectionne les segments dont la longueur 3d s'écarte de la
+        // longueur 2d, pour repérer visuellement un pli devenu invalide.
+        // checkSegments() ne fait qu'ajouter des sélections, jamais en
+        // retirer (pour ne pas désarmer l'axe de pli choisi par clic, voir
+        // armAxis() dans Helper.js) : on repart donc de zéro nous-mêmes à
+        // chaque frame, pour que seuls les segments encore invalides
+        // ressortent sélectionnés.
+        this.segments.forEach((s) => { s.select = false; });
+        // this.checkSegments();
+
+        // Inverser l'assignment de la pliure (valley ↔ mountain) une fois arrivé
+        if (tn >= 1) {
+            if (segment.assignment === 'V') segment.assignment = 'M';
+            else if (segment.assignment === 'M') segment.assignment = 'V';
+            else segment.assignment = 'U';
+        }
     }
 
     // Zoom model. Scales 3D distances by `scale`, so the 2d/3d comparison in

@@ -130,8 +130,10 @@ export class Helper {
         if (this.downFace && this.willFold()) {
             this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
         } else {
-            const color = this.moving ? 'orange'
-                : this.assignmentFor() === 'M' ? Helper.MOUNTAIN_COLOR : Helper.VALLEY_COLOR;
+            let color = 'orange';
+            if (!this.moving) {
+                color = this.assignmentFor() === 'M' ? Helper.MOUNTAIN_COLOR : Helper.VALLEY_COLOR;
+            }
             this.drawFilledArrow(context, this.firstX, this.firstY, this.currentX, this.currentY, color);
         }
         if (this.label) {
@@ -420,6 +422,16 @@ export class Helper {
         if (sameStack) {
             this.armAxis(this.downSegment);
             return;
+        }
+
+        // Si on a un segment sélectionné ET qu'on clique sur un point SUR ce segment
+        if (this.downSegment && this.upPoint) {
+            // Vérifier si le point est sur le segment
+            if (Segment.isPointOnSegment(this.downSegment, this.upPoint)) {
+                // Déclencher le Reverse Fold avec 180°
+                this.command.command(`reverseInside ${this.id(this.downSegment)} ${this.id(this.upPoint)}`);
+                return;
+            }
         }
 
         if (this.model.faces.some(f => f.select)) {

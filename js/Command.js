@@ -58,19 +58,9 @@ export class Command {
             this.stepMode = false;
             return this;
         } else if (tokens[0] === 'stop') {
-            // Typed directly into the command area: same effect as the 'stop' command
-            // below, but takes effect immediately instead of waiting behind whatever is
-            // still queued (e.g. the rest of a loaded script after stepping partway
-            // through it), so the next line typed runs in its place instead of after it.
-            // Unlike 'd', this keeps the model and undo history exactly as they are: it
-            // only drops the pending queue. Does not affect an animation already in
-            // progress ('t ...'); step through with the Step button to a clean line
-            // boundary first.
             this.tokenTodo.length = this.iToken;
             return this;
         }
-        // A new instruction must leave undo, otherwise anim() keeps calling runUndo
-        // and tokenTodo is never consumed (mouse / commandArea look "dead").
         if (this.model.state === State.undo) {
             this.model.state = State.run;
         }
@@ -81,9 +71,6 @@ export class Command {
         return this;
     }
 
-    // Execute exactly one already-queued script line, instantly settling any
-    // animated ('t ...') command in it, then pause. Used by the step-by-step
-    // debug button so a bad line can be spotted visually, one line at a time.
     stepLine() {
         if (this.model.state === State.pause) {
             this.model.state = State.run;
@@ -482,6 +469,14 @@ on('bisector3d b3d', (cmd) => take(cmd, 's', 2, 'bisector3d needs 2 segments', (
 on('bisector2dPoints', (cmd) => take(cmd, 'p', 3, 'bisector2dPoints needs 3 points', (a, b, c) => cmd.model.bisector2dPoints(a, b, c)));
 on('bisector3dPoints', (cmd) => take(cmd, 'p', 3, 'bisector3dPoints needs 3 points', (a, b, c) => cmd.model.bisector3dPoints(a, b, c)));
 on('split splitSegment2d', splitSegment);
+
+// Reverse Inside Fold: inverse une pliure en poussant sa pointe entre les deux
+// pans de papier qui se rejoignent au point central (ex: reverseInside s0 p1).
+on('reverseInside', (cmd) => {
+    const s = cmd.token('s');
+    const p = cmd.token('p');
+    if (s && p) cmd.model.reverseFold(s, p, cmd.tni);
+});
 
 on('r rotate', rotate);
 on('m move', move);

@@ -41,8 +41,8 @@ export class Segment {
     }
 
     // Area CounterClockWise, CCW, gives 2d signed distance between Point and Segment in 2d Crease pattern
-    static CCWFlat(a, b, c) {
-        return (a.xf - c.xf) * (b.yf - c.yf) - (a.yf - c.yf) * (b.xf - c.xf);
+    static CCWFlat(p1, p2, p3) {
+        return (p1.xf - p3.xf) * (p2.yf - p3.yf) - (p1.yf - p3.yf) * (p2.xf - p3.xf);
     }
 
     // 2d intersection between two segments ab and cd
@@ -244,6 +244,39 @@ export class Segment {
         const pXf = s.p1.xf + t * (s.p2.xf - s.p1.xf);
         const pYf = s.p1.yf + t * (s.p2.yf - s.p1.yf);
         return new Point(pXf, pYf);
+    }
+
+    // Vérifie si un point p est sur le segment s (en 2D)
+    static isPointOnSegment(s, p, epsilon = 1e-6) {
+        // Vérifier si p est colinéaire avec s.p1 et s.p2
+        const dx = s.p2.xf - s.p1.xf;
+        const dy = s.p2.yf - s.p1.yf;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) return false; // Segment dégénéré
+
+        // Paramètre t pour la projection de p sur la ligne s.p1-s.p2
+        const t = ((p.xf - s.p1.xf) * dx + (p.yf - s.p1.yf) * dy) / lenSq;
+        if (t < -epsilon || t > 1 + epsilon) return false; // Hors du segment
+
+        // Vérifier la distance perpendiculaire
+        const closestX = s.p1.xf + t * dx;
+        const closestY = s.p1.yf + t * dy;
+        const dist = Math.hypot(p.xf - closestX, p.yf - closestY);
+        return dist < epsilon;
+    }
+
+    // Trouve le point le plus proche sur le segment (en 2D)
+    static closestPointOnSegment(s, p) {
+        const dx = s.p2.xf - s.p1.xf;
+        const dy = s.p2.yf - s.p1.yf;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) return new Point(s.p1.xf, s.p1.yf); // Segment dégénéré
+
+        const t = Math.max(0, Math.min(1, ((p.xf - s.p1.xf) * dx + (p.yf - s.p1.yf) * dy) / lenSq));
+        return new Point(
+            s.p1.xf + t * dx,
+            s.p1.yf + t * dy
+        );
     }
 }
 // 228
