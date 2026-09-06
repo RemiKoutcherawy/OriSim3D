@@ -338,7 +338,7 @@ export class ReadWrite {
         reg = /\[\s*-?\d+(?:\s*,\s*-?\d+)*\s*]/g;
         // More cosmetics
         json = json.replaceAll(reg, (match) => {
-            return match.replaceAll(/[\n\s]*/g, '');
+            return match.replaceAll(/\s*/g, '');
         });
 
         return json;

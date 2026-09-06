@@ -41,8 +41,8 @@ export class Segment {
     }
 
     // Area CounterClockWise, CCW, gives 2d signed distance between Point and Segment in 2d Crease pattern
-    static CCWFlat(a, b, c) {
-        return (a.xf - c.xf) * (b.yf - c.yf) - (a.yf - c.yf) * (b.xf - c.xf);
+    static CCWFlat(p1, p2, p3) {
+        return (p1.xf - p3.xf) * (p2.yf - p3.yf) - (p1.yf - p3.yf) * (p2.xf - p3.xf);
     }
 
     // 2d intersection between two segments ab and cd

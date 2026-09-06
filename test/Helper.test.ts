@@ -165,7 +165,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([p0], [], []); // same two things, opposite drag order -> same command
-    assertEquals(cmds[0], "p3d s0 p0");
+    assertEquals(cmds[0], "reverseInside s0 p0");
 
     cmds.length = 0;
     helper.down([p0], [], [], 0, 0);
@@ -186,14 +186,14 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([p0], [], []);
-    assertEquals(cmds[0], "p2d s0 p0");
+    assertEquals(cmds[0], "reverseInside s0 p0");
 
     cmds.length = 0;
     helper.down([], [s0], [], 0, 0);
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([p0], [], [], true);
-    assertEquals(cmds[0], "parallel2d s0 p0");
+    assertEquals(cmds[0], "reverseInside s0 p0");
   });
 
   await t.step("rotationLabel on 2d uses xf/-yf even when xCanvas is stale", () => {
