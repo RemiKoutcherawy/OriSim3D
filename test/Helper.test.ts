@@ -609,6 +609,71 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.clickThreshold(), 24);
   });
 
+  await t.step("two-finger camera: pinch zooms and midpoint drag rotates", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    // deno-lint-ignore no-explicit-any
+    const view3d: any = {
+      scale: 1,
+      angleX: 0,
+      angleY: 0,
+      initModelView() {},
+      initPerspective() {},
+    };
+    const helper = new Helper(model, command, view3d);
+    helper.pinchLastDist = 100;
+    helper.pinchLastMidX = 50;
+    helper.pinchLastMidY = 50;
+    helper.applyTwoFingerCamera(200, 50, 80, { height: 600 });
+    assertEquals(view3d.scale, 2);
+    assertEquals(view3d.angleX, 30); // factor 1 * (80-50)
+    assertEquals(view3d.angleY, 0);
+  });
+
+  await t.step("Safari TouchEvent.scale zooms from pinchStartScale", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    // deno-lint-ignore no-explicit-any
+    const view3d: any = {
+      scale: 1,
+      angleX: 0,
+      angleY: 0,
+      initModelView() {},
+      initPerspective() {},
+    };
+    const helper = new Helper(model, command, view3d);
+    helper.pinchStartScale = 1;
+    helper.pinchLastMidX = 0;
+    helper.pinchLastMidY = 0;
+    let prevented = false;
+    helper.touchMove3d({
+      scale: 1.5,
+      touches: [{ clientX: 0, clientY: 0 }, { clientX: 30, clientY: 0 }],
+      target: { height: 600 },
+      preventDefault() { prevented = true; },
+    });
+    assertEquals(prevented, true);
+    assertEquals(view3d.scale, 1.5);
+  });
+
+  await t.step("second pointer cancels in-progress model gesture", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    const helper = new Helper(model, command, null);
+    helper.down([model.points[0]], [], [], 0, 0);
+    assertEquals(!!helper.downPoint, true);
+    helper.pointers.set(1, { x: 0, y: 0 });
+    helper.pointerDown3d({
+      pointerType: "touch",
+      pointerId: 2,
+      clientX: 40,
+      clientY: 0,
+      currentTarget: { setPointerCapture() {} },
+    });
+    assertEquals(helper.downPoint, undefined);
+    assertEquals(helper.pointers.size, 2);
+  });
+
   await t.step("search3d() points, segments, faces near x,y", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
