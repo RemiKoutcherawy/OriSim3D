@@ -32,31 +32,22 @@ export class Helper {
         this.precise = false;
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
-        // Multi-touch camera (two-finger rotate / pinch-zoom) — see pointer*3d
-        this.pointers = new Map();
-        this.pinchLastDist = undefined;
-        this.pinchLastMidX = this.pinchLastMidY = undefined;
 
         // To test with Deno, view3d (and its overlay) may be null
         const overlay = view3d?.overlay;
         if (overlay) {
-            // Block Safari page pan/pinch so our listeners keep the gesture
-            // (cocotte.html/app.js used non-passive touch* + preventDefault).
-            overlay.style.touchAction = 'none';
-            overlay.addEventListener('pointerdown', (event) => this.pointerDown3d(event));
-            overlay.addEventListener('pointermove', (event) => this.pointerMove3d(event));
-            overlay.addEventListener('pointerup', (event) => this.pointerUp3d(event));
-            overlay.addEventListener('pointercancel', (event) => this.pointerUp3d(event));
+            overlay.style.touchAction = 'none'; // Safari: keep pinch from zooming the page
+            overlay.addEventListener('pointerdown', (event) => this.down3d(event));
+            overlay.addEventListener('pointermove', (event) => this.move3d(event));
+            overlay.addEventListener('pointerup', (event) => this.up3d(event));
+            overlay.addEventListener('pointercancel', (event) => this.out(event));
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
-            // Safari iPad (WebKit): TouchEvent.scale during pinch — same hook as
-            // remikoutcherawy.github.io/cocotte.html app.js. Non-passive so
-            // preventDefault can stop the browser zooming the page instead.
+            // Safari iPad two-finger camera — same hook as cocotte.html app.js
             const touchOpts = {capture: true, passive: false};
-            overlay.addEventListener('touchstart', (event) => this.touchStart3d(event), touchOpts);
-            overlay.addEventListener('touchmove', (event) => this.touchMove3d(event), touchOpts);
-            overlay.addEventListener('touchend', (event) => this.touchEnd3d(event), touchOpts);
-            overlay.addEventListener('touchcancel', (event) => this.touchEnd3d(event), touchOpts);
+            const onTouch = (e) => this.touchCamera3d(e);
+            overlay.addEventListener('touchstart', onTouch, touchOpts);
+            overlay.addEventListener('touchmove', onTouch, touchOpts);
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
         }
@@ -764,147 +755,6 @@ export class Helper {
         const faces = this.pickFaces3d(xCanvas, yCanvas, contextFace);
         return {points, segments, faces};
     }
-    // --- 3d overlay: pointer routing (1 finger = model, 2+ = camera) ---
-
-    pointerDown3d(event) {
-        if (event.pointerType) this.pointerType = event.pointerType;
-        try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* ignore */ }
-        this.pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
-        if (this.pointers.size >= 2) {
-            // Second finger: drop any in-progress crease/fold and drive the camera
-            this.out();
-            // Touch two-finger camera is owned by touch* (Safari); pointer path
-            // covers non-touch pointers only to avoid applying the gesture twice.
-            if (event.pointerType !== 'touch') this.resetPinchFromPointers();
-            return;
-        }
-        this.down3d(event);
-    }
-
-    pointerMove3d(event) {
-        if (!this.pointers.has(event.pointerId)) return;
-        this.pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
-        if (this.pointers.size >= 2) {
-            if (event.pointerType !== 'touch') this.moveCameraFromPointers(event.target);
-            return;
-        }
-        this.move3d(event);
-    }
-
-    pointerUp3d(event) {
-        this.pointers.delete(event.pointerId);
-        if (this.pointers.size >= 2) {
-            if (event.pointerType !== 'touch') this.resetPinchFromPointers();
-            return;
-        }
-        if (this.pointers.size === 1) {
-            // Back to one finger: clear pinch baseline; don't emit a model up
-            this.pinchLastDist = undefined;
-            return;
-        }
-        this.pinchLastDist = undefined;
-        this.up3d(event);
-    }
-
-    resetPinchFromPointers() {
-        const pts = [...this.pointers.values()];
-        if (pts.length < 2) {
-            this.pinchLastDist = undefined;
-            return;
-        }
-        const [a, b] = pts;
-        this.pinchLastDist = Math.hypot(b.x - a.x, b.y - a.y);
-        this.pinchLastMidX = (a.x + b.x) / 2;
-        this.pinchLastMidY = (a.y + b.y) / 2;
-    }
-
-    // Two-finger: midpoint drag rotates the view, distance change zooms —
-    // the camera gesture cocotte.html got from touchmove + TouchEvent.scale.
-    moveCameraFromPointers(target) {
-        const pts = [...this.pointers.values()];
-        if (pts.length < 2) return;
-        const [a, b] = pts;
-        this.applyTwoFingerCamera(
-            Math.hypot(b.x - a.x, b.y - a.y),
-            (a.x + b.x) / 2,
-            (a.y + b.y) / 2,
-            target,
-        );
-    }
-
-    applyTwoFingerCamera(dist, midX, midY, target) {
-        if (this.pinchLastDist > 0) {
-            this.view3d.scale = Math.max(0.2, Math.min(3,
-                this.view3d.scale * (dist / this.pinchLastDist)));
-            const factor = 600 / (target?.height || 600);
-            this.view3d.angleY += factor * (midX - this.pinchLastMidX);
-            this.view3d.angleX += factor * (midY - this.pinchLastMidY);
-            this.view3d.initModelView();
-            this.view3d.initPerspective();
-        }
-        this.pinchLastDist = dist;
-        this.pinchLastMidX = midX;
-        this.pinchLastMidY = midY;
-    }
-
-    // Safari WebKit TouchEvent.scale (cocotte app.js). Only intercept when a
-    // pinch is underway so one-finger pointer origami keeps working.
-    touchStart3d(event) {
-        if (event.touches.length < 2) return;
-        event.preventDefault();
-        this.out();
-        this.pinchStartScale = this.view3d.scale;
-        const [a, b] = event.touches;
-        this.pinchLastDist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
-        this.pinchLastMidX = (a.clientX + b.clientX) / 2;
-        this.pinchLastMidY = (a.clientY + b.clientY) / 2;
-    }
-
-    touchMove3d(event) {
-        const pinching = event.touches.length >= 2
-            || (event.scale !== undefined && event.scale !== 1);
-        if (!pinching) return;
-        event.preventDefault();
-        // WebKit: scale is relative to the gesture start (1 at touchstart)
-        if (event.scale !== undefined && event.scale !== 1) {
-            const base = this.pinchStartScale ?? this.view3d.scale;
-            this.view3d.scale = Math.max(0.2, Math.min(3, base * event.scale));
-            // Still rotate from the two-finger midpoint when available
-            if (event.touches.length >= 2) {
-                const [a, b] = event.touches;
-                const midX = (a.clientX + b.clientX) / 2;
-                const midY = (a.clientY + b.clientY) / 2;
-                if (this.pinchLastMidX !== undefined) {
-                    const factor = 600 / (event.target?.height || 600);
-                    this.view3d.angleY += factor * (midX - this.pinchLastMidX);
-                    this.view3d.angleX += factor * (midY - this.pinchLastMidY);
-                }
-                this.pinchLastMidX = midX;
-                this.pinchLastMidY = midY;
-                this.pinchLastDist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
-            }
-            this.view3d.initModelView();
-            this.view3d.initPerspective();
-            return;
-        }
-        if (event.touches.length >= 2) {
-            const [a, b] = event.touches;
-            this.applyTwoFingerCamera(
-                Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY),
-                (a.clientX + b.clientX) / 2,
-                (a.clientY + b.clientY) / 2,
-                event.target,
-            );
-        }
-    }
-
-    touchEnd3d(event) {
-        if (event.touches.length >= 2) return;
-        if (event.cancelable) event.preventDefault();
-        this.pinchStartScale = undefined;
-        this.pinchLastDist = undefined;
-    }
-
     // Down on 3d overlay
     down3d(event) {
         this.currentCanvas = '3d';
@@ -919,12 +769,9 @@ export class Helper {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const contextFace = this.downFace || undefined;
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas, contextFace);
-        // Touch pointers often report buttons===0 on move; treat captured touch as pressed
-        const primaryDown = (event.buttons & 1) === 1
-            || (event.pointerType === 'touch' && this.pointers.has(event.pointerId));
         // Handle 3d rotation
         if (points.length === 0 && segments.length === 0 && faces.length === 0
-            && primaryDown
+            && (event.buttons === 1 || event.pointerType === 'touch')
             && !this.downPoint && !this.downSegment && !this.downFace) {
             // Rotation
             const factor = (600 / event.target.height) ;
@@ -953,17 +800,33 @@ export class Helper {
         }
     }
 
-    // Mouse wheel on 3d overlay (and Safari TouchEvent.scale routed via wheel callers)
+    // Mouse wheel on 3d overlay; Safari TouchEvent.scale also lands here via touchCamera3d
     wheel(event) {
-        if (event.scale !== undefined) {
-            // Absolute WebKit scale relative to gesture start — match cocotte app.js
-            this.view3d.scale = event.scale;
-        } else {
-            this.view3d.scale = this.view3d.scale + event.deltaY / 300;
-        }
+        this.view3d.scale = event.scale !== undefined
+            ? event.scale
+            : this.view3d.scale + event.deltaY / 300;
         this.view3d.scale = Math.max(0.2, Math.min(3, this.view3d.scale));
         this.view3d.initModelView();
         this.view3d.initPerspective();
+    }
+
+    // Two-finger rotate/zoom (cocotte app.js): WebKit TouchEvent.scale zooms;
+    // otherwise the finger delta rotates. preventDefault so Safari doesn't steal it.
+    touchCamera3d(e) {
+        if (e.touches.length < 2 && !(e.scale && e.scale !== 1)) return;
+        e.preventDefault();
+        if (e.type === 'touchstart') { this.out(); this._tx = this._ty = undefined; return; }
+        if (e.type !== 'touchmove') return;
+        const p = e.changedTouches[0];
+        if (e.scale && e.scale !== 1) this.wheel(e);
+        else if (this._tx != null) {
+            const f = 600 / e.target.height;
+            this.view3d.angleY += f * (p.clientX - this._tx);
+            this.view3d.angleX += f * (p.clientY - this._ty);
+            this.view3d.initModelView();
+            this.view3d.initPerspective();
+        }
+        this._tx = p.clientX; this._ty = p.clientY;
     }
 
     doubleClick() {
