@@ -42,6 +42,16 @@ export class Helper {
             overlay.addEventListener('pointercancel', (event) => this.out(event));
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
+            const o = {capture: true, passive: false};
+            for (const t of ['touchstart', 'touchmove']) overlay.addEventListener(t, e => {
+                if (e.touches.length < 2 && !(e.scale && e.scale !== 1)) return;
+                e.preventDefault();
+                if (t === 'touchstart') { this.out(); this._tx = undefined; return; }
+                if (e.scale && e.scale !== 1) { this.wheel(e); return; }
+                const p = e.changedTouches[0], f = 600 / e.target.height;
+                if (this._tx != null) { this.view3d.angleY += f * (p.clientX - this._tx); this.view3d.angleX += f * (p.clientY - this._ty); this.view3d.initModelView(); this.view3d.initPerspective(); }
+                this._tx = p.clientX; this._ty = p.clientY;
+            }, o);
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
         }
@@ -765,7 +775,7 @@ export class Helper {
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas, contextFace);
         // Handle 3d rotation
         if (points.length === 0 && segments.length === 0 && faces.length === 0
-            && event.buttons === 1
+            && (event.buttons === 1 || event.pointerType === 'touch')
             && !this.downPoint && !this.downSegment && !this.downFace) {
             // Rotation
             const factor = (600 / event.target.height) ;
@@ -797,7 +807,7 @@ export class Helper {
     // Mouse wheel on 3d overlay
     wheel(event) {
         this.view3d.scale = event.scale !== undefined
-            ? event.scale / 10
+            ? event.scale
             : this.view3d.scale + event.deltaY / 300;
         this.view3d.scale = Math.max(0.2, Math.min(3, this.view3d.scale));
         this.view3d.initModelView();
