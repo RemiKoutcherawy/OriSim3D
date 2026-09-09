@@ -36,18 +36,22 @@ export class Helper {
         // To test with Deno, view3d (and its overlay) may be null
         const overlay = view3d?.overlay;
         if (overlay) {
-            overlay.style.touchAction = 'none'; // Safari: keep pinch from zooming the page
             overlay.addEventListener('pointerdown', (event) => this.down3d(event));
             overlay.addEventListener('pointermove', (event) => this.move3d(event));
             overlay.addEventListener('pointerup', (event) => this.up3d(event));
             overlay.addEventListener('pointercancel', (event) => this.out(event));
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
-            // Safari iPad two-finger camera — same hook as cocotte.html app.js
-            const touchOpts = {capture: true, passive: false};
-            const onTouch = (e) => this.touchCamera3d(e);
-            overlay.addEventListener('touchstart', onTouch, touchOpts);
-            overlay.addEventListener('touchmove', onTouch, touchOpts);
+            const o = {capture: true, passive: false};
+            for (const t of ['touchstart', 'touchmove']) overlay.addEventListener(t, e => {
+                if (e.touches.length < 2 && !(e.scale && e.scale !== 1)) return;
+                e.preventDefault();
+                if (t === 'touchstart') { this.out(); this._tx = undefined; return; }
+                if (e.scale && e.scale !== 1) { this.wheel(e); return; }
+                const p = e.changedTouches[0], f = 600 / e.target.height;
+                if (this._tx != null) { this.view3d.angleY += f * (p.clientX - this._tx); this.view3d.angleX += f * (p.clientY - this._ty); this.view3d.initModelView(); this.view3d.initPerspective(); }
+                this._tx = p.clientX; this._ty = p.clientY;
+            }, o);
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
         }
@@ -800,7 +804,7 @@ export class Helper {
         }
     }
 
-    // Mouse wheel on 3d overlay; Safari TouchEvent.scale also lands here via touchCamera3d
+    // Mouse wheel on 3d overlay
     wheel(event) {
         this.view3d.scale = event.scale !== undefined
             ? event.scale
@@ -808,25 +812,6 @@ export class Helper {
         this.view3d.scale = Math.max(0.2, Math.min(3, this.view3d.scale));
         this.view3d.initModelView();
         this.view3d.initPerspective();
-    }
-
-    // Two-finger rotate/zoom (cocotte app.js): WebKit TouchEvent.scale zooms;
-    // otherwise the finger delta rotates. preventDefault so Safari doesn't steal it.
-    touchCamera3d(e) {
-        if (e.touches.length < 2 && !(e.scale && e.scale !== 1)) return;
-        e.preventDefault();
-        if (e.type === 'touchstart') { this.out(); this._tx = this._ty = undefined; return; }
-        if (e.type !== 'touchmove') return;
-        const p = e.changedTouches[0];
-        if (e.scale && e.scale !== 1) this.wheel(e);
-        else if (this._tx != null) {
-            const f = 600 / e.target.height;
-            this.view3d.angleY += f * (p.clientX - this._tx);
-            this.view3d.angleX += f * (p.clientY - this._ty);
-            this.view3d.initModelView();
-            this.view3d.initPerspective();
-        }
-        this._tx = p.clientX; this._ty = p.clientY;
     }
 
     doubleClick() {
