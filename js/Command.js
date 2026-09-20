@@ -13,6 +13,8 @@ export class Command {
     // Time interpolated at an instant 'p' preceding and at instant 'n' now
     tpi = 0;
     tni = 1;
+    // Rotation axes of the current animated line, frozen at its start (Segment -> {p1, p2})
+    frozenAxes = new Map();
     // Interpolator used in anim() to map tn (time normalized) to tni (time interpolated)
     interpolator = Interpolator.LinearInterpolator;
     // Animation
@@ -207,6 +209,7 @@ export class Command {
         // wrong stable fold instead of the one continuous small motions converge to.
         // Replay this frame's motion as small fixed-size substeps so the result only
         // depends on the animated distance, not on how many real frames covered it.
+        if (this.tpi === 0) this.freezeRotateAxes(iBeginAnim);
         const maxStep = 0.01;
         const steps = Math.max(1, Math.ceil(Math.abs(targetTni - this.tpi) / maxStep));
         for (let i = 1; i <= steps; i++) {
@@ -221,6 +224,7 @@ export class Command {
         if (tn >= 1) {
             this.tni = 1;
             this.tpi = 0;
+            this.frozenAxes.clear();
             if (this.model.snap) {
                 this.model.snapPoints();
             }
@@ -230,6 +234,25 @@ export class Command {
         }
         this.iToken = iBeginAnim;
         return true;
+    }
+
+    // A rotated point can itself be another simultaneous rotation's axis endpoint
+    // (e.g. `t 1000 r s6 180 p7 r s13 -90 p5` where s13 = p7-p4): re-reading the
+    // axis live, substep after substep, would make it drift along with that point.
+    // Snapshot the axis of every `r` of the line before any of them has run, so the
+    // last rotation does not see an axis already moved by the earlier ones.
+    freezeRotateAxes(iBegin) {
+        this.frozenAxes.clear();
+        for (let i = iBegin; i < this.tokenTodo.length && this.tokenTodo[i] !== '\n'; i++) {
+            if (this.tokenTodo[i] !== 'r' && this.tokenTodo[i] !== 'rotate') continue;
+            const s = this.listTokens(this.tokenTodo, i + 1, 's')[0];
+            if (s && !this.frozenAxes.has(s)) {
+                this.frozenAxes.set(s, {
+                    p1: {x: s.p1.x, y: s.p1.y, z: s.p1.z},
+                    p2: {x: s.p2.x, y: s.p2.y, z: s.p2.z},
+                });
+            }
+        }
     }
 
     doneInstructions(idxBefore, idxAfter) {
@@ -383,10 +406,13 @@ function splitSegment(cmd) {
     }
 }
 
+// Uses the axis frozen at the start of the animated line (see freezeRotateAxes),
+// or the live segment for a plain non-animated 'r'.
 function rotate(cmd) {
     const s = cmd.token('s');
     const angle = Number(cmd.next()) * cmd.dt;
-    cmd.model.rotate(s, angle, cmd.tokens('p'));
+    const axis = cmd.model.state === State.anim ? cmd.frozenAxes.get(s) : undefined;
+    cmd.model.rotate(axis ?? s, angle, cmd.tokens('p'));
 }
 
 function move(cmd) {

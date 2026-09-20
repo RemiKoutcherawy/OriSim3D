@@ -193,6 +193,67 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(pt.z), 0);
     });
 
+    await t.step('command r rotate: axis stays fixed even when one of its endpoints is itself rotated by another simultaneous rotation on the same line', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('d 200 200').anim();
+        // s0 = p0-p1 (bottom edge): rotation A turns P2 around it.
+        // s1 = p1-p2: P2 is exactly the point rotation A moves, so s1's axis
+        // would drift mid-animation if it were re-read live each substep
+        // instead of frozen at the start of the line.
+        const p1Start = { x: m.points[1].x, y: m.points[1].y, z: m.points[1].z };
+        const p2Start = { x: m.points[2].x, y: m.points[2].y, z: m.points[2].z };
+        const p3Copy = new Point(0, 0, m.points[3].x, m.points[3].y, m.points[3].z);
+        // Ground truth: rotate a copy of P3 by 45° around s1's *starting* axis.
+        m.rotate({p1: p1Start, p2: p2Start}, 45, [p3Copy]);
+
+        cmd.command('t 50 r S0 90 P2 r S1 45 P3');
+        while (cmd.anim()) { /* wait for animation to finish */ }
+
+        // Whole-unit precision: S0 and S1 share a substep, so S1's very first
+        // cached snapshot trails S0's already-applied first increment by at
+        // most one substep (bounded, ~1% of S0's motion) — negligible next to
+        // the original bug, where the axis tracked the *entire* rotation and
+        // landed over a hundred units away from this expected position.
+        const p3 = m.points[3];
+        assertEquals(Math.round(p3.x), Math.round(p3Copy.x));
+        assertEquals(Math.round(p3.y), Math.round(p3Copy.y));
+        assertEquals(Math.round(p3.z), Math.round(p3Copy.z));
+    });
+
+    await t.step('command r rotate: every axis of an animated line is frozen before the first rotation runs', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('d 200 200 by2d p0 p2 by2d p1 p3 c2d p0 p1 c2d p1 p2').anim();
+        while (cmd.anim() && m.points.length < 9) { /* build the pattern */ }
+        // s13 = p7-p4 is the axis of p5's rotation, but p7 is itself rotated by
+        // the r before it: snapshotting s13 only when its own r runs sees p7
+        // already moved by one substep, and p5 lands ~0.1 off the x axis.
+        cmd.command('t 50 r s6 180 p7 r s13 -180 p5');
+        while (cmd.anim()) { /* wait for animation to finish */ }
+        const [p5, p6, p7] = [m.points[5], m.points[6], m.points[7]];
+        assertEquals(Math.abs(p5.x) < 1e-6, true);
+        assertEquals(Math.round(p5.y), Math.round(p6.y));
+        assertEquals(Math.round(p5.z), 0);
+        assertEquals(Math.round(p7.y), Math.round(p6.y));
+    });
+
+    await t.step("command a adjust: points stacked flat snap exactly onto the point they fold onto (template 'test')", () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command(`d 200 200
+            by2d p0 p2 by2d p1 p3
+            c2d p0 p1 c2d p1 p2
+            t 50 r s5 -180 p8 r s6 180 p7 r s13 -180 p5 a p2 p3`).anim();
+        while (cmd.anim()) { /* wait for animation to finish */ }
+        // p5 and p7 end up stacked on p6, so p2 could sit anywhere on a circle
+        // around p4-p6; the flat fold puts it exactly on p1 (and p3 on p0).
+        const [p0, p1, p2, p3] = m.points;
+        for (const [a, b] of [[p2, p1], [p3, p0]]) {
+            assertEquals(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 1e-6, true);
+        }
+    });
+
     await t.step('command move', () => {
         cde.command('d 200 200').anim();
         const pt = model.points[2];
