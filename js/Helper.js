@@ -6,37 +6,33 @@ import * as mat4 from './lib/mat4.js';
 
 const CLICK_PX_MOUSE = 12;
 const CLICK_PX_TOUCH = 24;
+// A fingertip covers far more pixels than a cursor: widen the pick radii accordingly
+const PICK_FACTOR_TOUCH = 2;
 
-// Gesture vocabulary (see README):
-// - Click a point/segment/face toggles its selection (whole coincident stack);
-//   holding Ctrl/Cmd targets only the exact one under the cursor.
-// - Clicking a segment arms it as the fold axis (only one armed at a time).
-// - Dragging point<->point, point<->segment or segment<->segment scores a new
-//   crease. The plain drag runs a line directly through what was dragged; holding
-//   Ctrl/Cmd instead makes the two dragged things coincide once folded.
-//   Drag direction (screen up/down) sets the crease to mountain/valley.
-// - Once an axis is armed, dragging a face that borders it folds that face (and
-//   any other already-selected faces) around the axis — the axis stays armed
-//   afterwards, so folding the other side along the same crease is a second plain drag.
-// - Dragging on a face with no axis armed, crossing existing creases, splits
-//   them at the crossing points (to create landmark points to crease between).
 export class Helper {
     constructor(model, command, view3d, view2d) {
         this.model = model;
         this.command = command;
         this.view3d = view3d;
         this.view2d = view2d;
+        this.currentCanvas = undefined;
+        this.orbiting = false;
         this.touchTime = 0;
         this.lastClickPoints = [];
         this.pointerType = 'mouse';
-        this.precise = false;
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
+        // Correctif pour les gestes tactiles
+        let lastTouchDistance = 0;
 
         // To test with Deno, view3d (and its overlay) may be null
         const overlay = view3d?.overlay;
         if (overlay) {
-            overlay.addEventListener('pointerdown', (event) => this.down3d(event));
+            overlay.addEventListener('pointerdown', (event) => {
+                if (event.button === 1) event.preventDefault(); // no autoscroll
+                try { overlay.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+                this.down3d(event);
+            });
             overlay.addEventListener('pointermove', (event) => this.move3d(event));
             overlay.addEventListener('pointerup', (event) => this.up3d(event));
             overlay.addEventListener('pointercancel', (event) => this.out(event));
@@ -44,8 +40,32 @@ export class Helper {
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
+            // Tactile
+            document.addEventListener('touchstart', function(e) {
+                if (e.touches && e.touches.length >= 2) {
+                    const t0 = e.touches[0];
+                    const t1 = e.touches[1];
+                    const dx = t0.clientX - t1.clientX;
+                    const dy = t0.clientY - t1.clientY;
+                    lastTouchDistance = Math.sqrt(dx*dx + dy*dy);
+                }
+            });
+            // Add e.scale for View3d
+            document.addEventListener('touchmove', function(e) {
+                if (e.touches && e.touches.length >= 2 && !e.scale) {
+                    const t0 = e.touches[0];
+                    const t1 = e.touches[1];
+                    const dx = t0.clientX - t1.clientX;
+                    const dy = t0.clientY - t1.clientY;
+                    const currentDist = Math.sqrt(dx*dx + dy*dy);
+                    if (lastTouchDistance > 0) {
+                        e.scale = currentDist / lastTouchDistance;
+                        lastTouchDistance = currentDist;
+                    }
+                }
+            });
         }
-        // Flat crease-pattern view — pointer* covers mouse and touch
+        // Flat crease-pattern view — covers mouse and touch
         const canvas2d = view2d?.canvas2d;
         if (canvas2d) {
             canvas2d.addEventListener('pointerdown', (event) => {
@@ -59,20 +79,30 @@ export class Helper {
         this.out();
     }
 
+    // Pointer events report the device kind: 'mouse', 'pen' or 'touch'.
+    // Recorded on each pointerdown, it classifies the whole gesture that follows.
+    // A stylus is as precise as a cursor, only a finger is coarse.
+    setPointerType(event) {
+        this.pointerType = event?.pointerType || 'mouse';
+    }
+
+    coarsePointer() {
+        return this.pointerType === 'touch';
+    }
+
     clickThreshold() {
-        return this.pointerType === 'touch' ? CLICK_PX_TOUCH : CLICK_PX_MOUSE;
+        return this.coarsePointer() ? CLICK_PX_TOUCH : CLICK_PX_MOUSE;
+    }
+
+    // Multiplies the pick radii so a finger tap still catches points and segments
+    pickFactor() {
+        return this.coarsePointer() ? PICK_FACTOR_TOUCH : 1;
     }
 
     isClick() {
         const dx = (this.currentX ?? 0) - (this.firstX ?? 0);
         const dy = (this.currentY ?? 0) - (this.firstY ?? 0);
         return Math.hypot(dx, dy) < this.clickThreshold();
-    }
-
-    // Ctrl/Cmd held: targets a single stacked item, or the coincidence-construction
-    // variant of a crease, instead of the default whole-stack / through-line behaviour.
-    isPrecise(event) {
-        return !!(event && (event.ctrlKey || event.metaKey));
     }
 
     keydown(event) {
@@ -103,6 +133,7 @@ export class Helper {
         this.label = undefined;
         this.currentSegment = undefined;
         this.moving = false;
+        this.orbiting = false;
     }
 
     clearSelection() {
@@ -310,8 +341,7 @@ export class Helper {
         }
     }
 
-    up(points, segments, faces, precise = false) {
-        this.precise = precise;
+    up(points, segments, faces) {
         this.upPoints = points.length ? points : [];
         this.upPoint = this.upPoints[0];
         this.upSegments = !this.upPoint && segments.length ? segments : [];
@@ -351,11 +381,7 @@ export class Helper {
             }
             this.touchTime = Date.now();
             this.lastClickPoints = [...this.downPoints];
-            if (this.precise) {
-                this.downPoint.select = !this.downPoint.select;
-            } else {
-                this.togglePointStack(this.downPoints);
-            }
+            this.togglePointStack(this.downPoints);
             return;
         }
 
@@ -366,7 +392,7 @@ export class Helper {
         if (this.upPoint) {
             this.creaseTwoPoints(this.downPoint, this.upPoint);
         } else if (this.upSegment) {
-            this.creasePointSegment(this.downPoint, this.upSegment);
+            this.creaseFromPointToSegment(this.downPoint, this.upSegment);
         }
     }
 
@@ -437,7 +463,7 @@ export class Helper {
         if (this.upSegment) {
             this.creaseTwoSegments(this.downSegment, this.upSegment);
         } else if (this.upPoint) {
-            this.creasePointSegment(this.upPoint, this.downSegment);
+            this.creaseFromSegmentToPoint(this.downSegment, this.upPoint);
         }
     }
 
@@ -450,16 +476,12 @@ export class Helper {
     }
 
     fromFaceClick() {
-        if (this.precise) {
-            this.downFace.select = !this.downFace.select;
-        } else {
-            const samePile = this.downFace && this.upFaces.includes(this.downFace);
-            if (samePile) {
-                this.toggleFaceStack(this.upFaces.length ? this.upFaces : this.downFaces);
-            } else if (this.upFace) {
-                // Different face: select Up front only; keep points/segments
-                this.upFace.select = true;
-            }
+        const samePile = this.downFace && this.upFaces.includes(this.downFace);
+        if (samePile) {
+            this.toggleFaceStack(this.upFaces.length ? this.upFaces : this.downFaces);
+        } else if (this.upFace) {
+            // Different face: select Up front only; keep points/segments
+            this.upFace.select = true;
         }
         const ids = this.model.faces.filter(f => f.select).map(f => `${this.id(f)}(${f.offset})`);
         if (ids.length) {
@@ -587,12 +609,6 @@ export class Helper {
         return crossings.length > 0;
     }
 
-    sendCmd(base, ...objs) {
-        const suffix = this.currentCanvas === '2d' ? '2d' : '3d';
-        const args = objs.map(o => typeof o === 'string' ? o : this.id(o));
-        this.command.command(`${base}${suffix} ${args.join(' ')}`);
-    }
-
     // command.command() only enqueues — the model applies it on the next
     // animation frame. A crease command is never animated ('t ...'), so it is
     // always fully applied by exactly one command.anim() call; running that
@@ -611,25 +627,42 @@ export class Helper {
         }
     }
 
-    // Plain: straight crease through both points. Ctrl/Cmd: the crease that
-    // brings one point onto the other once folded. Just marks the crease —
+    // Straight crease through both points ('by'). Just marks the crease —
     // mountain/valley is only meaningful once actually folded, so the new
     // segment is left unassigned ('U') regardless of drag direction.
+    // 'by' cuts along the line through a and b: when they already share a
+    // segment that line is that very segment, so 'by' would split nothing —
+    // fall back to 'c' (cross), the coincidence-fold that brings a onto b.
     creaseTwoPoints(a, b) {
-        this.sendCmd(this.precise ? 'c' : 'by', a, b);
+        const across = this.model.getSegment(a, b);
+        if (this.currentCanvas === '2d') {
+            if (across) this.command.command(`c2d ${this.id(a)} ${this.id(b)}`);
+            else this.command.command(`by2d ${this.id(a)} ${this.id(b)}`);
+        } else {
+            if (across) this.command.command(`c3d ${this.id(a)} ${this.id(b)}`);
+            else this.command.command(`by3d ${this.id(a)} ${this.id(b)}`);
+        }
         this.runQueuedNow();
     }
 
-    // Plain: crease through the point, perpendicular to the segment. Ctrl/Cmd:
-    // the crease that brings the segment's line onto the point once folded.
-    creasePointSegment(point, segment) {
-        this.sendCmd(this.precise ? 'parallel' : 'p', segment, point);
+    // Drag starting on the point: the crease through the point, perpendicular to the segment.
+    creaseFromPointToSegment(point, segment) {
+        if (this.currentCanvas === '2d') this.command.command(`p2d ${this.id(segment)} ${this.id(point)}`);
+        else this.command.command(`p3d ${this.id(segment)} ${this.id(point)}`);
+        this.runQueuedNow();
+    }
+
+    // Drag starting on the segment: the crease that brings the segment's line onto the point once folded.
+    creaseFromSegmentToPoint(segment, point) {
+        if (this.currentCanvas === '2d') this.command.command(`parallel2d ${this.id(segment)} ${this.id(point)}`);
+        else this.command.command(`parallel3d ${this.id(segment)} ${this.id(point)}`);
         this.runQueuedNow();
     }
 
     // The only sensible crease between two segments: their bisector.
     creaseTwoSegments(a, b) {
-        this.sendCmd('b', a, b);
+        if (this.currentCanvas === '2d') this.command.command(`b2d ${this.id(a)} ${this.id(b)}`);
+        else this.command.command(`b3d ${this.id(a)} ${this.id(b)}`);
         this.runQueuedNow();
     }
 
@@ -687,8 +720,9 @@ export class Helper {
     // Points, then segments, then faces near xf, yf
     search2d(xf, yf) {
         const scale = this.view2d.scale || 1;
-        const points = this.model.points.filter(p => Math.abs(p.xf - xf) + Math.abs(p.yf - yf) < 10 / scale);
-        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < 6 / scale);
+        const pick = this.pickFactor();
+        const points = this.model.points.filter(p => Math.abs(p.xf - xf) + Math.abs(p.yf - yf) < pick * 10 / scale);
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xf, s.p1.yf, s.p2.xf, s.p2.yf, xf, yf) < pick * 6 / scale);
         const faces = this.model.faces.filter(f => Face.contains2d(f, xf, yf));
         return {points, segments, faces};
     }
@@ -696,6 +730,7 @@ export class Helper {
     // Down on flat 2d
     down2d(event) {
         this.currentCanvas = '2d';
+        this.setPointerType(event);
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
         this.down(points, segments, faces, xf, -yf); // Note inverse y coordinate (drawing space)
@@ -711,7 +746,7 @@ export class Helper {
     up2d(event) {
         const {xf, yf} = this.event2d(event);
         const {points, segments, faces} = this.search2d(xf, yf);
-        this.up(points, segments, faces, this.isPrecise(event));
+        this.up(points, segments, faces);
     }
 
     // Canvas 3d
@@ -741,10 +776,11 @@ export class Helper {
     }
 
     search3d(xCanvas, yCanvas, contextFace = undefined) {
+        const pick = this.pickFactor();
         // Points near xCanvas, yCanvas
-        const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < 10);
+        const points = this.model.points.filter(p => Math.abs(p.xCanvas - xCanvas) + Math.abs(p.yCanvas - yCanvas) < pick * 10);
         // Segments near xCanvas, yCanvas
-        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < 6);
+        const segments = this.model.segments.filter(s => Segment.distance2d(s.p1.xCanvas, s.p1.yCanvas, s.p2.xCanvas, s.p2.yCanvas, xCanvas, yCanvas) < pick * 6);
         // Faces under cursor: depth-sorted; when contextFace set, adjacent faces only
         const faces = this.pickFaces3d(xCanvas, yCanvas, contextFace);
         return {points, segments, faces};
@@ -752,8 +788,10 @@ export class Helper {
     // Down on 3d overlay
     down3d(event) {
         this.currentCanvas = '3d';
+        this.setPointerType(event);
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
+        this.orbiting = event.button === 1 || event.shiftKey || (points.length === 0 && segments.length === 0 && faces.length === 0);
         this.down(points, segments, faces, xCanvas, yCanvas);
     }
 
@@ -764,11 +802,10 @@ export class Helper {
         const contextFace = this.downFace || undefined;
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas, contextFace);
         // Handle 3d rotation
-        if (points.length === 0 && segments.length === 0 && faces.length === 0
-            && event.buttons === 1
-            && !this.downPoint && !this.downSegment && !this.downFace) {
+        if (this.orbiting && event.buttons > 0) {
             // Rotation
-            const factor = (600 / event.target.height) ;
+            const target = event.target || this.view3d.overlay;
+            const factor = 600 / (target.height || 600);
             const dx = factor * (xCanvas - this.currentX);
             const dy = factor * (yCanvas - this.currentY);
             this.view3d.angleX += dy;
@@ -788,7 +825,7 @@ export class Helper {
     up3d(event) {
         const {xCanvas, yCanvas} = this.eventCanvas3d(event);
         const {points, segments, faces} = this.search3d(xCanvas, yCanvas);
-        this.up(points, segments, faces, this.isPrecise(event));
+        this.up(points, segments, faces);
         if (points.length === 0 && segments.length === 0 && faces.length === 0) {
             this.doubleClick();
         }

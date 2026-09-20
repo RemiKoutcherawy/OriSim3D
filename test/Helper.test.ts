@@ -79,7 +79,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.downFaces[0], model.faces[0]);
   });
 
-  await t.step("mark P→P: plain drag is by, precise (ctrl/cmd) drag is across; left unassigned regardless of drag direction", () => {
+  await t.step("mark P→P: drag is by, left unassigned regardless of drag direction", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
     const [p0, p1, p2] = model.points;
@@ -88,23 +88,40 @@ Deno.test("Helper Tests", async (t) => {
     helper.up([p0], [], []);
     assertEquals(p0.select, true);
 
+    // p0-p2 is the diagonal: no existing segment between them, so drag is by
     cmds.length = 0;
     helper.down([p0], [], [], 0, 0);
     helper.currentX = 50;
     helper.currentY = 50; // downward drag
-    helper.up([p1], [], []);
-    assertEquals(cmds[0], "by3d p0 p1");
-    assertEquals(model.getSegment(p0, p1)?.assignment, "U");
+    helper.up([p2], [], []);
+    assertEquals(cmds[0], "by3d p0 p2");
+    assertEquals(model.getSegment(p0, p2)?.assignment, "U");
+  });
 
-    cmds.length = 0;
-    const before = model.segments.length;
+  await t.step("mark P→P: drag direction (up/down) doesn't change the command", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const [p0, , p2] = model.points;
+
     helper.down([p0], [], [], 0, 0);
     helper.currentX = 50;
     helper.currentY = -50; // upward drag
-    helper.up([p2], [], [], true); // precise: across (brings p0 onto p2)
-    assertEquals(cmds[0], "c3d p0 p2");
-    const added = model.segments.slice(before);
-    assertEquals(added.every((s) => s.assignment === "U"), true);
+    helper.up([p2], [], []);
+    assertEquals(cmds[0], "by3d p0 p2");
+  });
+
+  await t.step("mark P→P: drag falls back to across when the two points already share a segment (by would cut nothing)", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const [p0, p1] = model.points; // p0-p1 is an existing edge
+
+    helper.down([p0], [], [], 0, 0);
+    helper.currentX = 50;
+    helper.currentY = 50;
+    helper.up([p1], [], []);
+    // The bisector plane crosses the shared edge at its midpoint, splitting it in two
+    assertEquals(cmds[0], "c3d p0 p1");
+    assertEquals(model.getSegment(p0, p1), undefined);
   });
 
   await t.step("click on stacked points selects all of them", () => {
@@ -148,51 +165,61 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], "adjust p0");
   });
 
-  await t.step("point<->segment: plain drag is perpendicular regardless of order; precise is parallel", () => {
+  await t.step("point<->segment: drag direction picks perpendicular vs parallel", () => {
     const { model, command, helper } = setup();
     const cmds = captureCmds(command);
-    const p0 = model.points[0];
-    const s0 = model.segments[0];
+    const [p0, , p2] = model.points; // p2 is the opposite corner, not on s0
+    const s0 = model.segments[0]; // p0-p1
 
+    // Point -> segment: always perpendicular through the point
     helper.down([p0], [], [], 0, 0);
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([], [s0], []);
     assertEquals(cmds[0], "p3d s0 p0");
 
+    // Segment -> point (not on the segment): always the line-onto-point fold
     cmds.length = 0;
     helper.down([], [s0], [], 0, 0);
     helper.currentX = 40;
     helper.currentY = 0;
-    helper.up([p0], [], []); // same two things, opposite drag order -> same command
-    assertEquals(cmds[0], "reverseInside s0 p0");
+    helper.up([p2], [], []);
+    assertEquals(cmds[0], "parallel3d s0 p2");
 
+    // Segment -> a point that lies on it is the reverse-fold gesture instead
     cmds.length = 0;
-    helper.down([p0], [], [], 0, 0);
-    helper.currentX = 40;
-    helper.currentY = 0;
-    helper.up([], [s0], [], true); // precise: parallel (brings the segment's line onto p0)
-    assertEquals(cmds[0], "parallel3d s0 p0");
-  });
-
-  await t.step("point<->segment on 2d canvas sends p2d / parallel2d", () => {
-    const { model, command, helper } = setup();
-    const cmds = captureCmds(command);
-    const p0 = model.points[0];
-    const s0 = model.segments[0];
-    helper.currentCanvas = "2d";
-
     helper.down([], [s0], [], 0, 0);
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([p0], [], []);
     assertEquals(cmds[0], "reverseInside s0 p0");
+  });
+
+  await t.step("point<->segment on 2d canvas sends p2d / parallel2d", () => {
+    const { model, command, helper } = setup();
+    const cmds = captureCmds(command);
+    const [p0, , p2] = model.points;
+    const s0 = model.segments[0];
+    helper.currentCanvas = "2d";
+
+    helper.down([p0], [], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.up([], [s0], []);
+    assertEquals(cmds[0], "p2d s0 p0");
 
     cmds.length = 0;
     helper.down([], [s0], [], 0, 0);
     helper.currentX = 40;
     helper.currentY = 0;
-    helper.up([p0], [], [], true);
+    helper.up([p2], [], []);
+    assertEquals(cmds[0], "parallel2d s0 p2");
+
+    cmds.length = 0;
+    helper.down([], [s0], [], 0, 0);
+    helper.currentX = 40;
+    helper.currentY = 0;
+    helper.up([p0], [], []);
     assertEquals(cmds[0], "reverseInside s0 p0");
   });
 
@@ -609,6 +636,33 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(helper.clickThreshold(), 24);
   });
 
+  await t.step("down2d/down3d record event.pointerType, defaulting to mouse", () => {
+    const { helper } = setup();
+    const none = () => ({ points: [], segments: [], faces: [] } as any);
+    helper.search2d = none;
+    helper.search3d = none;
+    helper.down3d({ pointerType: "touch", xCanvas: 0, yCanvas: 0 } as any);
+    assertEquals(helper.pointerType, "touch");
+    assertEquals(helper.clickThreshold(), 24);
+    // A stylus is as precise as a cursor
+    helper.down3d({ pointerType: "pen", xCanvas: 0, yCanvas: 0 } as any);
+    assertEquals(helper.pointerType, "pen");
+    assertEquals(helper.clickThreshold(), 12);
+    helper.down2d({ pointerType: "touch", xf: 0, yf: 0 } as any);
+    assertEquals(helper.pointerType, "touch");
+    // Synthetic events without pointerType stay on the mouse behaviour
+    helper.down2d({ xf: 0, yf: 0 } as any);
+    assertEquals(helper.pointerType, "mouse");
+  });
+
+  await t.step("pick radii are widened for touch", () => {
+    const { helper } = setup();
+    helper.pointerType = "mouse";
+    assertEquals(helper.pickFactor(), 1);
+    helper.pointerType = "touch";
+    assertEquals(helper.pickFactor(), 2);
+  });
+
   await t.step("search3d() points, segments, faces near x,y", () => {
     const model = new Model().init(200, 200);
     const command = new Command(model);
@@ -844,5 +898,35 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentY = 10;
     helper.draw();
     assertEquals(strokeStyle, "orange");
+  });
+
+  await t.step("orbiting is locked at pointerdown in 3d", () => {
+    const { model, command, helper } = setup();
+    const view3d = new MockView3d(model);
+    (view3d as any).angleX = 0;
+    (view3d as any).angleY = 0;
+    (view3d as any).initModelView = () => {};
+    (view3d as any).initPerspective = () => {};
+    helper.view3d = view3d as any;
+
+    // Test orbit detection logic in down3d
+    helper.search3d = () => ({ points: [model.points[0]], segments: [], faces: [] } as any);
+    const shiftEvent = { button: 0, shiftKey: true, xCanvas: 0, yCanvas: 0, target: { height: 600 } };
+    helper.down3d(shiftEvent as any);
+    assertEquals(helper.orbiting, true);
+
+    const midClickEvent = { button: 1, shiftKey: false, xCanvas: 0, yCanvas: 0, target: { height: 600 } };
+    helper.down3d(midClickEvent as any);
+    assertEquals(helper.orbiting, true);
+
+    // Orbit is locked: move3d should rotate even if search3d finds a point
+    helper.orbiting = true;
+    helper.firstX = helper.currentX = 0;
+    helper.firstY = helper.currentY = 0;
+    const moveEvent = { buttons: 1, xCanvas: 10, yCanvas: 10, target: { height: 600 } };
+    helper.move3d(moveEvent as any);
+    // dx = 10, dy = 10 -> angles should be > 0
+    assertEquals((view3d as any).angleX > 0, true);
+    assertEquals((view3d as any).angleY > 0, true);
   });
 });

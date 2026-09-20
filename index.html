@@ -13,6 +13,9 @@
     /* noinspection CssUnusedSymbol -- #overlay is a canvas created at runtime by View3d.js */
     #canvas3d,#overlay{position:absolute;top:0;left:0;width:100%;height:var(--split)}
     #canvas3d{border:1px solid black}
+    /* Touch screens: the canvases handle their own gestures, the browser must not
+       scroll, pinch-zoom, double-tap-zoom or select text on them (iPad Safari) */
+    #canvas2d,#canvas3d,#overlay{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
     #overlay{z-index:1}
     #canvas2d{display:none;position:absolute;top:0;left:0;width:50%;height:var(--split);border:1px solid black}
     body.view2d-open #canvas2d{display:block}
