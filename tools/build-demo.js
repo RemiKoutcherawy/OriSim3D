@@ -79,8 +79,12 @@ async function main() {
         ['petal-fold', 'templates/petal-fold.txt'],
         ['cocotte', 'models/cocotte.txt'],
     ];
+    // Only add templates whose id is not already present in index.html (body or afterScript)
+    const indexContent = body + afterScript;
     const inlineTemplates = (await Promise.all(
-        fetchedTemplates.map(async ([id, path]) => `<template id="${id}">\n${await readText(path)}</template>`)
+        fetchedTemplates
+            .filter(([id]) => !indexContent.includes(`id="${id}"`))
+            .map(async ([id, path]) => `<template id="${id}">\n${await readText(path)}</template>`)
     )).join('\n');
 
     // Module source, in dependency order (each only needs classes/functions already

@@ -223,6 +223,23 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], "parallel2d s0 p0");
   });
 
+  await t.step("rotationLabel(): angular sweep of the cursor around the hinge's midpoint", () => {
+    const { model, helper } = setup();
+    const s0 = model.segments[0]; // canvas (-200,-200)-(200,-200) -> pivot (0,-200)
+
+    // Radial motion (same bearing from the pivot as the reference) never rotates
+    assertEquals(helper.rotationLabel(s0, 0, 0, 0, -100), 0);
+
+    // A quarter turn around the pivot
+    assertEquals(helper.rotationLabel(s0, 0, 0, 200, -200), -90);
+
+    // A small sweep, below the 10° dead zone, snaps to 0
+    assertEquals(helper.rotationLabel(s0, 0, 0, 10, -3), 0);
+
+    // Degenerate: a reference point sitting exactly on the pivot has no bearing
+    assertEquals(helper.rotationLabel(s0, 0, -200, 50, -150), 0);
+  });
+
   await t.step("rotationLabel on 2d uses xf/-yf even when xCanvas is stale", () => {
     const { model, helper } = setup();
     const f0 = model.faces[0];
@@ -235,8 +252,8 @@ Deno.test("Helper Tests", async (t) => {
     });
     helper.currentCanvas = "2d";
     helper.down([], [], [f0], 0, 0);
-    // Move toward the bottom edge in drawing space (y increases downward in -yf)
-    helper.move([], [], [f0], 0, 150);
+    // Swing sideways around the hinge (its midpoint), in drawing space
+    helper.move([], [], [f0], 150, 0);
     const label = helper.label as number;
     assertEquals(typeof label, "number");
     assertEquals(label !== 0 && label !== undefined, true);
@@ -501,7 +518,7 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(f0.select, false);
 
     helper.down([], [], [f0], 0, 0);
-    helper.move([], [], [f0], 0, -150);
+    helper.move([], [], [f0], 150, -150); // swing around the hinge
     const label = helper.label as number;
     assertEquals(label !== 0, true);
     assertEquals(helper.willFold(), true);
@@ -522,7 +539,7 @@ Deno.test("Helper Tests", async (t) => {
     s0.select = true; // armed axis — already shown via its .select styling
 
     helper.down([], [], [f0], 0, 0);
-    helper.move([], [], [f0], 0, -150);
+    helper.move([], [], [f0], 150, -150); // swing around the hinge
     assertEquals(typeof helper.label, "number");
     assertEquals(helper.label !== 0, true);
     assertEquals(s0.hover, false);
@@ -536,9 +553,9 @@ Deno.test("Helper Tests", async (t) => {
     s0.select = true;
     model.points[2].select = true;
 
-    // Drag far enough for a non-zero angle (centroid at ~0,0; move toward s0)
+    // Swing far enough around the hinge for a non-zero angle
     helper.down([], [], [f0], 0, 0);
-    helper.move([], [], [f0], 0, -150);
+    helper.move([], [], [f0], 150, -150);
     const label = helper.label;
     assertEquals(typeof label, "number");
     assertEquals(label !== 0 && label !== undefined, true);
@@ -610,8 +627,8 @@ Deno.test("Helper Tests", async (t) => {
     s0.select = true; // armed axis bordering f0
 
     helper.down([], [], [f0], 0, 0);
-    helper.currentX = 0;
-    helper.currentY = -150; // enough angle
+    helper.currentX = 150;
+    helper.currentY = -150; // swung enough around the hinge
     assertEquals(helper.willFold(), true);
 
     const cmds = captureCmds(command);
@@ -641,6 +658,9 @@ Deno.test("Helper Tests", async (t) => {
     const none = () => ({ points: [], segments: [], faces: [] } as any);
     helper.search2d = none;
     helper.search3d = none;
+    // Inject already-resolved coordinates: no real DOM element behind view2d/view3d
+    helper.event2d = (e: any) => e;
+    helper.eventCanvas3d = (e: any) => e;
     helper.down3d({ pointerType: "touch", xCanvas: 0, yCanvas: 0 } as any);
     assertEquals(helper.pointerType, "touch");
     assertEquals(helper.clickThreshold(), 24);
@@ -714,6 +734,36 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(picked.includes(unrelated), false);
   });
 
+  await t.step("pickFaces3d() breaks an exact depth tie in favor of the already-selected face", () => {
+    const model = new Model().init(200, 200);
+    const command = new Command(model);
+    // deno-lint-ignore no-explicit-any
+    const pt = (x: number, y: number): any => {
+      const p = new Point(0, 0, 0, 0, 0);
+      Object.assign(p, { xCanvas: x, yCanvas: y });
+      return p;
+    };
+
+    // Two faces folded exactly flat onto each other: same footprint, same depth —
+    // faceDepth alone can't order them, so a plain stable sort always keeps
+    // whichever was pushed first, regardless of which one the user picked.
+    const a = pt(-10, -10), b = pt(10, -10), c = pt(10, 10), h = pt(-10, 10);
+    model.points.push(a, b, c, h);
+    const first = new Face([a, b, c, h]);
+    const second = new Face([a, b, c, h]);
+    model.faces.push(first, second);
+
+    const indexMap = new Map();
+    model.points.forEach((p, i) => indexMap.set(p, i));
+    const view3d = { indexMap, faceDepth: () => 0 };
+    const helper = new Helper(model, command, view3d);
+
+    assertEquals(helper.pickFaces3d(0, 0)[0], first);
+
+    second.select = true;
+    assertEquals(helper.pickFaces3d(0, 0)[0], second);
+  });
+
   // deno-lint-ignore no-explicit-any
   function mockOverlayCanvas(onStroke: (ctx: any) => void) {
     return {
@@ -762,8 +812,8 @@ Deno.test("Helper Tests", async (t) => {
     model.segments[0].select = true; // armed axis, borders the face
     helper.firstX = 0;
     helper.firstY = 0;
-    helper.currentX = 10;
-    helper.currentY = 10;
+    helper.currentX = 100;
+    helper.currentY = 10; // swung enough around the hinge
     helper.draw();
     assertEquals(strokeStyle, Helper.FOLD_AMBER);
     assertEquals(fillStyle, "#fff");
@@ -911,6 +961,8 @@ Deno.test("Helper Tests", async (t) => {
 
     // Test orbit detection logic in down3d
     helper.search3d = () => ({ points: [model.points[0]], segments: [], faces: [] } as any);
+    // Inject already-resolved coordinates: no real DOM element behind view3d.overlay
+    helper.eventCanvas3d = (e: any) => e;
     const shiftEvent = { button: 0, shiftKey: true, xCanvas: 0, yCanvas: 0, target: { height: 600 } };
     helper.down3d(shiftEvent as any);
     assertEquals(helper.orbiting, true);

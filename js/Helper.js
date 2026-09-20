@@ -306,17 +306,20 @@ export class Helper {
         return segs;
     }
 
-    // Signed rotation angle (degrees) from ref point to cursor, around segment.
+    // Signed rotation angle (degrees): angular sweep of the cursor around the
+    // segment's midpoint (the hinge), relative to the reference point (the
+    // dragged face's centroid at rest). Turning the cursor around the hinge
+    // like a dial directly drives the fold angle by the same amount, instead
+    // of trying to infer it from an on-screen distance ratio.
     // Uses canvasPoint() so 2d (xf,-yf) and 3d (xCanvas,yCanvas) stay consistent.
     rotationLabel(s, refX, refY, x, y) {
         const p1 = this.canvasPoint(s.p1), p2 = this.canvasPoint(s.p2);
-        const p1Proj = [p1.xf, p1.yf], p2Proj = [p2.xf, p2.yf];
-        const distToFirst = (refX - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (refY - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-        const distToCurrent = (x - p1Proj[0]) * (p2Proj[1] - p1Proj[1]) - (y - p1Proj[1]) * (p2Proj[0] - p1Proj[0]);
-        if (Math.abs(distToFirst) < 1e-6) return 0;
-        let ratio = Math.abs(distToCurrent / distToFirst);
-        ratio = Math.round(ratio * 100) / 100;
-        let angle = (ratio - 1) * 180 * -Math.sign(distToFirst);
+        const pivotX = (p1.xf + p2.xf) / 2, pivotY = (p1.yf + p2.yf) / 2;
+        if (Math.hypot(refX - pivotX, refY - pivotY) < 1e-6) return 0;
+        const refAngle = Math.atan2(refY - pivotY, refX - pivotX);
+        const curAngle = Math.atan2(y - pivotY, x - pivotX);
+        let angle = (curAngle - refAngle) * 180 / Math.PI;
+        angle = ((angle + 180) % 360 + 360) % 360 - 180; // normalize to (-180, 180]
         angle = Math.round(angle / 10) * 10;
         return Math.abs(angle) < 10 ? 0 : angle;
     }
@@ -694,9 +697,9 @@ export class Helper {
         this.command.command(`t 1000 r ${this.id(axis)} ${angle} ${pts.join(' ')}${adjust}${faceComment}`);
     }
 
-    // Canvas 2d (flat crease pattern)
+    // Canvas 2d (flat crease pattern). Overridable per-instance so tests can
+    // inject already-resolved {xf, yf} without a real DOM element behind view2d.
     event2d(event) {
-        if (!(event instanceof Event)) return event; // Used for test
         const rect = this.view2d.canvas2d.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
         const canvasY = event.clientY - rect.top;
@@ -739,9 +742,9 @@ export class Helper {
         this.up(points, segments, faces);
     }
 
-    // Canvas 3d
+    // Canvas 3d. Overridable per-instance so tests can inject already-resolved
+    // {xCanvas, yCanvas} without a real DOM element behind view3d.
     eventCanvas3d(event) {
-        if (!(event instanceof Event)) return event; // Used for test
         const rect = this.view3d.overlay.getBoundingClientRect();
         return {
             xCanvas: event.clientX - rect.left,
@@ -760,7 +763,16 @@ export class Helper {
             );
         }
         if (this.view3d?.faceDepth) {
-            faces.sort((a, b) => this.view3d.faceDepth(a) - this.view3d.faceDepth(b));
+            // Folding a flat model routinely stacks faces at the exact same depth
+            // (e.g. two layers folded flush): faceDepth alone can't tell them apart,
+            // and a stable sort would then always resolve to the same array index.
+            // Break exact ties in favor of a face the user already explicitly
+            // selected — a stronger signal of intent than creation order.
+            faces.sort((a, b) => {
+                const d = this.view3d.faceDepth(a) - this.view3d.faceDepth(b);
+                if (Math.abs(d) > 1e-6) return d;
+                return (b.select ? 1 : 0) - (a.select ? 1 : 0);
+            });
         }
         return faces;
     }
