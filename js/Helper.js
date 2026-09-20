@@ -447,16 +447,6 @@ export class Helper {
             return;
         }
 
-        // Si on a un segment sélectionné ET qu'on clique sur un point SUR ce segment
-        if (this.downSegment && this.upPoint) {
-            // Vérifier si le point est sur le segment
-            if (Segment.isPointOnSegment(this.downSegment, this.upPoint)) {
-                // Déclencher le Reverse Fold avec 180°
-                this.command.command(`reverseInside ${this.id(this.downSegment)} ${this.id(this.upPoint)}`);
-                return;
-            }
-        }
-
         if (this.model.faces.some(f => f.select)) {
             return;
         }

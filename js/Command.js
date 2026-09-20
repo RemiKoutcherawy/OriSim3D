@@ -472,14 +472,6 @@ on('bisector2dPoints', (cmd) => take(cmd, 'p', 3, 'bisector2dPoints needs 3 poin
 on('bisector3dPoints', (cmd) => take(cmd, 'p', 3, 'bisector3dPoints needs 3 points', (a, b, c) => cmd.model.bisector3dPoints(a, b, c)));
 on('split splitSegment2d', splitSegment);
 
-// Reverse Inside Fold: inverse une pliure en poussant sa pointe entre les deux
-// pans de papier qui se rejoignent au point central (ex: reverseInside s0 p1).
-on('reverseInside', (cmd) => {
-    const s = cmd.token('s');
-    const p = cmd.token('p');
-    if (s && p) cmd.model.reverseFold(s, p, cmd.tni);
-});
-
 on('r rotate', rotate);
 on('m move', move);
 on('mop moveOnPoint', (cmd) => {const pts = cmd.tokens('p');cmd.model.moveOnPoint(pts[0], pts);});

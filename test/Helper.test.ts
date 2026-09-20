@@ -186,13 +186,13 @@ Deno.test("Helper Tests", async (t) => {
     helper.up([p2], [], []);
     assertEquals(cmds[0], "parallel3d s0 p2");
 
-    // Segment -> a point that lies on it is the reverse-fold gesture instead
+    // Segment -> a point that lies on it: still the parallel gesture (a no-op split)
     cmds.length = 0;
     helper.down([], [s0], [], 0, 0);
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([p0], [], []);
-    assertEquals(cmds[0], "reverseInside s0 p0");
+    assertEquals(cmds[0], "parallel3d s0 p0");
   });
 
   await t.step("point<->segment on 2d canvas sends p2d / parallel2d", () => {
@@ -220,7 +220,7 @@ Deno.test("Helper Tests", async (t) => {
     helper.currentX = 40;
     helper.currentY = 0;
     helper.up([p0], [], []);
-    assertEquals(cmds[0], "reverseInside s0 p0");
+    assertEquals(cmds[0], "parallel2d s0 p0");
   });
 
   await t.step("rotationLabel on 2d uses xf/-yf even when xCanvas is stale", () => {
