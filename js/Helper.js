@@ -23,7 +23,7 @@ export class Helper {
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
         // Correctif pour les gestes tactiles
-        let lastTouchDistance = 0;
+        this.lastTouchDistance = 0;
 
         // To test with Deno, view3d (and its overlay) may be null
         const overlay = view3d?.overlay;
@@ -41,26 +41,26 @@ export class Helper {
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
             // Tactile
-            document.addEventListener('touchstart', function(e) {
+            document.addEventListener('touchstart', (e) => {
                 if (e.touches && e.touches.length >= 2) {
                     const t0 = e.touches[0];
                     const t1 = e.touches[1];
                     const dx = t0.clientX - t1.clientX;
                     const dy = t0.clientY - t1.clientY;
-                    lastTouchDistance = Math.sqrt(dx*dx + dy*dy);
+                    this.lastTouchDistance = Math.sqrt(dx*dx + dy*dy);
                 }
             });
             // Add e.scale for View3d
-            document.addEventListener('touchmove', function(e) {
+            document.addEventListener('touchmove', (e) => {
                 if (e.touches && e.touches.length >= 2 && !e.scale) {
                     const t0 = e.touches[0];
                     const t1 = e.touches[1];
                     const dx = t0.clientX - t1.clientX;
                     const dy = t0.clientY - t1.clientY;
                     const currentDist = Math.sqrt(dx*dx + dy*dy);
-                    if (lastTouchDistance > 0) {
-                        e.scale = currentDist / lastTouchDistance;
-                        lastTouchDistance = currentDist;
+                    if (this.lastTouchDistance > 0) {
+                        e.scale = currentDist / this.lastTouchDistance;
+                        this.lastTouchDistance = currentDist;
                     }
                 }
             });
