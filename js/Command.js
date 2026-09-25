@@ -203,12 +203,6 @@ export class Command {
         const targetTni = this.interpolator(tn);
         // Execute commands after t xxx up to end of line
         const iBeginAnim = this.iToken;
-        // Commands like 'a' (adjust) resolve a point's 3d position iteratively from
-        // its position in the *previous* step, so a big jump in a single call (a short
-        // duration, or a slow display giving few real frames) can make it settle on the
-        // wrong stable fold instead of the one continuous small motions converge to.
-        // Replay this frame's motion as small fixed-size substeps so the result only
-        // depends on the animated distance, not on how many real frames covered it.
         if (this.tpi === 0) this.freezeRotateAxes(iBeginAnim);
         const maxStep = 0.01;
         const steps = Math.max(1, Math.ceil(Math.abs(targetTni - this.tpi) / maxStep));
@@ -237,8 +231,6 @@ export class Command {
     }
 
     // A rotated point can itself be another simultaneous rotation's axis endpoint
-    // (e.g. `t 1000 r s6 180 p7 r s13 -90 p5` where s13 = p7-p4): re-reading the
-    // axis live, substep after substep, would make it drift along with that point.
     // Snapshot the axis of every `r` of the line before any of them has run, so the
     // last rotation does not see an axis already moved by the earlier ones.
     freezeRotateAxes(iBegin) {

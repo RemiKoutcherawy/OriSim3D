@@ -244,7 +244,7 @@ Deno.test('Command', async (t) => {
         cmd.command(`d 200 200
             by2d p0 p2 by2d p1 p3
             c2d p0 p1 c2d p1 p2
-            t 50 r s5 -180 p8 r s6 180 p7 r s13 -180 p5 a p2 p3`).anim();
+            t 50 r s5 -180 p8 r s6 180 p7 r s13 -180 p5 p2 p3`).anim();
         while (cmd.anim()) { /* wait for animation to finish */ }
         // p5 and p7 end up stacked on p6, so p2 could sit anywhere on a circle
         // around p4-p6; the flat fold puts it exactly on p1 (and p3 on p0).
