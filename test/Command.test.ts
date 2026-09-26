@@ -238,6 +238,36 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(p7.y), Math.round(p6.y));
     });
 
+    await t.step('command r rotate: a line queued while another is animating keeps its own frozen axes', () => {
+        const clock = installClock();
+        try {
+            const m = new Model().init(200, 200);
+            const cmd = new Command(m);
+            cmd.command('d 200 200');
+            cmd.command('by2d p0 p2 by2d p1 p3');
+            cmd.command('c2d p0 p1 c2d p1 p2');
+            while (cmd.iToken < cmd.tokenTodo.length) cmd.anim();
+            cmd.command('t 1000 r s5 -180 p8 r s6 180 p7 a p2 p3 p5');
+            for (let i = 0; i < 20; i++) {
+                clock.now += 16;
+                cmd.anim();
+            }
+            cmd.command('t 1000 r s11 90 p2 r s11 -90 p3 a p5');
+            for (let i = 0; i < 400; i++) {
+                clock.now += 16;
+                cmd.anim();
+            }
+            assertEquals(cmd.instructions.slice(-2), ['t 1000 r s5 -180 p8 r s6 180 p7 a p2 p3 p5', 't 1000 r s11 90 p2 r s11 -90 p3 a p5']);
+            const [p2, p3] = [m.points[2], m.points[3]];
+            assertEquals(Math.round(p2.x), Math.round(m.points[4].x));
+            assertEquals(Math.round(p3.x), Math.round(m.points[4].x));
+            assertEquals(Math.abs(Math.round(p2.z)), 200);
+            assertEquals(Math.abs(Math.round(p3.z)), 200);
+        } finally {
+            clock.restore();
+        }
+    });
+
     await t.step("command a adjust: points stacked flat snap exactly onto the point they fold onto (template 'test')", () => {
         const m = new Model().init(200, 200);
         const cmd = new Command(m);

@@ -68,6 +68,9 @@ export class Command {
         if (this.model.state === State.undo) {
             this.model.state = State.run;
         }
+        if (tokens.length && this.iToken < this.tokenTodo.length && this.tokenTodo.at(-1) !== '\n') {
+            this.tokenTodo.push('\n');
+        }
         this.tokenTodo.push(...tokens);
         if (this.stepMode) {
             this.model.state = State.pause;
