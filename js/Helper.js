@@ -136,13 +136,13 @@ export class Helper {
     // Draw drag preview when down on a point, segment, or face: a filled arrow
     // for creasing (green — a crease has no mountain/valley until it's
     // actually folded) or moving a selected point (orange), a hollow arrow
-    // only when the drag will actually fold the face (willFold()) — see Arrow.svg.
+    // only when the drag will actually fold the face or point (willFold()) — see Arrow.svg.
     draw() {
         if (!this.downPoint && !this.downSegment && !this.downFace) {
             return;
         }
         const context = (this.currentCanvas === '2d' ? this.view2d.canvas2d : this.view3d.overlay).getContext('2d');
-        if (this.downFace && this.willFold()) {
+        if (this.willFold()) {
             this.drawHollowArrow(context, this.firstX, this.firstY, this.currentX, this.currentY);
         } else {
             const color = this.moving ? 'orange' : Helper.VALLEY_COLOR;
@@ -269,17 +269,6 @@ export class Helper {
             && this.sameStack(points, this.lastClickPoints);
     }
 
-    faceCentroidCanvas(face) {
-        const pts = face.points;
-        let x = 0, y = 0;
-        for (const p of pts) {
-            const c = this.canvasPoint(p);
-            x += c.xf;
-            y += c.yf;
-        }
-        return {x: x / pts.length, y: y / pts.length};
-    }
-
     faceBorderSegments(face) {
         const segs = [];
         const pts = face.points;
@@ -290,20 +279,21 @@ export class Helper {
         return segs;
     }
 
-    // Signed rotation angle (degrees): angular sweep of the cursor around the
-    // segment's midpoint (the hinge), relative to the reference point (the
-    // dragged face's centroid at rest). Turning the cursor around the hinge
-    // like a dial directly drives the fold angle by the same amount, instead
-    // of trying to infer it from an on-screen distance ratio.
+    // Signed rotation angle (degrees) when pulling the reference point (where
+    // the drag started) toward the axis, proportional to how far it went: the
+    // grabbed point reaching the axis is 90°, reaching its mirror image across
+    // it is 180°; moving parallel to the axis or away from it doesn't fold.
     // Uses canvasPoint() so 2d (xf,-yf) and 3d (xCanvas,yCanvas) stay consistent.
     rotationLabel(s, refX, refY, x, y) {
         const p1 = this.canvasPoint(s.p1), p2 = this.canvasPoint(s.p2);
-        const pivotX = (p1.xf + p2.xf) / 2, pivotY = (p1.yf + p2.yf) / 2;
-        if (Math.hypot(refX - pivotX, refY - pivotY) < 1e-6) return 0;
-        const refAngle = Math.atan2(refY - pivotY, refX - pivotX);
-        const curAngle = Math.atan2(y - pivotY, x - pivotX);
-        let angle = (curAngle - refAngle) * 180 / Math.PI;
-        angle = ((angle + 180) % 360 + 360) % 360 - 180; // normalize to (-180, 180]
+        const dx = p2.xf - p1.xf, dy = p2.yf - p1.yf;
+        const len = Math.hypot(dx, dy);
+        if (len < 1e-9) return 0;
+        const distance = (px, py) => ((px - p1.xf) * dy - (py - p1.yf) * dx) / len;
+        const distFirst = distance(refX, refY);
+        if (Math.abs(distFirst) < 1e-6) return 0;
+        const ratio = Math.max(-1, Math.min(1, distance(x, y) / distFirst));
+        let angle = (1 - ratio) * 90 * Math.sign(distFirst);
         angle = Math.round(angle / 10) * 10;
         return Math.abs(angle) < 10 ? 0 : angle;
     }
@@ -321,10 +311,10 @@ export class Helper {
             this.downSegments.forEach(s => { s.hover = true; });
         } else if (this.downFace) {
             this.downFace.hover = true;
-            const axis = this.selectedAxis();
-            if (axis && this.faceBorderSegments(this.downFace).includes(axis)) {
-                this.label = this.angleFor(axis);
-            }
+        }
+        const axis = this.selectedAxis();
+        if (axis && this.canFoldOn(axis)) {
+            this.label = this.angleFor(axis);
         }
     }
 
@@ -349,6 +339,11 @@ export class Helper {
     }
 
     fromPoint() {
+        if (!this.isClick() && this.willFold()) {
+            const axis = this.selectedAxis();
+            this.foldAlong(axis, this.angleFor(axis));
+            return;
+        }
         if (this.moving && !this.isClick()) {
             this.moveSelectedPoint();
             return;
@@ -474,28 +469,31 @@ export class Helper {
      * crosses nothing — arm/select the face like a click would.
      */
     fromFaceDrag() {
-        const axis = this.selectedAxis();
-        if (axis && this.faceBorderSegments(this.downFace).includes(axis)) {
-            const angle = this.angleFor(axis);
-            if (angle) {
-                this.foldAlong(axis, angle);
-                return;
-            }
+        if (this.willFold()) {
+            const axis = this.selectedAxis();
+            this.foldAlong(axis, this.angleFor(axis));
+            return;
         }
         if (this.splitSegments()) return;
         if (!this.downFace.select) this.fromFaceClick();
     }
 
-    /** Rotation angle (degrees) if hinging the dragged face on `axis` right now. */
+    /** Rotation angle (degrees) if hinging the dragged face or point on `axis` right now. */
     angleFor(axis) {
-        const c = this.faceCentroidCanvas(this.downFace);
-        return this.rotationLabel(axis, c.x, c.y, this.currentX, this.currentY);
+        return this.rotationLabel(axis, this.firstX, this.firstY, this.currentX, this.currentY);
     }
 
-    /** Would releasing now actually rotate the dragged face? */
+    /** A face hinges on one of its borders, a point on any axis it isn't an end of. */
+    canFoldOn(axis) {
+        if (this.downFace) return this.faceBorderSegments(this.downFace).includes(axis);
+        if (this.downPoint) return this.downPoint !== axis.p1 && this.downPoint !== axis.p2;
+        return false;
+    }
+
+    /** Would releasing now actually rotate the dragged face or point? */
     willFold() {
         const axis = this.selectedAxis();
-        if (!axis || !this.faceBorderSegments(this.downFace).includes(axis)) return false;
+        if (!axis || !this.canFoldOn(axis)) return false;
         return !!this.angleFor(axis);
     }
 
@@ -651,6 +649,7 @@ export class Helper {
         if (this.downFace) {
             this.downFace.points.forEach(p => pts.add(p));
         }
+        if (this.downPoint) pts.add(this.downPoint);
         // Axis endpoints don't move when rotating around that axis; excluding them
         // keeps the command's point list honest and avoids floating-point drift
         // from rotating a point that should stay exactly put.

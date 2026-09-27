@@ -65,8 +65,8 @@ async function main() {
     ]);
     body = body
         .replace('src="textures/front.jpg"', `src="data:image/jpeg;base64,${front}"`)
-        .replace('src="textures/back.jpg"', `src="data:image/jpeg;base64,${back}"`);
-
+        .replace('src="textures/back.jpg"', `src="data:image/jpeg;base64,${back}"`)
+        .replace('<body class="view2d-open command-area-open">', '<body>');
     // Templates fetched over the network in index.html (templates/*.txt, and cocotte
     // falling back to models/cocotte.txt) must become inline <template> tags so
     // load(id) finds them via document.getElementById(id) and never calls fetch().

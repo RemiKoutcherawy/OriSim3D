@@ -223,20 +223,27 @@ Deno.test("Helper Tests", async (t) => {
     assertEquals(cmds[0], "parallel2d s0 p0");
   });
 
-  await t.step("rotationLabel(): angular sweep of the cursor around the hinge's midpoint", () => {
+  await t.step("rotationLabel(): pulling the grabbed point toward the axis folds it", () => {
     const { model, helper } = setup();
-    const s0 = model.segments[0]; // canvas (-200,-200)-(200,-200) -> pivot (0,-200)
+    const s0 = model.segments[0]; // canvas (-200,-200)-(200,-200), 200 away from (0,0)
 
-    // Radial motion (same bearing from the pivot as the reference) never rotates
-    assertEquals(helper.rotationLabel(s0, 0, 0, 0, -100), 0);
+    // Pulled halfway to the axis: half of a quarter turn
+    assertEquals(helper.rotationLabel(s0, 0, 0, 0, -100), -40);
 
-    // A quarter turn around the pivot
+    // Onto the axis: a quarter turn
     assertEquals(helper.rotationLabel(s0, 0, 0, 200, -200), -90);
 
-    // A small sweep, below the 10° dead zone, snaps to 0
-    assertEquals(helper.rotationLabel(s0, 0, 0, 10, -3), 0);
+    // Onto its mirror image across the axis: folded flat
+    assertEquals(helper.rotationLabel(s0, 0, 0, 0, -400), -180);
 
-    // Degenerate: a reference point sitting exactly on the pivot has no bearing
+    // Moving parallel to the axis, or away from it, never folds
+    assertEquals(helper.rotationLabel(s0, 0, 0, 150, 0), 0);
+    assertEquals(helper.rotationLabel(s0, 0, 0, 0, 100), 0);
+
+    // A small pull, below the 10° dead zone, snaps to 0
+    assertEquals(helper.rotationLabel(s0, 0, 0, 0, -2), 0);
+
+    // Degenerate: a reference point sitting on the axis has no distance to it
     assertEquals(helper.rotationLabel(s0, 0, -200, 50, -150), 0);
   });
 
@@ -252,8 +259,8 @@ Deno.test("Helper Tests", async (t) => {
     });
     helper.currentCanvas = "2d";
     helper.down([], [], [f0], 0, 0);
-    // Swing sideways around the hinge (its midpoint), in drawing space
-    helper.move([], [], [f0], 150, 0);
+    // Pull toward the hinge, in drawing space
+    helper.move([], [], [f0], 0, 150);
     const label = helper.label as number;
     assertEquals(typeof label, "number");
     assertEquals(label !== 0 && label !== undefined, true);
@@ -812,11 +819,46 @@ Deno.test("Helper Tests", async (t) => {
     model.segments[0].select = true; // armed axis, borders the face
     helper.firstX = 0;
     helper.firstY = 0;
-    helper.currentX = 100;
-    helper.currentY = 10; // swung enough around the hinge
+    helper.currentX = 0;
+    helper.currentY = -150; // pulled toward the hinge
     helper.draw();
     assertEquals(strokeStyle, Helper.FOLD_AMBER);
     assertEquals(fillStyle, "#fff");
+  });
+
+  await t.step("with the axis armed, a drag on a point folds it with a hollow arrow", () => {
+    const { model, command } = setup();
+    let strokeStyle = "";
+    const overlay = mockOverlayCanvas((ctx) => { strokeStyle = ctx.strokeStyle; });
+    const helper = new Helper(model, command, null);
+    helper.view3d = { overlay };
+    const s0 = model.segments[0]; // (-200,-200)-(200,-200) on canvas
+    s0.select = true;
+    const p2 = model.points[2];
+    const {xCanvas, yCanvas} = p2;
+    helper.down([p2], [], [], xCanvas, yCanvas);
+    helper.currentX = xCanvas;
+    helper.currentY = -200; // pulled onto the hinge
+    assertEquals(helper.willFold(), true);
+    helper.draw();
+    assertEquals(strokeStyle, Helper.FOLD_AMBER);
+
+    const cmds = captureCmds(command);
+    helper.up([], [], []);
+    assertEquals(cmds.length, 1);
+    assertEquals(cmds[0].startsWith("t 1000 r s0 "), true);
+    assertEquals(cmds[0].includes(" p2"), true);
+    assertEquals(s0.select, true);
+  });
+
+  await t.step("a drag on an end of the armed axis doesn't fold", () => {
+    const { model, helper } = setup();
+    const s0 = model.segments[0];
+    s0.select = true;
+    helper.down([s0.p1], [], [], s0.p1.xCanvas, s0.p1.yCanvas);
+    helper.currentX = 0;
+    helper.currentY = 0;
+    assertEquals(helper.willFold(), false);
   });
 
   await t.step("down on selected point in 3d sets moving; 2d does not", () => {
