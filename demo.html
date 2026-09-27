@@ -3173,8 +3173,9 @@ class Helper {
         this.pointerType = 'mouse';
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
-        // Correctif pour les gestes tactiles
-        this.lastTouchDistance = 0;
+        this.pointers = new Map();
+        this.pinching = false;
+        this.pinchDistance = 0;
 
         // To test with Deno, view3d (and its overlay) may be null
         const overlay = view3d?.overlay;
@@ -3182,39 +3183,22 @@ class Helper {
             overlay.addEventListener('pointerdown', (event) => {
                 if (event.button === 1) event.preventDefault(); // no autoscroll
                 try { overlay.setPointerCapture(event.pointerId); } catch { /* ignore */ }
-                this.down3d(event);
+                if (!this.pinchDown(event)) this.down3d(event);
             });
-            overlay.addEventListener('pointermove', (event) => this.move3d(event));
-            overlay.addEventListener('pointerup', (event) => this.up3d(event));
-            overlay.addEventListener('pointercancel', (event) => this.out(event));
+            overlay.addEventListener('pointermove', (event) => {
+                if (!this.pinchMove(event)) this.move3d(event);
+            });
+            overlay.addEventListener('pointerup', (event) => {
+                if (!this.pinchUp(event)) this.up3d(event);
+            });
+            overlay.addEventListener('pointercancel', (event) => {
+                this.pinchUp(event);
+                this.out(event);
+            });
             overlay.addEventListener('wheel', (event) => this.wheel(event), {passive: true});
             overlay.addEventListener('contextmenu', (event) => {event.preventDefault();});
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
-            // Tactile
-            document.addEventListener('touchstart', (e) => {
-                if (e.touches && e.touches.length >= 2) {
-                    const t0 = e.touches[0];
-                    const t1 = e.touches[1];
-                    const dx = t0.clientX - t1.clientX;
-                    const dy = t0.clientY - t1.clientY;
-                    this.lastTouchDistance = Math.sqrt(dx*dx + dy*dy);
-                }
-            });
-            // Add e.scale for View3d
-            document.addEventListener('touchmove', (e) => {
-                if (e.touches && e.touches.length >= 2 && !e.scale) {
-                    const t0 = e.touches[0];
-                    const t1 = e.touches[1];
-                    const dx = t0.clientX - t1.clientX;
-                    const dy = t0.clientY - t1.clientY;
-                    const currentDist = Math.sqrt(dx*dx + dy*dy);
-                    if (this.lastTouchDistance > 0) {
-                        e.scale = currentDist / this.lastTouchDistance;
-                        this.lastTouchDistance = currentDist;
-                    }
-                }
-            });
         }
         // Flat crease-pattern view — covers mouse and touch
         const canvas2d = view2d?.canvas2d;
@@ -3986,12 +3970,48 @@ class Helper {
 
     // Mouse wheel on 3d overlay
     wheel(event) {
-        this.view3d.scale = event.scale !== undefined
-            ? event.scale / 10
-            : this.view3d.scale + event.deltaY / 300;
-        this.view3d.scale = Math.max(0.2, Math.min(3, this.view3d.scale));
+        this.zoom3d(this.view3d.scale + event.deltaY / 300);
+    }
+
+    zoom3d(scale) {
+        this.view3d.scale = Math.max(0.2, Math.min(3, scale));
         this.view3d.initModelView();
         this.view3d.initPerspective();
+    }
+
+    pinchSpread() {
+        const [a, b] = [...this.pointers.values()];
+        return Math.hypot(a.x - b.x, a.y - b.y);
+    }
+
+    pinchDown(event) {
+        if (event.pointerType !== 'touch') return false;
+        this.pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
+        if (this.pointers.size < 2) return this.pinching;
+        this.pinching = true;
+        this.orbiting = false;
+        this.out();
+        this.model.hover2d3d([], [], []);
+        this.pinchDistance = this.pinchSpread();
+        return true;
+    }
+
+    pinchMove(event) {
+        if (!this.pointers.has(event.pointerId)) return false;
+        this.pointers.set(event.pointerId, {x: event.clientX, y: event.clientY});
+        if (!this.pinching) return false;
+        if (this.pointers.size < 2) return true;
+        const distance = this.pinchSpread();
+        if (this.pinchDistance > 0 && distance > 0) this.zoom3d(this.view3d.scale * distance / this.pinchDistance);
+        this.pinchDistance = distance;
+        return true;
+    }
+
+    pinchUp(event) {
+        if (!this.pointers.delete(event.pointerId)) return false;
+        const wasPinching = this.pinching;
+        if (this.pointers.size === 0) this.pinching = false;
+        return wasPinching;
     }
 
     doubleClick() {
