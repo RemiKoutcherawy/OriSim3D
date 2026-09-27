@@ -42,6 +42,7 @@ export class Command {
     command(cde) {
         this.commandArea?.addLine(cde);
         const tokens = this.tokenize(cde);
+        if (tokens.length) this.onCommand?.();
         if (tokens[0] === 'd' || tokens[0] === 'define') {
             this.done = [];
             this.tokenTodo = [];
@@ -376,6 +377,7 @@ function define(cmd) {
 // instantly settling any 't'-animated line, one Model snapshot returned per instruction.
 export function replaySteps(instructions) {
     const replay = new Command(new Model());
+    replay.headless = true;
     const steps = [];
     for (const line of instructions) {
         replay.command(line);
@@ -518,35 +520,23 @@ on('selectPoints sp', (cmd) => select(cmd, 'p', cmd.model.points));
 on('selectSegments ss', (cmd) => select(cmd, 's', cmd.model.segments));
 on('selectFaces sf', (cmd) => select(cmd, 'f', cmd.model.faces));
 
-on('read', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.readFileAsText(filename).then((text) => {
-        if (text == null) return;
-        ReadWrite.loadText(cmd, text);
+function io(names, action) {
+    on(names, (cmd) => {
+        const token = cmd.peek();
+        const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+        if (!cmd.headless) action(cmd, filename);
     });
-});
-on('write instructions', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeFile(cmd.instructions.join('\n'), filename).catch((e) => console.error(e));
-});
-on('writeSvg svg', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+}
+io('read', (cmd, filename) => ReadWrite.readFileAsText(filename).then((text) => {
+    if (text != null) ReadWrite.loadText(cmd, text);
+}));
+io('write instructions', (cmd, filename) => ReadWrite.writeFile(cmd.instructions.join('\n'), filename).catch(console.error));
+io('writeSvg svg', (cmd, filename) => {
     cmd.view3d?.updateCanvasCoords?.();
-    ReadWrite.writeSVG(cmd.model, filename).catch((e) => console.error(e));
+    ReadWrite.writeSVG(cmd.model, filename).catch(console.error);
 });
-on('writeFold fold', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeFold(cmd.model, filename).catch((e) => console.error(e));
-});
-on('writeDiagrams diagrams', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeDiagrams(replaySteps(cmd.instructions), filename).catch((e) => console.error(e));
-});
+io('writeFold fold', (cmd, filename) => ReadWrite.writeFold(cmd.model, filename).catch(console.error));
+io('writeDiagrams diagrams', (cmd, filename) => ReadWrite.writeDiagrams(replaySteps(cmd.instructions), filename).catch(console.error));
 
 // Toggles
 on('labels', (cmd) => { cmd.model.labels = !cmd.model.labels; });

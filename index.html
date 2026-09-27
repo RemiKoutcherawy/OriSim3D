@@ -40,6 +40,9 @@
     #stepBtn:hover{background:#eef1f4}
     /* noinspection CssUnusedSymbol -- toggled via classList.toggle('active', ...) */
     #stepBtn.active,#runBtn.active{background:#e6a817}
+    #timelineBar{position:absolute;top:8px;left:192px;z-index:10;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #timeline{width:clamp(80px,calc(100vw - 300px),320px)}
+    #timelineLabel{font:14px sans-serif;min-width:3.5em}
     #burger span{display:block;width:22px;height:2px;margin:4px 0;background:#1f2328;transition:.15s}
     #burger[aria-expanded="true"] span:first-child{transform:translateY(6px) rotate(45deg)}
     #burger[aria-expanded="true"] span:nth-child(2){opacity:0}
@@ -81,6 +84,10 @@
 <button id="stepBtn" aria-label="Step" title="Step: pauses the script, then advances one line per click. Click Run to resume.">
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l10-8z"/><line x1="18" y1="4" x2="18" y2="20"/></svg>
 </button>
+<div id="timelineBar">
+  <input type="range" id="timeline" min="0" max="0" value="0" aria-label="Étapes">
+  <span id="timelineLabel">0/0</span>
+</div>
 <nav id="nav">
   <details name="nav-menu">
     <summary>Plis de base<span class="chev">›</span></summary>
@@ -132,6 +139,7 @@
   import {Command} from "./js/Command.js";
   import {Helper} from './js/Helper.js';
   import {CommandArea} from './js/CommandArea.js';
+  import {Timeline} from './js/Timeline.js';
   init();
   function init() {
     // Model 3D
@@ -153,6 +161,10 @@
     // Helper
     const helper = new Helper(model, command, view3d, view2d);
     helper.out();
+    const timeline = new Timeline(command, document.getElementById('timeline'), document.getElementById('timelineLabel'), () => {
+      view3d.initBuffers();
+      view3d.initModelView();
+    });
 
     function resizeViews() {
       view3d.initPerspective();
@@ -175,6 +187,7 @@
       }
       view3d.render();
       helper.draw();
+      timeline.update();
       document.getElementById('stepBtn').classList.toggle('active', command.stepMode);
       document.getElementById('runBtn').classList.toggle('active', model.state === State.pause);
       requestAnimationFrame(loop);

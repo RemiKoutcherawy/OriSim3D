@@ -92,7 +92,7 @@ async function main() {
     const moduleFiles = [
         'js/Vector3.js', 'js/Point.js', 'js/Segment.js', 'js/Face.js', 'js/Plane.js',
         'js/Model.js', 'js/Interpolator.js', 'js/ReadWrite.js', 'js/Command.js',
-        'js/CommandArea.js', 'js/Helper.js', 'js/View2d.js', 'js/View3d.js',
+        'js/CommandArea.js', 'js/Timeline.js', 'js/Helper.js', 'js/View2d.js', 'js/View3d.js',
     ];
     const mat4Namespace = buildMat4Namespace(await readText('js/lib/mat4.js'));
     const modules = (await Promise.all(moduleFiles.map(async (f) => stripModuleSyntax(await readText(f)))));

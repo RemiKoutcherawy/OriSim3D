@@ -75,6 +75,11 @@ export class View3d {
     hTexFront = 1;
     wTexBack = 1;
     hTexBack = 1;
+    vtx = [];
+    ftx = [];
+    btx = [];
+    fnr = [];
+    lin = [];
 
     constructor(model, canvas3d) {
         this.model = model;

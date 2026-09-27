@@ -39,6 +39,9 @@
     #stepBtn:hover{background:#eef1f4}
     /* noinspection CssUnusedSymbol -- toggled via classList.toggle('active', ...) */
     #stepBtn.active,#runBtn.active{background:#e6a817}
+    #timelineBar{position:absolute;top:8px;left:192px;z-index:10;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #timeline{width:clamp(80px,calc(100vw - 300px),320px)}
+    #timelineLabel{font:14px sans-serif;min-width:3.5em}
     #burger span{display:block;width:22px;height:2px;margin:4px 0;background:#1f2328;transition:.15s}
     #burger[aria-expanded="true"] span:first-child{transform:translateY(6px) rotate(45deg)}
     #burger[aria-expanded="true"] span:nth-child(2){opacity:0}
@@ -81,6 +84,10 @@
 <button id="stepBtn" aria-label="Step" title="Step: pauses the script, then advances one line per click. Click Run to resume.">
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l10-8z"/><line x1="18" y1="4" x2="18" y2="20"/></svg>
 </button>
+<div id="timelineBar">
+  <input type="range" id="timeline" min="0" max="0" value="0" aria-label="Étapes">
+  <span id="timelineLabel">0/0</span>
+</div>
 <nav id="nav">
   <details name="nav-menu">
     <summary>Plis de base<span class="chev">›</span></summary>
@@ -1647,108 +1654,37 @@ class Model {
     adjust(point) {
         // Take all segments containing point p
         const segments = this.searchSegmentsOnePoint(point);
-        const neighbors = segments.map((s) => ({
-            other: s.p1 === point ? s.p2 : s.p1,
-            lg2d: Segment.length2d(s), // Should not change
-        }));
-        // Matching each neighbor's 2D length pins `point` onto a sphere around
-        // it. Two spheres around two *distinct* centers narrow that down to a
-        // circle; a third, non-coincident one narrows it further to (up to) a
-        // point — which is what the average below converges to. But folding
-        // routinely stacks distinct neighbors onto the very same spot (layers
-        // coming together): then there are really only two distinct spheres
-        // however many segments point at them, and no amount of iterating can
-        // narrow a circle down further. Solve that case directly instead.
-        const clusters = Model.clusterByPosition(neighbors);
-        if (clusters.length === 2) return this.adjustOnCircle(point, clusters, neighbors.length > 2);
         let max = 0.1;
         // Iterate while the length difference between 2d and 3d is > 1e-3
         for (let i = 0; max > 0.001 && i < 200; i++) {
             max = 0;
             // Pm is the medium point
             const pm = new Vector3(0, 0, 0);
-            for (const {other, lg2d} of neighbors) {
-                const lg3d = Vector3.distance(point, other) / this.scale;
+            for (const s of segments) {
+                const lg3d = Segment.length3d(s) / this.scale;
                 if (lg3d === 0) continue;
+                const lg2d = Segment.length2d(s); // Should not change
                 const d = Math.abs(lg2d - lg3d);
                 if (d > max) max = d;
                 // Move B = A + AB * r with r = l2d / l3d
                 // AB * r is based on length 3d to match length 2d
                 const r = lg2d / lg3d;
+                let other = null;
+                if (s.p2 === point) other = s.p1;
+                else if (s.p1 === point) other = s.p2;
+                if (!other) continue;
                 pm.x += other.x + (point.x - other.x) * r;
                 pm.y += other.y + (point.y - other.y) * r;
                 pm.z += other.z + (point.z - other.z) * r;
             }
             // Set Point with an average position taking all segments
-            if (neighbors.length > 0) {
-                point.x = pm.x / neighbors.length;
-                point.y = pm.y / neighbors.length;
-                point.z = pm.z / neighbors.length;
+            if (segments.length > 0) {
+                point.x = pm.x / segments.length;
+                point.y = pm.y / segments.length;
+                point.z = pm.z / segments.length;
             }
         }
         return max;
-    }
-
-    // Group {other, lg2d} neighbors whose `other` point is (nearly) at the
-    // same current 3D position — paper folded them together. Only the first
-    // one found in each such group can pin `point` down any further; later
-    // ones would just repeat the same sphere.
-    static clusterByPosition(neighbors, eps = 0.5) {
-        const clusters = [];
-        for (const n of neighbors) {
-            if (!clusters.some((c) => Vector3.distance(c.other, n.other) < eps)) clusters.push(n);
-        }
-        return clusters;
-    }
-
-    // Exactly two independent references: place `point` on the circle where
-    // their two spheres meet, at whichever point of that circle is closest to
-    // where `point` currently sits — the same "stay near your current path"
-    // rule the average in adjust() follows one small step at a time, just
-    // solved directly since no amount of iterating that average can narrow a
-    // circle down to a point on its own.
-    adjustOnCircle(point, clusters, snap = false) {
-        const [c1, c2] = clusters;
-        const A = c1.other, B = c2.other;
-        const rA = c1.lg2d * this.scale, rB = c2.lg2d * this.scale;
-        const d = Vector3.distance(A, B);
-        if (d === 0) return 0.1; // both spheres share a center: leave point be
-        const u = Vector3.scale(Vector3.sub(B, A), 1 / d);
-        // Distance from A to the circle's center along axis AB, then the
-        // circle's own radius (law of cosines); clamp for near-misses caused
-        // by substep floating-point drift rather than a real inconsistency.
-        const a = Math.max(0, Math.min(d, (d * d + rA * rA - rB * rB) / (2 * d)));
-        const h = Math.sqrt(Math.max(rA * rA - a * a, 0));
-        const center = Vector3.add(A, Vector3.scale(u, a));
-        const toPoint = Vector3.sub(point, center);
-        let perp = Vector3.sub(toPoint, Vector3.scale(u, Vector3.dot(toPoint, u)));
-        let perpLen = Vector3.length3d(perp);
-        if (perpLen < 1e-9) {
-            // point sits exactly on the axis: any direction on the circle is as good
-            const arbitrary = Math.abs(u.x) < 0.9 ? {x: 1, y: 0, z: 0} : {x: 0, y: 1, z: 0};
-            perp = Vector3.sub(arbitrary, Vector3.scale(u, Vector3.dot(arbitrary, u)));
-            perpLen = Vector3.length3d(perp);
-        }
-        const target = Vector3.add(center, Vector3.scale(perp, h / perpLen));
-        // Stacked neighbors mean a flat-ish fold, where the circle's free angle
-        // is normally settled by another layer: if some other point already
-        // sits on both spheres, land exactly on it rather than merely near it.
-        // Not for two plain neighbors (`snap` false): a mirror-image point on
-        // both spheres would then be an unrelated match.
-        const onCircle = (q) => q !== point && q !== A && q !== B
-            && Math.abs(Vector3.distance(q, A) / this.scale - c1.lg2d) < 0.05
-            && Math.abs(Vector3.distance(q, B) / this.scale - c2.lg2d) < 0.05;
-        const snapTo = snap ? this.points
-            .filter(onCircle)
-            .sort((q, r) => Vector3.distance(q, target) - Vector3.distance(r, target))[0] : null;
-        const dest = snapTo ?? target;
-        point.x = dest.x;
-        point.y = dest.y;
-        point.z = dest.z;
-        return Math.max(
-            Math.abs(Vector3.distance(point, A) / this.scale - c1.lg2d),
-            Math.abs(Vector3.distance(point, B) / this.scale - c2.lg2d),
-        );
     }
 
     // Adjust list of points 3d
@@ -2625,6 +2561,7 @@ class Command {
     command(cde) {
         this.commandArea?.addLine(cde);
         const tokens = this.tokenize(cde);
+        if (tokens.length) this.onCommand?.();
         if (tokens[0] === 'd' || tokens[0] === 'define') {
             this.done = [];
             this.tokenTodo = [];
@@ -2786,12 +2723,6 @@ class Command {
         const targetTni = this.interpolator(tn);
         // Execute commands after t xxx up to end of line
         const iBeginAnim = this.iToken;
-        // Commands like 'a' (adjust) resolve a point's 3d position iteratively from
-        // its position in the *previous* step, so a big jump in a single call (a short
-        // duration, or a slow display giving few real frames) can make it settle on the
-        // wrong stable fold instead of the one continuous small motions converge to.
-        // Replay this frame's motion as small fixed-size substeps so the result only
-        // depends on the animated distance, not on how many real frames covered it.
         if (this.tpi === 0) this.freezeRotateAxes(iBeginAnim);
         const maxStep = 0.01;
         const steps = Math.max(1, Math.ceil(Math.abs(targetTni - this.tpi) / maxStep));
@@ -2820,8 +2751,6 @@ class Command {
     }
 
     // A rotated point can itself be another simultaneous rotation's axis endpoint
-    // (e.g. `t 1000 r s6 180 p7 r s13 -90 p5` where s13 = p7-p4): re-reading the
-    // axis live, substep after substep, would make it drift along with that point.
     // Snapshot the axis of every `r` of the line before any of them has run, so the
     // last rotation does not see an axis already moved by the earlier ones.
     freezeRotateAxes(iBegin) {
@@ -2967,6 +2896,7 @@ function define(cmd) {
 // instantly settling any 't'-animated line, one Model snapshot returned per instruction.
 function replaySteps(instructions) {
     const replay = new Command(new Model());
+    replay.headless = true;
     const steps = [];
     for (const line of instructions) {
         replay.command(line);
@@ -3109,35 +3039,23 @@ on('selectPoints sp', (cmd) => select(cmd, 'p', cmd.model.points));
 on('selectSegments ss', (cmd) => select(cmd, 's', cmd.model.segments));
 on('selectFaces sf', (cmd) => select(cmd, 'f', cmd.model.faces));
 
-on('read', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.readFileAsText(filename).then((text) => {
-        if (text == null) return;
-        ReadWrite.loadText(cmd, text);
+function io(names, action) {
+    on(names, (cmd) => {
+        const token = cmd.peek();
+        const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+        if (!cmd.headless) action(cmd, filename);
     });
-});
-on('write instructions', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeFile(cmd.instructions.join('\n'), filename).catch((e) => console.error(e));
-});
-on('writeSvg svg', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
+}
+io('read', (cmd, filename) => ReadWrite.readFileAsText(filename).then((text) => {
+    if (text != null) ReadWrite.loadText(cmd, text);
+}));
+io('write instructions', (cmd, filename) => ReadWrite.writeFile(cmd.instructions.join('\n'), filename).catch(console.error));
+io('writeSvg svg', (cmd, filename) => {
     cmd.view3d?.updateCanvasCoords?.();
-    ReadWrite.writeSVG(cmd.model, filename).catch((e) => console.error(e));
+    ReadWrite.writeSVG(cmd.model, filename).catch(console.error);
 });
-on('writeFold fold', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeFold(cmd.model, filename).catch((e) => console.error(e));
-});
-on('writeDiagrams diagrams', (cmd) => {
-    const token = cmd.peek();
-    const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-    ReadWrite.writeDiagrams(replaySteps(cmd.instructions), filename).catch((e) => console.error(e));
-});
+io('writeFold fold', (cmd, filename) => ReadWrite.writeFold(cmd.model, filename).catch(console.error));
+io('writeDiagrams diagrams', (cmd, filename) => ReadWrite.writeDiagrams(replaySteps(cmd.instructions), filename).catch(console.error));
 
 // Toggles
 on('labels', (cmd) => { cmd.model.labels = !cmd.model.labels; });
@@ -3211,6 +3129,69 @@ class CommandArea {
 }
 
 
+class Timeline {
+    constructor(command, input, label, onChange = () => {}) {
+        this.command = command;
+        this.input = input;
+        this.label = label;
+        this.onChange = onChange;
+        this.steps = null;
+        this.live = null;
+        command.onCommand = () => this.commit();
+        input.addEventListener('input', () => this.show(Number(input.value)));
+        input.addEventListener('change', () => {
+            if (Number(input.value) >= this.steps?.length) this.commit();
+        });
+        this.update();
+    }
+    get busy() {
+        return this.command.model.state === State.anim || this.command.iToken < this.command.tokenTodo.length;
+    }
+    update() {
+        if (this.live) return;
+        const n = this.command.instructions.length;
+        this.input.disabled = this.busy || n === 0;
+        this.input.min = String(Math.min(1, n));
+        this.input.max = String(n);
+        this.input.value = String(n);
+        this.setLabel(n, n);
+    }
+    setLabel(k, n) {
+        this.label.textContent = `${k}/${n}`;
+        this.label.title = this.command.instructions[k - 1] ?? '';
+    }
+    start() {
+        if (this.live || this.busy) return;
+        const model = this.command.model;
+        this.steps = replaySteps(this.command.instructions);
+        this.live = {json: model.serialize(), state: model.state};
+    }
+    show(k) {
+        this.start();
+        if (!this.live) return;
+        const n = this.steps.length;
+        const model = this.command.model;
+        const source = k >= n ? Model.deserialize(this.live.json) : Model.deserialize(this.steps[k - 1].serialize());
+        const {labels, textures, lines, snap} = model;
+        Object.assign(model, source, {labels, textures, lines, snap, state: State.pause});
+        this.setLabel(k, n);
+        this.onChange();
+    }
+    commit() {
+        if (!this.live) return;
+        const k = Number(this.input.value), n = this.steps.length;
+        if (k < n) {
+            this.command.instructions.length = k;
+            this.command.done = this.steps.slice(0, k).map((step) => step.serialize());
+        }
+        this.command.model.state = k < n ? State.run : this.live.state;
+        this.live = null;
+        this.steps = null;
+        this.update();
+    }
+}
+
+
 
 const CLICK_PX_MOUSE = 12;
 const CLICK_PX_TOUCH = 24;
@@ -3231,7 +3212,7 @@ class Helper {
         // Mouse coordinates, first and current
         this.firstX = this.firstY = this.currentX = this.currentY = undefined;
         // Correctif pour les gestes tactiles
-        let lastTouchDistance = 0;
+        this.lastTouchDistance = 0;
 
         // To test with Deno, view3d (and its overlay) may be null
         const overlay = view3d?.overlay;
@@ -3249,26 +3230,26 @@ class Helper {
             // Keyboard
             document.addEventListener('keydown', (event) => this.keydown(event));
             // Tactile
-            document.addEventListener('touchstart', function(e) {
+            document.addEventListener('touchstart', (e) => {
                 if (e.touches && e.touches.length >= 2) {
                     const t0 = e.touches[0];
                     const t1 = e.touches[1];
                     const dx = t0.clientX - t1.clientX;
                     const dy = t0.clientY - t1.clientY;
-                    lastTouchDistance = Math.sqrt(dx*dx + dy*dy);
+                    this.lastTouchDistance = Math.sqrt(dx*dx + dy*dy);
                 }
             });
             // Add e.scale for View3d
-            document.addEventListener('touchmove', function(e) {
+            document.addEventListener('touchmove', (e) => {
                 if (e.touches && e.touches.length >= 2 && !e.scale) {
                     const t0 = e.touches[0];
                     const t1 = e.touches[1];
                     const dx = t0.clientX - t1.clientX;
                     const dy = t0.clientY - t1.clientY;
                     const currentDist = Math.sqrt(dx*dx + dy*dy);
-                    if (lastTouchDistance > 0) {
-                        e.scale = currentDist / lastTouchDistance;
-                        lastTouchDistance = currentDist;
+                    if (this.lastTouchDistance > 0) {
+                        e.scale = currentDist / this.lastTouchDistance;
+                        this.lastTouchDistance = currentDist;
                     }
                 }
             });
@@ -4312,6 +4293,11 @@ class View3d {
     hTexFront = 1;
     wTexBack = 1;
     hTexBack = 1;
+    vtx = [];
+    ftx = [];
+    btx = [];
+    fnr = [];
+    lin = [];
 
     constructor(model, canvas3d) {
         this.model = model;
@@ -4768,6 +4754,10 @@ class Label {
     // Helper
     const helper = new Helper(model, command, view3d, view2d);
     helper.out();
+    const timeline = new Timeline(command, document.getElementById('timeline'), document.getElementById('timelineLabel'), () => {
+      view3d.initBuffers();
+      view3d.initModelView();
+    });
 
     function resizeViews() {
       view3d.initPerspective();
@@ -4790,6 +4780,7 @@ class Label {
       }
       view3d.render();
       helper.draw();
+      timeline.update();
       document.getElementById('stepBtn').classList.toggle('active', command.stepMode);
       document.getElementById('runBtn').classList.toggle('active', model.state === State.pause);
       requestAnimationFrame(loop);
