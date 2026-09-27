@@ -5,7 +5,7 @@ import {Model} from "../js/Model.js";
 import {Point} from "../js/Point.js";
 import {Segment} from "../js/Segment.js";
 import {Face} from "../js/Face.js";
-import {Command, replaySteps} from "../js/Command.js";
+import {Command} from "../js/Command.js";
 import {assertEquals} from "@std/assert";
 
 Deno.test("ReadWrite", async (t) => {
@@ -175,7 +175,7 @@ Deno.test("ReadWrite", async (t) => {
         const cmd = new Command(m);
         cmd.command('d 200 200').anim();
         cmd.command('rotate S0 90 P2 P3').anim();
-        const steps = replaySteps(cmd.instructions);
+        const steps = cmd.steps();
         assertEquals(steps.length, 2);
         assertEquals(Math.abs(steps[1].points[2].z) > 1, true, 'step 2 is actually folded (z != 0)');
         const svg = ReadWrite.diagramsToSVG(steps, {cols: 2, cellSize: 150});

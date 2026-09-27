@@ -1,7 +1,7 @@
 // NOSONAR - SonarQube's S2187 test-detection doesn't recognize Deno's Deno.test()/t.step()
 // API as test cases; this file contains 49 t.step() sub-tests (155 assertions) for Command.js.
 import { Model, State } from '../js/Model.js';
-import { Command, replaySteps } from '../js/Command.js';
+import { Command } from '../js/Command.js';
 import { Point } from '../js/Point.js';
 import { Interpolator } from '../js/Interpolator.js';
 import { assertEquals } from "@std/assert";
@@ -357,55 +357,122 @@ Deno.test('Command', async (t) => {
         cmd.command('c2d P1 P3').anim();
         cmd.command('undo');
         while (cmd.anim()) { /* drain undo */ }
-        const recorded = cmd.instructions.join('\n');
-        const diagonals = cmd.instructions.filter((line) => /c2d/i.test(line));
+        const done = cmd.instructions.slice(0, cmd.cursor);
+        const recorded = done.join('\n');
+        const diagonals = done.filter((line) => /c2d/i.test(line));
         assertEquals(diagonals.length, 1, recorded);
     });
 
     // Animation commands
-    await t.step('lightweight animation snapshots in done', () => {
-        const m = new Model().init(200, 200);
-        const cmd = new Command(m);
-        cmd.command('d 200 200').anim();
-        assertEquals(cmd.done.length, 1);
-        assertEquals(typeof cmd.done[0], 'string', 'Static command produces serialized JSON string snapshot');
-
-        // Start animation line
-        cmd.command('t 50 rotate S0 90 P2 P3');
-        cmd.anim(); // First call runs runNext: pushes full snapshot, sets state to anim
-        assertEquals(cmd.done.length, 2);
-        assertEquals(typeof cmd.done[1], 'string', 'Pre-animation snapshot is full JSON string');
-
-        // Run one anim frame
-        cmd.anim(); // runs runAnim: executes rotate, pushes lightweight anim snapshot
-        assertEquals(cmd.done.length >= 3, true);
-        const animSnapshot = cmd.done[cmd.done.length - 1];
-        assertEquals(typeof animSnapshot, 'object', 'Anim frame snapshot is an object, not JSON string');
-        assertEquals(animSnapshot.state, State.anim);
-        assertEquals(animSnapshot.coords instanceof Float64Array, true);
-        assertEquals(animSnapshot.coords.length, m.points.length * 3);
-    });
-
-    await t.step('one real animation frame pushes exactly one undo snapshot, however many substeps it took', () => {
-        const m = new Model().init(200, 200);
-        const cmd = new Command(m);
-        cmd.command('d 200 200').anim();
-        assertEquals(cmd.done.length, 1);
-
+    await t.step('one snapshot per instruction, and a path of positions per animated instruction', () => {
         const clock = installClock(0);
         try {
+            const m = new Model().init(200, 200);
+            const cmd = new Command(m);
+            cmd.command('d 200 200').anim();
+            cmd.command('by2d p0 p2').anim();
             cmd.command('t 100 rotate S0 90 P2 P3');
-            cmd.anim(); // runNext: pushes pre-animation snapshot, enters State.anim
-            assertEquals(cmd.done.length, 2);
-
-            // A single real frame covering 90% of the duration in one jump forces
-            // runAnim()'s substep loop to run dozens of substeps internally.
-            clock.now = 90;
             cmd.anim();
-            assertEquals(cmd.done.length, 3, 'one real frame must push exactly one undo snapshot');
+            for (let i = 1; i <= 10; i++) {
+                clock.now = i * 10;
+                cmd.anim();
+            }
+            assertEquals(cmd.instructions, ['d 200 200', 'by2d p0 p2', 't 100 rotate S0 90 P2 P3']);
+            assertEquals(cmd.snapshots.length, 4);
+            assertEquals(cmd.cursor, 3);
+            assertEquals([cmd.paths[1], cmd.paths[2]], [null, null]);
+            const frames = cmd.paths[3].frames;
+            assertEquals(cmd.paths[3].duration, 100);
+            assertEquals(frames.length, 11);
+            assertEquals([frames[0].tn, frames.at(-1).tn], [0, 1]);
+            assertEquals(frames.every((f: { coords: Float64Array }) => f.coords.length === m.points.length * 3), true);
         } finally {
             clock.restore();
         }
+    });
+
+    await t.step('undo interpolates back along the recorded path, redo forward', () => {
+        const clock = installClock(0);
+        try {
+            const m = new Model().init(200, 200);
+            const cmd = new Command(m);
+            cmd.command('d 200 200').anim();
+            cmd.command('t 100 rotate S0 180 P2 P3');
+            for (let i = 0; i <= 10; i++) {
+                clock.now = i * 10;
+                cmd.anim();
+            }
+            assertEquals([Math.round(m.points[2].y), Math.round(m.points[2].z)], [-600, 0]);
+            clock.now = 1000;
+            cmd.command('undo');
+            assertEquals(m.state, State.undo);
+            assertEquals(cmd.cursor, 1);
+            clock.now = 1050;
+            cmd.anim();
+            assertEquals(Math.abs(Math.round(m.points[2].y) + 200) <= 20, true);
+            assertEquals(Math.abs(Math.round(Math.abs(m.points[2].z)) - 400) <= 20, true);
+            clock.now = 1100;
+            cmd.anim();
+            assertEquals(m.state, State.run);
+            assertEquals([Math.round(m.points[2].y), Math.round(m.points[2].z)], [200, 0]);
+            cmd.command('redo');
+            clock.now = 1150;
+            cmd.anim();
+            assertEquals(Math.abs(Math.round(Math.abs(m.points[2].z)) - 400) <= 20, true);
+            clock.now = 1200;
+            cmd.anim();
+            assertEquals([Math.round(m.points[2].y), cmd.cursor, m.state], [-600, 2, State.run]);
+        } finally {
+            clock.restore();
+        }
+    });
+
+    await t.step('undo keeps the undone steps for redo until a new instruction replaces them', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('d 200 200').anim();
+        cmd.command('c2d P0 P2').anim();
+        cmd.command('c2d P1 P3').anim();
+        cmd.command('undo').anim();
+        cmd.command('undo').anim();
+        assertEquals([cmd.cursor, cmd.instructions.length, m.faces.length], [1, 3, 1]);
+        cmd.command('undo').anim();
+        assertEquals(cmd.cursor, 1, 'define cannot be undone');
+        cmd.command('redo').anim();
+        assertEquals([cmd.cursor, m.faces.length], [2, 2]);
+        cmd.command('by2d P0 P2').anim();
+        assertEquals(cmd.instructions, ['d 200 200', 'c2d P0 P2', 'by2d P0 P2']);
+        cmd.command('redo').anim();
+        assertEquals(cmd.cursor, 3);
+    });
+
+    await t.step('run replays the undone steps', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('d 200 200').anim();
+        cmd.command('c2d P0 P2').anim();
+        cmd.command('c2d P1 P3').anim();
+        const faces = m.faces.length;
+        cmd.goTo(1);
+        assertEquals(m.faces.length, 1);
+        cmd.command('run');
+        while (cmd.anim()) { /* replay */ }
+        assertEquals([cmd.cursor, m.faces.length], [3, faces]);
+        assertEquals(cmd.instructions, ['d 200 200', 'c2d P0 P2', 'c2d P1 P3']);
+    });
+
+    await t.step('stepLine replays the undone steps one at a time', () => {
+        const m = new Model().init(200, 200);
+        const cmd = new Command(m);
+        cmd.command('d 200 200').anim();
+        cmd.command('c2d P0 P2').anim();
+        cmd.command('c2d P1 P3').anim();
+        cmd.goTo(1);
+        cmd.stepMode = true;
+        cmd.stepLine();
+        assertEquals([cmd.cursor, m.state], [2, State.pause]);
+        cmd.stepLine();
+        assertEquals(cmd.cursor, 3);
     });
 
     await t.step('command t 10 rotate S0 90 P2 P3', () => {
@@ -692,8 +759,11 @@ Deno.test('Command', async (t) => {
         assertEquals(cde.iToken > 0, true);
     });
 
-    await t.step('replaySteps rebuilds one Model snapshot per instruction', () => {
-        const steps = replaySteps(['d 200 200', 'by3d P0 P2']);
+    await t.step('steps() returns one Model snapshot per instruction', () => {
+        const cmd = new Command(new Model());
+        cmd.command('d 200 200').anim();
+        cmd.command('by3d P0 P2').anim();
+        const steps = cmd.steps();
         assertEquals(steps.length, 2);
         assertEquals(steps[0].faces.length, 1, 'after define: still 1 face');
         assertEquals(steps[1].faces.length, 2, 'after split: 2 faces');
@@ -702,8 +772,12 @@ Deno.test('Command', async (t) => {
         assertEquals(steps[1].points[0].x !== 999, true);
     });
 
-    await t.step('replaySteps settles an animated (t ...) instruction instantly', () => {
-        const steps = replaySteps(['d 200 200', 't 500 tz 90']);
+    await t.step('steps() holds the settled result of an animated (t ...) instruction', () => {
+        const cmd = new Command(new Model());
+        cmd.command('d 200 200').anim();
+        cmd.command('t 500 tz 90');
+        while (cmd.anim()) cmd.tStart = performance.now() - cmd.duration - 1;
+        const steps = cmd.steps();
         assertEquals(steps.length, 2);
         const p0 = steps[1].points[0];
         // Quarter turn around z: (x,y) -> (-y, x)

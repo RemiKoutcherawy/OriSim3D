@@ -29,19 +29,21 @@
     body.command-area-open #commandAreaPanel{display:flex}
     #commandAreaPanel label{font:14px sans-serif;margin-bottom:4px}
     #commandArea{flex:1;width:100%;font:14px monospace;resize:none}
-    #burger,#nav,#undoBtn,#runBtn,#stepBtn{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #burger,#nav,#undoBtn,#redoBtn,#runBtn,#stepBtn{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
     #burger{top:8px;padding:8px;line-height:0;cursor:pointer}
     #burger:hover{background:#eef1f4}
     #undoBtn{top:8px;left:54px;padding:8px;line-height:0;cursor:pointer}
     #undoBtn:hover{background:#eef1f4}
-    #runBtn{top:8px;left:100px;padding:8px;line-height:0;cursor:pointer}
+    #redoBtn{top:8px;left:100px;padding:8px;line-height:0;cursor:pointer}
+    #redoBtn:hover{background:#eef1f4}
+    #runBtn{top:8px;left:146px;padding:8px;line-height:0;cursor:pointer}
     #runBtn:hover{background:#eef1f4}
-    #stepBtn{top:8px;left:146px;padding:8px;line-height:0;cursor:pointer}
+    #stepBtn{top:8px;left:192px;padding:8px;line-height:0;cursor:pointer}
     #stepBtn:hover{background:#eef1f4}
     /* noinspection CssUnusedSymbol -- toggled via classList.toggle('active', ...) */
     #stepBtn.active,#runBtn.active{background:#e6a817}
-    #timelineBar{position:absolute;top:8px;left:192px;z-index:10;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f6f8fa;border:1px solid black;border-radius:6px}
-    #timeline{width:clamp(80px,calc(100vw - 300px),320px)}
+    #timelineBar{position:absolute;top:8px;left:238px;z-index:10;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #timeline{width:clamp(60px,calc(100vw - 346px),320px)}
     #timelineLabel{font:14px sans-serif;min-width:3.5em}
     #burger span{display:block;width:22px;height:2px;margin:4px 0;background:#1f2328;transition:.15s}
     #burger[aria-expanded="true"] span:first-child{transform:translateY(6px) rotate(45deg)}
@@ -77,6 +79,9 @@
 </button>
 <button id="undoBtn" data-load="undo" aria-label="Undo">
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 1 1 0 11H11"/></svg>
+</button>
+<button id="redoBtn" data-load="redo" aria-label="Redo">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 1 0 0 11H13"/></svg>
 </button>
 <button id="runBtn" data-load="run" aria-label="Run" title="Run: resumes normal auto-play after Step has paused the script.">
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>
@@ -161,10 +166,7 @@
     // Helper
     const helper = new Helper(model, command, view3d, view2d);
     helper.out();
-    const timeline = new Timeline(command, document.getElementById('timeline'), document.getElementById('timelineLabel'), () => {
-      view3d.initBuffers();
-      view3d.initModelView();
-    });
+    const timeline = new Timeline(command, document.getElementById('timeline'), document.getElementById('timelineLabel'));
 
     function resizeViews() {
       view3d.initPerspective();
@@ -284,6 +286,7 @@
 <template id="exportFold">fold</template>
 <template id="exportDiagrams">diagrams</template>
 <template id="undo">undo</template>
+<template id="redo">redo</template>
 <template id="run">run</template>
 <template id="labels">labels</template>
 <template id="textures">textures</template>

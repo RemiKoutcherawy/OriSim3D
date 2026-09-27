@@ -106,10 +106,10 @@ export class Helper {
     }
 
     keydown(event) {
-        // Control Z to undo
-        if (event.key === 'z' && (event.ctrlKey || event.metaKey)) {
-            this.command.command('undo');
-        }
+        if (!(event.ctrlKey || event.metaKey)) return;
+        const key = event.key.toLowerCase();
+        if (key === 'y' || (key === 'z' && event.shiftKey)) this.command.command('redo');
+        else if (key === 'z') this.command.command('undo');
     }
 
     // Helper method to get formatted object string id (e.g. 'p0', 's1', 'f2')

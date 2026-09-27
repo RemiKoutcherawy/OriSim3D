@@ -38,11 +38,11 @@ export class CommandArea {
             this.textarea.selectionStart = this.textarea.selectionEnd = this.textarea.value.length;
             el.scrollTop = el.scrollHeight;
         }
-        // Control Z to undo
-        if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+        const key = e.key.toLowerCase();
+        if ((e.ctrlKey || e.metaKey) && (key === 'z' || key === 'y')) {
             e.preventDefault();
             e.stopPropagation();
-            this.command.command('undo');
+            this.command.command(key === 'y' || e.shiftKey ? 'redo' : 'undo');
         }
     }
 }

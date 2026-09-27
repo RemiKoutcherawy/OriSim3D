@@ -8,8 +8,13 @@ export class Command {
     // Tokenized commands
     tokenTodo = [];
     iToken = 0;
-    done = []; // List of model states
-    instructions = []; // List of commands done
+    instructions = [];
+    snapshots = [];
+    paths = [];
+    cursor = 0;
+    path = null;
+    transition = null;
+    changed = false;
     // Time interpolated at an instant 'p' preceding and at instant 'n' now
     tpi = 0;
     tni = 1;
@@ -36,38 +41,53 @@ export class Command {
     constructor(model, view3d = null) {
         this.model = model;
         this.view3d = view3d;
+        this.reset();
+    }
+    reset() {
+        this.tokenTodo = [];
+        this.iToken = 0;
+        this.instructions = [];
+        this.snapshots = [this.model.serialize()];
+        this.paths = [null];
+        this.cursor = 0;
+        this.path = null;
+        this.transition = null;
+        this.tpi = 0;
+        this.tni = 1;
+        this.frozenAxes.clear();
+        this.model.state = State.run;
+    }
+    get first() {
+        return /^(d|define)\b/.test(this.instructions[0] ?? '') ? 1 : 0;
+    }
+    get busy() {
+        return this.model.state === State.anim || this.iToken < this.tokenTodo.length;
+    }
+    steps() {
+        return this.snapshots.slice(1, this.cursor + 1).map((json) => Model.deserialize(json));
     }
 
     // The main entry point executes a string of commands
     command(cde) {
         this.commandArea?.addLine(cde);
         const tokens = this.tokenize(cde);
-        if (tokens.length) this.onCommand?.();
+        if (tokens.length) this.settle();
         if (tokens[0] === 'd' || tokens[0] === 'define') {
-            this.done = [];
-            this.tokenTodo = [];
-            this.iToken = 0;
-            this.instructions = [];
-            // A fresh model replaces whatever script was running before.
-            this.model.state = State.run;
+            this.reset();
         } else if (tokens[0] === 'u' || tokens[0] === 'undo') {
-            // Drop the snapshot of the live model; runUndo restores the previous one.
-            if (this.done.length > 0) {
-                this.done.pop();
-                this.instructions.pop();
-            }
-            this.model.state = State.undo;
+            this.goTo(this.model.state === State.anim ? this.cursor : this.cursor - 1, true);
+            return this;
+        } else if (tokens[0] === 'redo') {
+            this.goTo(this.cursor + 1, true);
             return this;
         } else if (tokens[0] === 'run') {
-            this.model.state = State.run;
             this.stepMode = false;
+            this.resume();
+            this.model.state = State.run;
             return this;
         } else if (tokens[0] === 'stop') {
             this.tokenTodo.length = this.iToken;
             return this;
-        }
-        if (this.model.state === State.undo) {
-            this.model.state = State.run;
         }
         this.tokenTodo.push(...tokens);
         if (this.stepMode) {
@@ -75,8 +95,55 @@ export class Command {
         }
         return this;
     }
+    resume() {
+        this.settle();
+        if (this.busy || this.cursor >= this.instructions.length) return;
+        this.tokenTodo = this.tokenize(this.instructions.slice(this.cursor).join('\n'));
+        this.iToken = 0;
+    }
+    settle() {
+        if (this.model.state !== State.undo) return;
+        Object.assign(this.model, Model.deserialize(this.snapshots[this.cursor]));
+        this.transition = null;
+        this.model.state = this.stepMode ? State.pause : State.run;
+        this.changed = true;
+    }
+    goTo(k, animate = false) {
+        this.settle();
+        this.tokenTodo.length = this.iToken;
+        this.frozenAxes.clear();
+        this.path = null;
+        this.tpi = 0;
+        this.tni = 1;
+        const target = Math.max(this.first, Math.min(k, this.instructions.length));
+        const path = animate && Math.abs(target - this.cursor) === 1 ? this.paths[Math.max(target, this.cursor)] : null;
+        const forward = target > this.cursor;
+        this.cursor = target;
+        Object.assign(this.model, Model.deserialize(this.snapshots[target]));
+        this.model.state = this.stepMode ? State.pause : State.run;
+        this.changed = true;
+        if (path?.frames.every((frame) => frame.coords.length === this.model.points.length * 3)) {
+            this.transition = {path, forward, start: performance.now()};
+            this.model.state = State.undo;
+            this.runTransition();
+        }
+    }
+    runTransition() {
+        const {path, forward, start} = this.transition;
+        const tn = path.duration > 0 ? Math.min((performance.now() - start) / path.duration, 1) : 1;
+        const u = forward ? tn : 1 - tn;
+        const frames = path.frames;
+        let i = 0;
+        while (i < frames.length - 2 && frames[i + 1].tn < u) i++;
+        const a = frames[i], b = frames[i + 1];
+        const r = b.tn > a.tn ? Math.max(0, Math.min(1, (u - a.tn) / (b.tn - a.tn))) : 1;
+        this.model.restorePositions(a.coords.map((c, j) => c + (b.coords[j] - c) * r));
+        if (tn >= 1) this.settle();
+        return true;
+    }
 
     stepLine() {
+        this.resume();
         if (this.model.state === State.pause) {
             this.model.state = State.run;
         }
@@ -146,13 +213,18 @@ export class Command {
     // Only 4 states: run, anim, undo, pause
     // Called by requestAnimationFrame(loop)
     anim() {
+        const changed = this.changed;
+        this.changed = false;
+        return this.advance() || changed;
+    }
+    advance() {
         switch (this.model.state) {
             case State.pause:
                 return false;
             case State.run:
                 return this.runNext();
             case State.undo:
-                return this.runUndo();
+                return this.runTransition();
             case State.anim:
                 return this.runAnim();
             default:
@@ -168,9 +240,6 @@ export class Command {
         this.idxBefore = this.iToken;
         // Handle time command to start animation and switch to Anim
         if (this.peek() === 't' || this.peek() === 'time') {
-            // Snapshot before the animated line (state is still run). Without it,
-            // undo only has anim-frame snapshots and never returns to State.run.
-            this.pushUndo();
             this.iToken++;
             this.duration = Number.parseFloat(this.next());
             this.tStart = performance.now();
@@ -179,23 +248,7 @@ export class Command {
             return true;
         }
         this.execute(this.iToken);
-        this.doneInstructions(this.idxBefore, this.iToken);
-        return true;
-    }
-
-    runUndo() {
-        // Empty stack: stay in undo and nothing ever runs again (commandArea / mouse).
-        if (this.done.length === 0) {
-            this.model.state = State.run;
-            return false;
-        }
-        this.popUndo();
-        // Continue undo through per-frame snapshots of an animated line
-        if (this.model.state === State.anim) {
-            this.model.state = State.undo;
-            return true;
-        }
-        this.model.state = this.stepMode ? State.pause : State.run;
+        this.record(this.idxBefore, this.iToken);
         return true;
     }
 
@@ -205,14 +258,14 @@ export class Command {
         // Execute commands after t xxx up to end of line
         const iBeginAnim = this.iToken;
         if (this.tpi === 0) this.freezeRotateAxes(iBeginAnim);
+        this.path ??= {duration: this.duration, frames: [{tn: 0, coords: this.model.snapshotPositions()}]};
         const maxStep = 0.01;
         const steps = Math.max(1, Math.ceil(Math.abs(targetTni - this.tpi) / maxStep));
         for (let i = 1; i <= steps; i++) {
             this.tni = this.tpi + (targetTni - this.tpi) * i / steps;
             this.iToken = iBeginAnim;
-            const recordUndo = i === steps;
             while (this.iToken < this.tokenTodo.length && this.peek() !== '\n') {
-                this.execute(this.iToken, recordUndo);
+                this.execute(this.iToken);
             }
             this.tpi = this.tni;
         }
@@ -223,10 +276,13 @@ export class Command {
             if (this.model.snap) {
                 this.model.snapPoints();
             }
-            this.doneInstructions(this.idxBefore, this.iToken);
+            this.path.frames.push({tn: 1, coords: this.model.snapshotPositions()});
+            this.record(this.idxBefore, this.iToken, this.path);
+            this.path = null;
             this.model.state = State.run;
             return true;
         }
+        if (tn >= this.path.frames.at(-1).tn + 1 / 16) this.path.frames.push({tn, coords: this.model.snapshotPositions()});
         this.iToken = iBeginAnim;
         return true;
     }
@@ -248,19 +304,20 @@ export class Command {
         }
     }
 
-    doneInstructions(idxBefore, idxAfter) {
-        const doneCommands = this.tokenTodo.slice(idxBefore, idxAfter).join(' ');
-        if (doneCommands === 'undo') {
-            this.instructions.pop();
-        } else if (doneCommands !== '' && doneCommands !== '\n') {
-            this.instructions.push(doneCommands);
+    record(idxBefore, idxAfter, path = null) {
+        const line = this.tokenTodo.slice(idxBefore, idxAfter).join(' ');
+        if (line === '' || line === '\n') return;
+        if (this.instructions[this.cursor] !== line) {
+            this.instructions.length = this.cursor;
+            this.snapshots.length = this.paths.length = this.cursor + 1;
         }
+        this.instructions[this.cursor++] = line;
+        this.snapshots[this.cursor] = this.model.serialize();
+        this.paths[this.cursor] = path;
     }
 
     // Execute one instruction from tokenTodo starting at idx on the model.
-    // pushUndo defaults to true (every non-animated call site wants a snapshot);
-    // runAnim() passes false for all but an animated line's last real-frame substep.
-    execute(idx, pushUndo = true) {
+    execute(idx) {
         this.iToken = idx;
         const token = this.next();
         const command = COMMANDS[token];
@@ -269,7 +326,6 @@ export class Command {
         } else if (token !== '\n') {
             this.skipUnexpected();
         }
-        if (pushUndo) this.pushUndo();
     }
 
     skipUnexpected() {
@@ -301,31 +357,6 @@ export class Command {
         return list;
     }
 
-    pushUndo() {
-        if (this.model.state === State.anim) {
-            this.done.push({
-                state: State.anim,
-                coords: this.model.snapshotPositions(),
-            });
-        } else {
-            this.done.push(this.model.serialize());
-        }
-    }
-
-    popUndo() {
-        if (this.done.length === 0) {
-            return;
-        }
-        const snapshot = this.done.pop();
-        if (typeof snapshot === 'string') {
-            Object.assign(this.model, Model.deserialize(snapshot));
-        } else if (snapshot?.state === State.anim) {
-            this.model.state = State.anim;
-            if (snapshot.coords) {
-                this.model.restorePositions(snapshot.coords);
-            }
-        }
-    }
 }
 
 function reportError(cmd, message) {
@@ -371,25 +402,6 @@ function turn(axis) {
 
 function define(cmd) {
     cmd.model.init(cmd.num(200), cmd.num(200));
-}
-
-// Replay a recorded instruction list (cmd.instructions) on a fresh headless Model,
-// instantly settling any 't'-animated line, one Model snapshot returned per instruction.
-export function replaySteps(instructions) {
-    const replay = new Command(new Model());
-    replay.headless = true;
-    const steps = [];
-    for (const line of instructions) {
-        replay.command(line);
-        while (replay.iToken < replay.tokenTodo.length || replay.model.state === State.anim) {
-            if (replay.model.state === State.anim) {
-                replay.tStart = performance.now() - replay.duration - 1; // force tn >= 1
-            }
-            if (!replay.anim()) break;
-        }
-        steps.push(Model.deserialize(replay.model.serialize()));
-    }
-    return steps;
 }
 
 function splitSegment(cmd) {
@@ -524,19 +536,19 @@ function io(names, action) {
     on(names, (cmd) => {
         const token = cmd.peek();
         const filename = token && token !== '\n' && !COMMANDS[token] ? cmd.next() : undefined;
-        if (!cmd.headless) action(cmd, filename);
+        action(cmd, filename);
     });
 }
 io('read', (cmd, filename) => ReadWrite.readFileAsText(filename).then((text) => {
     if (text != null) ReadWrite.loadText(cmd, text);
 }));
-io('write instructions', (cmd, filename) => ReadWrite.writeFile(cmd.instructions.join('\n'), filename).catch(console.error));
+io('write instructions', (cmd, filename) => ReadWrite.writeFile(cmd.instructions.slice(0, cmd.cursor).join('\n'), filename).catch(console.error));
 io('writeSvg svg', (cmd, filename) => {
     cmd.view3d?.updateCanvasCoords?.();
     ReadWrite.writeSVG(cmd.model, filename).catch(console.error);
 });
 io('writeFold fold', (cmd, filename) => ReadWrite.writeFold(cmd.model, filename).catch(console.error));
-io('writeDiagrams diagrams', (cmd, filename) => ReadWrite.writeDiagrams(replaySteps(cmd.instructions), filename).catch(console.error));
+io('writeDiagrams diagrams', (cmd, filename) => ReadWrite.writeDiagrams(cmd.steps(), filename).catch(console.error));
 
 // Toggles
 on('labels', (cmd) => { cmd.model.labels = !cmd.model.labels; });

@@ -1,7 +1,7 @@
 // Input and Output
 import {Point} from "./Point.js";
 import {Segment} from "./Segment.js";
-import {Model, State} from "./Model.js";
+import {Model} from "./Model.js";
 import {Face} from "./Face.js";
 
 // JSON.parse reviver for FOLD files: `this` is the object node currently being
@@ -38,17 +38,6 @@ export class ReadWrite {
         });
     }
 
-    // Replace the command queue (and stop a running animation)
-    static resetCommand(command) {
-        command.done = [];
-        command.tokenTodo = [];
-        command.iToken = 0;
-        command.instructions = [];
-        command.tpi = 0;
-        command.tni = 1;
-        command.model.state = State.run;
-    }
-
     // Load a command script or a FOLD JSON into an existing Command
     static loadText(command, text) {
         const trimmed = String(text ?? '').replace(/^\uFEFF/, '').trim();
@@ -62,16 +51,15 @@ export class ReadWrite {
                     lines: command.model.lines,
                     snap: command.model.snap,
                 };
-                ReadWrite.resetCommand(command);
                 Object.assign(command.model, loaded, keep);
-                command.model.state = State.run;
+                command.reset();
                 ReadWrite.syncCommandArea(command, '');
                 return 'fold';
             } catch {
                 // Fall through and treat as a command script
             }
         }
-        ReadWrite.resetCommand(command);
+        command.reset();
         const area = command.commandArea;
         command.commandArea = undefined;
         command.command(trimmed);
@@ -217,7 +205,7 @@ export class ReadWrite {
     }
 
     // Simple orthographic (x,y) -> canvas projection for a model with no live WebGL view,
-    // e.g. a headless step snapshot from Command.replaySteps. y is flipped (SVG y grows down).
+    // e.g. a step snapshot from Command.steps(). y is flipped (SVG y grows down).
     static projectOrtho(model) {
         for (const p of model.points) {
             p.xCanvas = p.x;

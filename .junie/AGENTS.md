@@ -42,7 +42,7 @@ Browser-based origami simulator: 2D crease-pattern editor + live 3D fold preview
 
 - **Dual coordinate spaces**: every `Point` carries both 3D folded coords `x,y,z` and flat 2D crease-pattern coords `xf,yf`. Crease/split logic works in `xf,yf`; folding/rotation works in `x,y,z`; `adjust` reconciles them (moves 3D points so segment lengths match the 2D pattern). Never mix the two spaces.
 - **Shared references**: `Segment` (p1,p2) and `Face` (ordered point list) hold references into `Model.points` — never clone points when manipulating geometry.
-- **Command layer** (`js/Command.js`): `Command.command(text)` interprets whitespace-separated scripts (`d`, `by`, `across`, `perpendicular`, `bisector`, `split`, `rotate`, `move`, `adjust`, `offset`, …) and drives animation via `Interpolator.js`. `done`/`instructions` arrays support undo via model serialize/deserialize snapshots.
+- **Command layer** (`js/Command.js`): `Command.command(text)` interprets whitespace-separated scripts (`d`, `by`, `across`, `perpendicular`, `bisector`, `split`, `rotate`, `move`, `adjust`, `offset`, …) and drives animation via `Interpolator.js`. `instructions`/`snapshots`/`paths` and `cursor` hold the history: undo/redo/timeline move `cursor`, `run` replays the steps after it.
 - **Input** (`js/Helper.js`): translates mouse/touch gestures into commands only — it never touches rendering or the model directly.
 - **Rendering**: `View2d` draws `xf,yf` on `#canvas2d`; `View3d` renders 3D with raw WebGL on `#canvas3d`/`#overlay`. The `loop()` in `index.html` is the single render/animation loop.
 - **Persistence** (`js/ReadWrite.js`): native line-based command-script text (`models/*.txt`) or FOLD-spec JSON (`models/*.fold`), plus SVG export.
