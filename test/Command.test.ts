@@ -446,33 +446,61 @@ Deno.test('Command', async (t) => {
         assertEquals(cmd.cursor, 3);
     });
 
-    await t.step('run replays the undone steps', () => {
-        const m = new Model().init(200, 200);
-        const cmd = new Command(m);
-        cmd.command('d 200 200').anim();
-        cmd.command('c2d P0 P2').anim();
-        cmd.command('c2d P1 P3').anim();
-        const faces = m.faces.length;
-        cmd.goTo(1);
-        assertEquals(m.faces.length, 1);
-        cmd.command('run');
-        while (cmd.anim()) { /* replay */ }
-        assertEquals([cmd.cursor, m.faces.length], [3, faces]);
-        assertEquals(cmd.instructions, ['d 200 200', 'c2d P0 P2', 'c2d P1 P3']);
+    await t.step('run plays the undone steps as animated redo, until a pause instruction', () => {
+        const clock = installClock(0);
+        try {
+            const m = new Model().init(200, 200);
+            const cmd = new Command(m);
+            const settle = () => {
+                for (let i = 0; i < 100 && (cmd.busy || cmd.playing || m.state === State.undo); i++) {
+                    clock.now += 20;
+                    cmd.anim();
+                }
+            };
+            cmd.command('d 200 200\nc2d P0 P2\nt 100 rotate S0 90 P2 P3\npause\nc2d P1 P3');
+            settle();
+            assertEquals([cmd.cursor, m.state], [4, State.pause]);
+            cmd.command('run');
+            settle();
+            assertEquals(cmd.cursor, 5);
+            const end = m.serialize();
+            cmd.goTo(1);
+            cmd.command('run');
+            assertEquals(cmd.playing, true);
+            settle();
+            assertEquals([cmd.cursor, cmd.playing], [4, false], 'stops after the pause instruction');
+            cmd.command('run');
+            settle();
+            assertEquals([cmd.cursor, m.serialize()], [5, end]);
+        } finally {
+            clock.restore();
+        }
     });
 
-    await t.step('stepLine replays the undone steps one at a time', () => {
-        const m = new Model().init(200, 200);
-        const cmd = new Command(m);
-        cmd.command('d 200 200').anim();
-        cmd.command('c2d P0 P2').anim();
-        cmd.command('c2d P1 P3').anim();
-        cmd.goTo(1);
-        cmd.stepMode = true;
-        cmd.stepLine();
-        assertEquals([cmd.cursor, m.state], [2, State.pause]);
-        cmd.stepLine();
-        assertEquals(cmd.cursor, 3);
+    await t.step('pause stops a running script at the end of the current line, run resumes it', () => {
+        const clock = installClock(0);
+        try {
+            const m = new Model().init(200, 200);
+            const cmd = new Command(m);
+            cmd.command('d 200 200\nt 100 rotate S0 90 P2 P3\nc2d P0 P2');
+            cmd.anim();
+            cmd.anim();
+            clock.now = 50;
+            cmd.anim();
+            assertEquals([m.state, cmd.playing], [State.anim, true]);
+            cmd.command('pause');
+            assertEquals(cmd.playing, false);
+            for (let i = 0; i < 5; i++) {
+                clock.now += 50;
+                cmd.anim();
+            }
+            assertEquals([cmd.cursor, m.state, cmd.busy], [2, State.pause, true]);
+            cmd.command('run');
+            while (cmd.anim()) { /* finish */ }
+            assertEquals([cmd.cursor, m.faces.length], [3, 2]);
+        } finally {
+            clock.restore();
+        }
     });
 
     await t.step('command t 10 rotate S0 90 P2 P3', () => {

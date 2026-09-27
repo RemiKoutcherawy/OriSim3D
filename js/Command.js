@@ -27,9 +27,8 @@ export class Command {
     tStart = 0;
     // Eventual CommandArea
     commandArea;
-    // When true, newly queued instructions pause instead of auto-running, so the
-    // step-by-step debug button can advance them one line at a time.
-    stepMode = false;
+    autoplay = false;
+    halt = false;
     // Optional 3D view (for svg export and other view-dependent commands)
     /** @type {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} */
     view3d;
@@ -71,7 +70,14 @@ export class Command {
     command(cde) {
         this.commandArea?.addLine(cde);
         const tokens = this.tokenize(cde);
-        if (tokens.length) this.settle();
+        if (tokens.length) {
+            this.settle();
+            this.autoplay = false;
+        }
+        if (tokens.length === 1 && tokens[0] === 'pause') {
+            this.pause();
+            return this;
+        }
         if (tokens[0] === 'd' || tokens[0] === 'define') {
             this.reset();
         } else if (tokens[0] === 'u' || tokens[0] === 'undo') {
@@ -81,35 +87,44 @@ export class Command {
             this.goTo(this.cursor + 1, true);
             return this;
         } else if (tokens[0] === 'run') {
-            this.stepMode = false;
-            this.resume();
-            this.model.state = State.run;
+            this.play();
             return this;
         } else if (tokens[0] === 'stop') {
             this.tokenTodo.length = this.iToken;
             return this;
         }
         this.tokenTodo.push(...tokens);
-        if (this.stepMode) {
-            this.model.state = State.pause;
-        }
         return this;
     }
-    resume() {
-        this.settle();
-        if (this.busy || this.cursor >= this.instructions.length) return;
-        this.tokenTodo = this.tokenize(this.instructions.slice(this.cursor).join('\n'));
-        this.iToken = 0;
+    get playing() {
+        return this.autoplay || (this.busy && this.model.state !== State.pause && !this.halt);
+    }
+    play() {
+        this.halt = false;
+        if (this.model.state === State.pause) this.model.state = State.run;
+        this.autoplay = !this.busy && this.cursor < this.instructions.length;
+    }
+    pause() {
+        this.autoplay = false;
+        this.halt = this.busy;
+    }
+    autoStep() {
+        if (!this.autoplay) return false;
+        this.goTo(this.cursor + 1, true);
+        this.autoplay = this.cursor < this.instructions.length && this.instructions[this.cursor - 1] !== 'pause';
+        return true;
     }
     settle() {
         if (this.model.state !== State.undo) return;
         Object.assign(this.model, Model.deserialize(this.snapshots[this.cursor]));
         this.transition = null;
-        this.model.state = this.stepMode ? State.pause : State.run;
+        this.model.state = State.run;
         this.changed = true;
     }
     goTo(k, animate = false) {
         this.settle();
+        this.autoplay = false;
+        this.halt = false;
         this.tokenTodo.length = this.iToken;
         this.frozenAxes.clear();
         this.path = null;
@@ -120,7 +135,7 @@ export class Command {
         const forward = target > this.cursor;
         this.cursor = target;
         Object.assign(this.model, Model.deserialize(this.snapshots[target]));
-        this.model.state = this.stepMode ? State.pause : State.run;
+        this.model.state = State.run;
         this.changed = true;
         if (path?.frames.every((frame) => frame.coords.length === this.model.points.length * 3)) {
             this.transition = {path, forward, start: performance.now()};
@@ -142,27 +157,6 @@ export class Command {
         return true;
     }
 
-    stepLine() {
-        this.resume();
-        if (this.model.state === State.pause) {
-            this.model.state = State.run;
-        }
-        let advanced = false;
-        while (this.model.state === State.anim || this.iToken < this.tokenTodo.length) {
-            if (this.model.state === State.anim) {
-                this.tStart = performance.now() - this.duration - 1; // force tn >= 1
-                this.runAnim();
-                advanced = true;
-                continue;
-            }
-            const wasNewline = this.peek() === '\n';
-            if (!this.runNext()) break;
-            advanced = true;
-            if (wasNewline) break;
-        }
-        this.model.state = State.pause;
-        return advanced;
-    }
     // Tokenize, split the input String in Array of String
     tokenize(input) {
         const cleaned = input
@@ -222,7 +216,7 @@ export class Command {
             case State.pause:
                 return false;
             case State.run:
-                return this.runNext();
+                return this.runNext() || this.autoStep();
             case State.undo:
                 return this.runTransition();
             case State.anim:
@@ -235,6 +229,12 @@ export class Command {
 
     runNext() {
         if (this.iToken >= this.tokenTodo.length) {
+            this.halt = false;
+            return false;
+        }
+        if (this.halt) {
+            this.halt = false;
+            this.model.state = State.pause;
             return false;
         }
         this.idxBefore = this.iToken;

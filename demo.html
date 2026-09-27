@@ -28,7 +28,7 @@
     body.command-area-open #commandAreaPanel{display:flex}
     #commandAreaPanel label{font:14px sans-serif;margin-bottom:4px}
     #commandArea{flex:1;width:100%;font:14px monospace;resize:none}
-    #burger,#nav,#undoBtn,#redoBtn,#runBtn,#stepBtn{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #burger,#nav,#undoBtn,#redoBtn,#runBtn{position:absolute;left:8px;z-index:10;background:#f6f8fa;border:1px solid black;border-radius:6px}
     #burger{top:8px;padding:8px;line-height:0;cursor:pointer}
     #burger:hover{background:#eef1f4}
     #undoBtn{top:8px;left:54px;padding:8px;line-height:0;cursor:pointer}
@@ -37,12 +37,9 @@
     #redoBtn:hover{background:#eef1f4}
     #runBtn{top:8px;left:146px;padding:8px;line-height:0;cursor:pointer}
     #runBtn:hover{background:#eef1f4}
-    #stepBtn{top:8px;left:192px;padding:8px;line-height:0;cursor:pointer}
-    #stepBtn:hover{background:#eef1f4}
-    /* noinspection CssUnusedSymbol -- toggled via classList.toggle('active', ...) */
-    #stepBtn.active,#runBtn.active{background:#e6a817}
-    #timelineBar{position:absolute;top:8px;left:238px;z-index:10;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f6f8fa;border:1px solid black;border-radius:6px}
-    #timeline{width:clamp(60px,calc(100vw - 346px),320px)}
+    #runBtn[aria-pressed="true"] .play,#runBtn[aria-pressed="false"] .pause{display:none}
+    #timelineBar{position:absolute;top:8px;left:192px;z-index:10;display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f6f8fa;border:1px solid black;border-radius:6px}
+    #timeline{width:clamp(80px,calc(100vw - 300px),320px)}
     #timelineLabel{font:14px sans-serif;min-width:3.5em}
     #burger span{display:block;width:22px;height:2px;margin:4px 0;background:#1f2328;transition:.15s}
     #burger[aria-expanded="true"] span:first-child{transform:translateY(6px) rotate(45deg)}
@@ -83,11 +80,9 @@
 <button id="redoBtn" data-load="redo" aria-label="Redo">
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 1 0 0 11H13"/></svg>
 </button>
-<button id="runBtn" data-load="run" aria-label="Run" title="Run: resumes normal auto-play after Step has paused the script.">
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>
-</button>
-<button id="stepBtn" aria-label="Step" title="Step: pauses the script, then advances one line per click. Click Run to resume.">
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v16l10-8z"/><line x1="18" y1="4" x2="18" y2="20"/></svg>
+<button id="runBtn" aria-label="Lecture / pause" aria-pressed="false">
+  <svg class="play" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>
+  <svg class="pause" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1f2328" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="5" x2="8" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/></svg>
 </button>
 <div id="timelineBar">
   <input type="range" id="timeline" min="0" max="0" value="0" aria-label="Étapes">
@@ -219,7 +214,6 @@ t 100 fit
 <template id="exportDiagrams">diagrams</template>
 <template id="undo">undo</template>
 <template id="redo">redo</template>
-<template id="run">run</template>
 <template id="labels">labels</template>
 <template id="textures">textures</template>
 
@@ -2540,9 +2534,8 @@ class Command {
     tStart = 0;
     // Eventual CommandArea
     commandArea;
-    // When true, newly queued instructions pause instead of auto-running, so the
-    // step-by-step debug button can advance them one line at a time.
-    stepMode = false;
+    autoplay = false;
+    halt = false;
     // Optional 3D view (for svg export and other view-dependent commands)
     /** @type {{ modelView?: Float32Array, updateCanvasCoords?: () => void } | null} */
     view3d;
@@ -2584,7 +2577,14 @@ class Command {
     command(cde) {
         this.commandArea?.addLine(cde);
         const tokens = this.tokenize(cde);
-        if (tokens.length) this.settle();
+        if (tokens.length) {
+            this.settle();
+            this.autoplay = false;
+        }
+        if (tokens.length === 1 && tokens[0] === 'pause') {
+            this.pause();
+            return this;
+        }
         if (tokens[0] === 'd' || tokens[0] === 'define') {
             this.reset();
         } else if (tokens[0] === 'u' || tokens[0] === 'undo') {
@@ -2594,35 +2594,44 @@ class Command {
             this.goTo(this.cursor + 1, true);
             return this;
         } else if (tokens[0] === 'run') {
-            this.stepMode = false;
-            this.resume();
-            this.model.state = State.run;
+            this.play();
             return this;
         } else if (tokens[0] === 'stop') {
             this.tokenTodo.length = this.iToken;
             return this;
         }
         this.tokenTodo.push(...tokens);
-        if (this.stepMode) {
-            this.model.state = State.pause;
-        }
         return this;
     }
-    resume() {
-        this.settle();
-        if (this.busy || this.cursor >= this.instructions.length) return;
-        this.tokenTodo = this.tokenize(this.instructions.slice(this.cursor).join('\n'));
-        this.iToken = 0;
+    get playing() {
+        return this.autoplay || (this.busy && this.model.state !== State.pause && !this.halt);
+    }
+    play() {
+        this.halt = false;
+        if (this.model.state === State.pause) this.model.state = State.run;
+        this.autoplay = !this.busy && this.cursor < this.instructions.length;
+    }
+    pause() {
+        this.autoplay = false;
+        this.halt = this.busy;
+    }
+    autoStep() {
+        if (!this.autoplay) return false;
+        this.goTo(this.cursor + 1, true);
+        this.autoplay = this.cursor < this.instructions.length && this.instructions[this.cursor - 1] !== 'pause';
+        return true;
     }
     settle() {
         if (this.model.state !== State.undo) return;
         Object.assign(this.model, Model.deserialize(this.snapshots[this.cursor]));
         this.transition = null;
-        this.model.state = this.stepMode ? State.pause : State.run;
+        this.model.state = State.run;
         this.changed = true;
     }
     goTo(k, animate = false) {
         this.settle();
+        this.autoplay = false;
+        this.halt = false;
         this.tokenTodo.length = this.iToken;
         this.frozenAxes.clear();
         this.path = null;
@@ -2633,7 +2642,7 @@ class Command {
         const forward = target > this.cursor;
         this.cursor = target;
         Object.assign(this.model, Model.deserialize(this.snapshots[target]));
-        this.model.state = this.stepMode ? State.pause : State.run;
+        this.model.state = State.run;
         this.changed = true;
         if (path?.frames.every((frame) => frame.coords.length === this.model.points.length * 3)) {
             this.transition = {path, forward, start: performance.now()};
@@ -2655,27 +2664,6 @@ class Command {
         return true;
     }
 
-    stepLine() {
-        this.resume();
-        if (this.model.state === State.pause) {
-            this.model.state = State.run;
-        }
-        let advanced = false;
-        while (this.model.state === State.anim || this.iToken < this.tokenTodo.length) {
-            if (this.model.state === State.anim) {
-                this.tStart = performance.now() - this.duration - 1; // force tn >= 1
-                this.runAnim();
-                advanced = true;
-                continue;
-            }
-            const wasNewline = this.peek() === '\n';
-            if (!this.runNext()) break;
-            advanced = true;
-            if (wasNewline) break;
-        }
-        this.model.state = State.pause;
-        return advanced;
-    }
     // Tokenize, split the input String in Array of String
     tokenize(input) {
         const cleaned = input
@@ -2735,7 +2723,7 @@ class Command {
             case State.pause:
                 return false;
             case State.run:
-                return this.runNext();
+                return this.runNext() || this.autoStep();
             case State.undo:
                 return this.runTransition();
             case State.anim:
@@ -2748,6 +2736,12 @@ class Command {
 
     runNext() {
         if (this.iToken >= this.tokenTodo.length) {
+            this.halt = false;
+            return false;
+        }
+        if (this.halt) {
+            this.halt = false;
+            this.model.state = State.pause;
             return false;
         }
         this.idxBefore = this.iToken;
@@ -4745,22 +4739,12 @@ class Label {
       view3d.render();
       helper.draw();
       timeline.update();
-      document.getElementById('stepBtn').classList.toggle('active', command.stepMode);
-      document.getElementById('runBtn').classList.toggle('active', model.state === State.pause);
+      document.getElementById('runBtn').setAttribute('aria-pressed', String(command.playing));
       requestAnimationFrame(loop);
     }
     loop();
 
-    // Step-by-step debug: first click arms step mode;
-    // each further click advances one script line.
-    // Type "run" to resume normal play.
-    document.getElementById('stepBtn').addEventListener('click', () => {
-      command.stepMode = true;
-      if (command.stepLine()) {
-        view3d.initBuffers();
-        view3d.initModelView();
-      }
-    });
+    document.getElementById('runBtn').addEventListener('click', () => command.command(command.playing ? 'pause' : 'run'));
 
     // Add button actions
     document.querySelectorAll('button[data-load]').forEach(btn => {
