@@ -71,32 +71,10 @@ export class View3d {
     modelView = new Float32Array(16);
     canvasView = new Float32Array(16);
 
-    // Textures dimensions defaults
     wTexFront = 1;
     hTexFront = 1;
     wTexBack = 1;
     hTexBack = 1;
-
-    // WebGL Textures
-    texPlaceholderFront = null;
-    texImageFront = null;
-    texPlaceholderBack = null;
-    texImageBack = null;
-
-    // Arrays
-    vtx = []; // vertex coords
-    ftx = []; // front texture coords
-    btx = []; // back texture coords
-    fnr = []; // front normals coords
-    lin = []; // lines indices
-
-    // WebGL Buffers
-    vtxBuffer = null;
-    fnrBuffer = null;
-    ftxBuffer = null;
-    btxBuffer = null;
-    linBuffer = null;
-    vao = null;
 
     constructor(model, canvas3d) {
         this.model = model;
@@ -147,253 +125,120 @@ export class View3d {
         return this.overlay?.getContext('2d');
     }
 
-    // Shaders
     initShaders() {
-        // Vertex
         const gl = this.gl;
-        const vxShader = gl.createShader(gl.VERTEX_SHADER);
-        gl.shaderSource(vxShader, this.VERTEX_SHADER);
-        gl.compileShader(vxShader);
-        if (!gl.getShaderParameter(vxShader, gl.COMPILE_STATUS)) {
-            console.error(gl.getShaderInfoLog(vxShader));
-        }
-        // Fragment
-        const fgShader = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fgShader, this.FRAGMENT_SHADER);
-        gl.compileShader(fgShader);
-        if (!gl.getShaderParameter(fgShader, gl.COMPILE_STATUS)) {
-            console.error(gl.getShaderInfoLog(fgShader));
-        }
-        // Create the shader program
         const program = gl.createProgram();
-        gl.attachShader(program, vxShader);
-        gl.attachShader(program, fgShader);
+        const shaders = [[gl.VERTEX_SHADER, this.VERTEX_SHADER], [gl.FRAGMENT_SHADER, this.FRAGMENT_SHADER]].map(([type, source]) => {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(shader));
+            gl.attachShader(program, shader);
+            return shader;
+        });
         gl.linkProgram(program);
-        this.checkErrors(gl, program, vxShader, fgShader);
-
-        // Use it and copy it in an attribute of gl
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            console.error(`Shader link error: ${gl.getProgramInfoLog(program)}\n${shaders.map((s) => gl.getShaderInfoLog(s)).join('\n')}`);
+        }
         gl.useProgram(program);
         gl.program = program;
-        this.checkErrors(gl, program, vxShader, fgShader);
+        this.uniforms = Object.fromEntries(['uModelViewMatrix', 'uProjectionMatrix', 'uSamplerFront', 'uSamplerBack', 'uLine']
+            .map((name) => [name, gl.getUniformLocation(program, name)]));
     }
-
-    checkErrors(gl, program, glVertexShader, glFragmentShader) {
-        const programLog = gl.getProgramInfoLog(program).trim();
-        const vertexLog = gl.getShaderInfoLog(glVertexShader).trim();
-        const fragmentLog = gl.getShaderInfoLog(glFragmentShader).trim();
-        if (gl.getProgramParameter(program, gl.LINK_STATUS) === false) {
-            console.error('Shader Error ' + gl.getError() + ' - ' + 'VALIDATE_STATUS ' + gl.getProgramParameter(program, 35715) + '\n\n' + 'Program Info Log: ' + programLog + '\n' + vertexLog + '\n' + fragmentLog);
-        }
-    }
-
-    // Textures
     initTextures() {
-        const gl = this.gl;
-
-        // Front placeholder (Blue 70ACF3)
-        this.texPlaceholderFront = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.texPlaceholderFront);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
-
-        // Front image texture (defaults to blue placeholder until loaded)
-        this.texImageFront = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.texImageFront);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0x70, 0xAC, 0xF3, 255]));
-
-        const imageFront = new Image();
-        const imageElement = globalThis.document.getElementById('front');
-        if (imageElement?.src) {
-            imageFront.onload = () => {
-                gl.bindTexture(gl.TEXTURE_2D, this.texImageFront);
-                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageFront);
-                this.wTexFront = imageFront.width;
-                this.hTexFront = imageFront.height;
-                this.initBuffers();
-                this.render();
-            };
-            imageFront.src = imageElement.src;
-        } else {
-            this.wTexFront = 1;
-            this.hTexFront = 1;
-        }
-
-        // Back placeholder (Yellow FFFF00A8)
-        this.texPlaceholderBack = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.texPlaceholderBack);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFF, 0xFF, 0x00, 0xA8]));
-
-        // Back image texture (defaults to yellow placeholder until loaded)
-        this.texImageBack = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, this.texImageBack);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0xFF, 0xFF, 0x00, 0xA8]));
-
-        const imageBack = new Image();
-        const imageBackElement = globalThis.document.getElementById('back');
-        if (imageBackElement?.src) {
-            imageBack.onload = () => {
-                gl.bindTexture(gl.TEXTURE_2D, this.texImageBack);
-                // Flip the image Y coordinate
-                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
-                // One of the dimensions is not a power of 2, so set the filtering to render it.
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imageBack);
-                // Textures dimensions
-                this.wTexBack = imageBack.width;
-                this.hTexBack = imageBack.height;
-                this.initBuffers();
-                this.render();
-            };
-            imageBack.src = imageBackElement.src;
-        } else {
-            this.wTexBack = 1;
-            this.hTexBack = 1;
-        }
-
-        const uSamplerFront = gl.getUniformLocation(gl.program, 'uSamplerFront');
-        gl.uniform1i(uSamplerFront, 0);
-        const uSamplerBack = gl.getUniformLocation(gl.program, 'uSamplerBack');
-        gl.uniform1i(uSamplerBack, 1);
-
-        // Recompute texture coords
+        const blue = [0x70, 0xAC, 0xF3, 0xFF], yellow = [0xFF, 0xFF, 0x00, 0xA8];
+        this.texPlaceholderFront = this.createTexture(blue);
+        this.texImageFront = this.loadTexture('front', blue, (w, h) => { this.wTexFront = w; this.hTexFront = h; });
+        this.texPlaceholderBack = this.createTexture(yellow);
+        this.texImageBack = this.loadTexture('back', yellow, (w, h) => { this.wTexBack = w; this.hTexBack = h; });
+        this.gl.uniform1i(this.uniforms.uSamplerFront, 0);
+        this.gl.uniform1i(this.uniforms.uSamplerBack, 1);
         this.initBuffers();
-        // First Render
         this.render();
     }
-
-    // Perspective and background
+    createTexture(rgba) {
+        const gl = this.gl;
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(rgba));
+        return texture;
+    }
+    loadTexture(id, rgba, setSize) {
+        const gl = this.gl;
+        const texture = this.createTexture(rgba);
+        const src = globalThis.document.getElementById(id)?.src;
+        if (!src) return texture;
+        const image = new Image();
+        image.onload = () => {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+            setSize(image.width, image.height);
+            this.initBuffers();
+            this.render();
+        };
+        image.src = src;
+        return texture;
+    }
     initPerspective() {
         const gl = this.gl;
-        gl.clearColor(0xCC / 0xFF, 0xE4 / 0xFF, 0x1, 0x1);  // Clear to light blue, 0xCCE4FF fully opaque
+        gl.clearColor(0xCC / 0xFF, 0xE4 / 0xFF, 1, 1);
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
-
-        const { width, height } = this.syncCanvasSize();
+        const {width, height} = this.syncCanvasSize();
         gl.viewport(0, 0, width, height);
-
-        const ratio = width / height;
-        const fov = 40;
-        const near = 50;
-        const far = 1200;
-        this.projection = mat4.perspective(mat4.create(), fov * Math.PI / 180, ratio, near, far);
-        const uProjectionMatrix = gl.getUniformLocation(gl.program, 'uProjectionMatrix');
-        gl.uniformMatrix4fv(uProjectionMatrix, false, this.projection);
+        this.projection = mat4.perspective(mat4.create(), 40 * Math.PI / 180, width / height, 50, 1200);
+        gl.uniformMatrix4fv(this.uniforms.uProjectionMatrix, false, this.projection);
     }
-
-    // Buffers
     initBuffers() {
         const gl = this.gl;
-        if (!this.vao) {
-            this.vao = gl.createVertexArray();
-        }
+        this.vao ??= gl.createVertexArray();
         gl.bindVertexArray(this.vao);
-        this.vtx = []; // vertex coords
-        this.ftx = []; // front texture coords
-        this.btx = []; // back texture coords
-        this.fnr = []; // front normals coords
-        this.lin = []; // lines indices
-        this.indexMap = new WeakMap(); // index in vtx for each point
-
-        // Faces with FAN
-        let index = 0;
+        this.vtx = [];
+        this.ftx = [];
+        this.btx = [];
+        this.fnr = [];
+        this.lin = [];
+        this.indexMap = new WeakMap();
         for (const f of this.model.faces) {
             const pts = f.points;
             const n = this.normal(pts);
             const faceIndex = new Map();
-
             for (let i = 1; i < pts.length - 1; i++) {
-                // First point
-                this.vtx.push(pts[0].x + f.offset * n[0], pts[0].y + f.offset * n[1], pts[0].z + f.offset * n[2]);
-                this.fnr.push(n[0], n[1], n[2]);
-                // Texture at first point of triangle
-                this.ftx.push((200 + pts[0].xf) / this.wTexFront);
-                this.ftx.push((200 + pts[0].yf) / this.hTexFront);
-                this.btx.push((200 + pts[0].xf) / this.wTexBack);
-                this.btx.push((200 + pts[0].yf) / this.hTexBack);
-
-                // Two other points: i and i+1
-                this.vtx.push(pts[i].x + f.offset * n[0], pts[i].y + f.offset * n[1], pts[i].z + f.offset * n[2]);
-                this.fnr.push(n[0], n[1], n[2]);
-
-                // Second point of triangle
-                this.vtx.push(pts[i + 1].x + f.offset * n[0], pts[i + 1].y + f.offset * n[1], pts[i + 1].z + f.offset * n[2]);
-                this.fnr.push(n[0], n[1], n[2]);
-                // Texture at second point of triangle
-                this.ftx.push((200 + pts[i].xf) / this.wTexFront);
-                this.ftx.push((200 + pts[i].yf) / this.hTexFront);
-                this.btx.push((200 + pts[i].xf) / this.wTexBack);
-                this.btx.push((200 + pts[i].yf) / this.hTexBack);
-
-                // Texture at third point of triangle
-                this.ftx.push((200 + pts[i + 1].xf) / this.wTexFront);
-                this.ftx.push((200 + pts[i + 1].yf) / this.hTexFront);
-                this.btx.push((200 + pts[i + 1].xf) / this.wTexBack);
-                this.btx.push((200 + pts[i + 1].yf) / this.hTexBack);
-
-                // Keep track of index in vtx for each point, per face for the contour
-                if (!this.indexMap.has(pts[0])) this.indexMap.set(pts[0], index);
-                if (!faceIndex.has(pts[0])) faceIndex.set(pts[0], index);
-                index++;
-                if (!this.indexMap.has(pts[i])) this.indexMap.set(pts[i], index);
-                if (!faceIndex.has(pts[i])) faceIndex.set(pts[i], index);
-                index++;
-                if (!this.indexMap.has(pts[i + 1])) this.indexMap.set(pts[i + 1], index);
-                if (!faceIndex.has(pts[i + 1])) faceIndex.set(pts[i + 1], index);
-                index++;
+                for (const p of [pts[0], pts[i], pts[i + 1]]) {
+                    const index = this.vtx.length / 3;
+                    if (!this.indexMap.has(p)) this.indexMap.set(p, index);
+                    if (!faceIndex.has(p)) faceIndex.set(p, index);
+                    this.vtx.push(p.x + f.offset * n[0], p.y + f.offset * n[1], p.z + f.offset * n[2]);
+                    this.fnr.push(...n);
+                    this.ftx.push((200 + p.xf) / this.wTexFront, (200 + p.yf) / this.hTexFront);
+                    this.btx.push((200 + p.xf) / this.wTexBack, (200 + p.yf) / this.hTexBack);
+                }
             }
-
-            // Contour of this face only, in point order, using this face's own vertex copies
-            for (let i = 0; i < pts.length; i++) {
-                this.lin.push(faceIndex.get(pts[i]), faceIndex.get(pts[(i + 1) % pts.length]));
-            }
+            pts.forEach((p, i) => this.lin.push(faceIndex.get(p), faceIndex.get(pts[(i + 1) % pts.length])));
         }
-
-        // Vertices
-        if (!this.vtxBuffer) {this.vtxBuffer = gl.createBuffer();}
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vtxBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vtx), gl.STATIC_DRAW); // Vertex
-        const aVertexPosition = gl.getAttribLocation(gl.program, 'aVertexPosition');
-        gl.vertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(aVertexPosition);
-
-        // Normals
-        if (!this.fnrBuffer) {this.fnrBuffer = gl.createBuffer();}
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.fnrBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.fnr), gl.STATIC_DRAW); // fnr Face Normal
-        const aVertexNormal = gl.getAttribLocation(gl.program, 'aVertexNormal');
-        gl.vertexAttribPointer(aVertexNormal, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(aVertexNormal);
-
-        // Front texture
-        if (!this.ftxBuffer) {this.ftxBuffer = gl.createBuffer();}
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.ftxBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.ftx), gl.STATIC_DRAW); // Front Texture
-        const aTexCoordsFront = gl.getAttribLocation(gl.program, 'aTexCoordsFront');
-        gl.vertexAttribPointer(aTexCoordsFront, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(aTexCoordsFront);
-
-        // Back texture
-        if (!this.btxBuffer) {this.btxBuffer = gl.createBuffer();}
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.btxBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.btx), gl.STATIC_DRAW); // Back Texture
-        const aTexCoordsBack = gl.getAttribLocation(gl.program, 'aTexCoordsBack');
-        gl.vertexAttribPointer(aTexCoordsBack, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(aTexCoordsBack);
-
-        // Lines buffer, contour built per face above
-        if (!this.linBuffer) {this.linBuffer = gl.createBuffer();}
+        this.vtxBuffer = this.attribute(this.vtxBuffer, 'aVertexPosition', this.vtx, 3);
+        this.fnrBuffer = this.attribute(this.fnrBuffer, 'aVertexNormal', this.fnr, 3);
+        this.ftxBuffer = this.attribute(this.ftxBuffer, 'aTexCoordsFront', this.ftx, 2);
+        this.btxBuffer = this.attribute(this.btxBuffer, 'aTexCoordsBack', this.btx, 2);
+        this.linBuffer ??= gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(this.lin), gl.STATIC_DRAW);
-
-        // uniform flag for lines
-        gl.uniform1i(gl.getUniformLocation(gl.program, 'uLine'), 0);
-        // Unbind VAO after setup
+        gl.uniform1i(this.uniforms.uLine, 0);
         gl.bindVertexArray(null);
+    }
+    attribute(buffer, name, data, size) {
+        const gl = this.gl;
+        buffer ??= gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+        const location = gl.getAttribLocation(gl.program, name);
+        gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(location);
+        return buffer;
     }
     // Compute Face normal in [3]
     normal(pts) {
@@ -431,9 +276,7 @@ export class View3d {
         // Scale ModelView
         this.modelView = mat4.scale(mv, mv, [this.scale, this.scale, this.scale]);
 
-        // Set Model View Matrix in Shader
-        const uModelViewMatrix = this.gl.getUniformLocation(this.gl.program, 'uModelViewMatrix');
-        this.gl.uniformMatrix4fv(uModelViewMatrix, false, this.modelView);
+        this.gl.uniformMatrix4fv(this.uniforms.uModelViewMatrix, false, this.modelView);
 
         this.updateCanvasCoords();
     }
@@ -485,13 +328,12 @@ export class View3d {
 
         if (this.model.lines){
             // Segments drawElements and not drawArrays because normals imply 3 vertices per triangle
-            const uLine = gl.getUniformLocation(gl.program, 'uLine');
-            gl.uniform1i(uLine, 1); // Draw lines in black
+            gl.uniform1i(this.uniforms.uLine, 1);
             gl.disable(gl.DEPTH_TEST);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.linBuffer);
             gl.drawElements(gl.LINES, this.lin.length, gl.UNSIGNED_INT, 0);
             gl.enable(gl.DEPTH_TEST);
-            gl.uniform1i(uLine, 0); // Back to normal
+            gl.uniform1i(this.uniforms.uLine, 0);
         }
 
         // Model projected on overlay canvas
