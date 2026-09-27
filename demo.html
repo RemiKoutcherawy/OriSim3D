@@ -2600,8 +2600,14 @@ class Command {
             this.tokenTodo.length = this.iToken;
             return this;
         }
+        if (tokens.length && this.iToken < this.tokenTodo.length && this.tokenTodo.at(-1) !== '\n') {
+            this.tokenTodo.push('\n');
+        }
         this.tokenTodo.push(...tokens);
         return this;
+    }
+    get animating() {
+        return this.model.state === State.anim || this.model.state === State.undo;
     }
     get playing() {
         return this.autoplay || (this.busy && this.model.state !== State.pause && !this.halt);
@@ -3107,6 +3113,7 @@ class CommandArea {
         const el = e.target; // HTMLTextAreaElement
         if (e.key === 'Enter') {
             e.preventDefault();
+            if (this.command.animating) return;
             const caretPos = el.selectionStart;
             const value = el.value;
             const start = value.lastIndexOf('\n', caretPos - 1) + 1;

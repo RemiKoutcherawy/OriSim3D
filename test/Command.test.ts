@@ -238,6 +238,30 @@ Deno.test('Command', async (t) => {
         assertEquals(Math.round(p7.y), Math.round(p6.y));
     });
 
+    await t.step('a line queued while another is animating runs as its own line, like in a script', () => {
+        const clock = installClock();
+        const lines = ['d 200 200', 'by2d p0 p2 by2d p1 p3', 'c2d p0 p1 c2d p1 p2', 't 1000 r s5 -180 p8 r s6 180 p7 a p2 p3 p5', 't 1000 r s11 90 p2 r s11 -90 p3 a p5'];
+        const run = (queueLastDuringAnimation: boolean) => {
+            const m = new Model().init(200, 200);
+            const cmd = new Command(m);
+            cmd.command(lines.slice(0, queueLastDuringAnimation ? 4 : 5).join('\n'));
+            for (let i = 0; i < 400; i++) {
+                clock.now += 16;
+                cmd.anim();
+                if (queueLastDuringAnimation && i === 20) cmd.command(lines[4]);
+            }
+            return cmd;
+        };
+        try {
+            const queued = run(true);
+            const script = run(false);
+            assertEquals(queued.instructions.slice(-2), lines.slice(3));
+            assertEquals(queued.model.serialize(), script.model.serialize());
+        } finally {
+            clock.restore();
+        }
+    });
+
     await t.step("command a adjust: points stacked flat snap exactly onto the point they fold onto (template 'test')", () => {
         const m = new Model().init(200, 200);
         const cmd = new Command(m);

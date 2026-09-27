@@ -91,6 +91,23 @@ Deno.test("CommandArea", async (t) => {
     assertEquals(textarea.scrollTop, textarea.scrollHeight);
   });
 
+  await t.step("keydown Enter is ignored while an animation is running", () => {
+    const textarea = createMockTextarea();
+    const command = Object.assign(createMockCommand(), { animating: true });
+    const commandArea = new CommandArea(command, textarea);
+    textarea.value = "t 500 tz 45";
+    textarea.selectionStart = textarea.value.length;
+    let prevented = false;
+    commandArea.keydown({
+      key: "Enter",
+      target: textarea,
+      preventDefault: () => { prevented = true; },
+    });
+    assertEquals(command.calls, []);
+    assertEquals(prevented, true);
+    assertEquals(textarea.value, "t 500 tz 45");
+  });
+
   await t.step("keydown Enter on a middle line only runs that line", () => {
     const textarea = createMockTextarea();
     const command = createMockCommand();

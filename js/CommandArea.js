@@ -26,6 +26,7 @@ export class CommandArea {
         const el = e.target; // HTMLTextAreaElement
         if (e.key === 'Enter') {
             e.preventDefault();
+            if (this.command.animating) return;
             const caretPos = el.selectionStart;
             const value = el.value;
             const start = value.lastIndexOf('\n', caretPos - 1) + 1;

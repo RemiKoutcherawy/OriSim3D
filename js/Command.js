@@ -93,8 +93,14 @@ export class Command {
             this.tokenTodo.length = this.iToken;
             return this;
         }
+        if (tokens.length && this.iToken < this.tokenTodo.length && this.tokenTodo.at(-1) !== '\n') {
+            this.tokenTodo.push('\n');
+        }
         this.tokenTodo.push(...tokens);
         return this;
+    }
+    get animating() {
+        return this.model.state === State.anim || this.model.state === State.undo;
     }
     get playing() {
         return this.autoplay || (this.busy && this.model.state !== State.pause && !this.halt);
