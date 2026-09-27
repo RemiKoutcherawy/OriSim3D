@@ -6,17 +6,23 @@ import {Plane} from './Plane.js';
 
 export const State = {run: 0, anim: 1, undo: 2, pause: 3,};
 
+// Newell's accumulated (unnormalized) normal vector; {0,0,0} when < 3 points
+function newellNormal(points) {
+    let nx = 0, ny = 0, nz = 0;
+    if (points && points.length >= 3) {
+        for (let i = 0; i < points.length; i++) {
+            const a = points[i], b = points[(i + 1) % points.length];
+            nx += (a.y - b.y) * (a.z + b.z);
+            ny += (a.z - b.z) * (a.x + b.x);
+            nz += (a.x - b.x) * (a.y + b.y);
+        }
+    }
+    return {nx, ny, nz};
+}
+
 // Newell: magnitude of the accumulated normal (0 if degenerated or < 3 points)
 function polygonArea3d(points) {
-    if (!points || points.length < 3) return 0;
-    let nx = 0, ny = 0, nz = 0;
-    for (let i = 0; i < points.length; i++) {
-        const a = points[i], b = points[(i + 1) % points.length];
-        nx += (a.y - b.y) * (a.z + b.z);
-        ny += (a.z - b.z) * (a.x + b.x);
-        nz += (a.x - b.x) * (a.y + b.y);
-    }
-    // Newell's accumulated normal has magnitude 2x the true polygon area
+    const {nx, ny, nz} = newellNormal(points);
     return Math.hypot(nx, ny, nz) / 2;
 }
 
@@ -503,8 +509,8 @@ export class Model {
     // without the crossing point being an actual model vertex).
     bisector2dPoints(a, b, c) {
         // Two unit vectors from b towards a and c
-        const v1n = Point.normalise({xf: a.xf - b.xf, yf: a.yf - b.yf});
-        const v2n = Point.normalise({xf: c.xf - b.xf, yf: c.yf - b.yf});
+        const v1n = Point.normalize({xf: a.xf - b.xf, yf: a.yf - b.yf});
+        const v2n = Point.normalize({xf: c.xf - b.xf, yf: c.yf - b.yf});
         // Bisector direction from b
         const dir = {xf: v1n.xf + v2n.xf, yf: v1n.yf + v2n.yf};
         const target = {xf: b.xf + dir.xf, yf: b.yf + dir.yf};
@@ -823,15 +829,7 @@ export class Model {
 
     // Compute 3D unit normal vector [nx, ny, nz]
     static normal(face) {
-        const pts = face?.points || face || [];
-        if (pts.length < 3) return [0, 0, 1];
-        let nx = 0, ny = 0, nz = 0;
-        for (let i = 0; i < pts.length; i++) {
-            const a = pts[i], b = pts[(i + 1) % pts.length];
-            nx += (a.y - b.y) * (a.z + b.z);
-            ny += (a.z - b.z) * (a.x + b.x);
-            nz += (a.x - b.x) * (a.y + b.y);
-        }
+        const {nx, ny, nz} = newellNormal(face?.points || face || []);
         const len = Math.hypot(nx, ny, nz);
         if (len < 1e-6) return [0, 0, 1];
         return [nx / len, ny / len, nz / len];

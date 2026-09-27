@@ -48,9 +48,4 @@ export class Point {
         if (length === 0) return {xf: 0, yf: 0};
         return {xf: a.xf / length, yf: a.yf / length};
     }
-
-    // Alias for backward compatibility (British English spelling)
-    static normalise(a) {
-        return Point.normalize(a);
-    }
 }
